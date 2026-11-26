@@ -1,7 +1,7 @@
 // A REST API's Stages (apigateway__rest-stage, rest-stages-none): the stage chosen as its details, its logs and tracing, its variables and
 // the deployment history, each with what doze-aws does with it; the stages as chips with Create stage; and Recent calls of the stages.
 import { useNavigate } from "@tanstack/react-router";
-import { PencilIcon, PlusIcon, UploadIcon } from "lucide-react";
+import { PencilIcon, PlusIcon, Trash2Icon, UploadIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { ErrorBlock } from "@doze/ui/components/app/alert";
 import { type DataColumn, DataTable } from "@doze/ui/components/app/data-table";
@@ -13,7 +13,8 @@ import { Layers3Icon } from "lucide-react";
 import type { CallRecord } from "../../../api/types/CallRecord";
 import { RecentCalls, RuleHelp } from "../../../kit";
 import { HINT } from "../index-page";
-import { useDeployments, useStages } from "./api";
+import { useDeployments, useRestPlans, useStages } from "./api";
+import { RestDeploymentDelete, RestStageDelete } from "./part-deletes";
 import { ApiChips, ApiLink, Card, Dim, Mono, Rows, Said, useWhere } from "./parts";
 import { REST_SECTIONS } from "./sections";
 import { type EditKind, StageEdit } from "./stage-edit";
@@ -31,6 +32,9 @@ export function RestStages({ id, name, stage: asked, calls, region }: { id: stri
   const deployments = useDeployments(id);
   const [editing, setEditing] = useState<EditKind | null>(null);
   const [tab, setTab] = useState("variables");
+  const [dropStage, setDropStage] = useState(false);
+  const [dropDeployment, setDropDeployment] = useState<Deployment | null>(null);
+  const plans = useRestPlans();
   const all = useMemo(() => stages.data?.item ?? [], [stages.data]);
   const deps = useMemo(() => deployments.data?.item ?? [], [deployments.data]);
   const stage = all.find((s) => s.stageName === asked) ?? all[0];
@@ -56,10 +60,12 @@ export function RestStages({ id, name, stage: asked, calls, region }: { id: stri
     { id: "name", header: "Name", size: 240, accessorFn: (r) => r.name, cell: (c) => <span className="font-mono font-medium text-bright">{c.row.original.name}</span> },
     { id: "value", header: "Value", accessorFn: (r) => r.value, cell: (c) => <span className="font-mono text-[13px]">{c.row.original.value}</span> },
   ];
+  const trash = (label: string, testId: string, on: () => void) => <Button variant="ghost" size="icon" aria-label={label} onClick={on} data-testid={testId}><Trash2Icon /></Button>;
   const depColumns: DataColumn<Deployment>[] = [
     { id: "id", header: "Deployment ID", size: 190, accessorFn: (x) => x.id, cell: (c) => <span className="font-mono text-[13px]">{c.row.original.id}{c.row.original.id === stage.deploymentId && <span className="ml-2 rounded-full border bg-pick px-2 py-0.5 font-sans text-[11.5px]">Active</span>}</span> },
     { id: "created", header: "Created", size: 210, accessorFn: (x) => x.createdDate ?? 0, cell: (c) => when(c.row.original.createdDate) },
     { id: "description", header: "Description", accessorFn: (x) => x.description ?? "", cell: (c) => c.row.original.description || <Dim /> },
+    { id: "delete", header: "", size: 60, enableSorting: false, cell: (c) => trash(`Delete deployment ${c.row.original.id}`, `delete-deployment-${c.row.original.id}`, () => setDropDeployment(c.row.original)) },
   ];
   return (
     <>
@@ -67,7 +73,7 @@ export function RestStages({ id, name, stage: asked, calls, region }: { id: stri
       {chips}
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="grid min-w-0 gap-6">
-          <Card title="Stage details" action={edit("details", "Edit stage details")} testId="stage-details">
+          <Card title="Stage details" action={<div className="flex flex-wrap gap-2">{edit("details", "Edit stage details")}<Button variant="outline" size="sm" className="bg-card text-bad hover:text-bad" onClick={() => setDropStage(true)} data-testid="delete-stage"><Trash2Icon /> Delete</Button></div>} testId="stage-details">
             <Rows rows={[
               { label: "Stage name", value: <Mono>{stage.stageName}</Mono> },
               { label: "Invoke URL", value: <Mono>{urls.aws}</Mono>, note: <>Also at <span className="font-mono break-all">{urls.local}</span></> },
@@ -127,6 +133,8 @@ export function RestStages({ id, name, stage: asked, calls, region }: { id: stri
       </div>
       <RecentCalls className="mt-12" calls={calls.filter((c) => c.action !== null && STAGE_ACTIONS.includes(c.action))} noun="stage" title="Recent calls" scope={`the stages of ${name}`} />
       {editing && <StageEdit kind={editing} stage={stage} api={id} onClose={() => setEditing(null)} />}
+      <RestStageDelete api={id} apiName={name} stage={stage} url={urls.aws} plans={plans.data?.item ?? []} open={dropStage} onOpenChange={setDropStage} onDone={() => { setDropStage(false); go({ tab: "stages" }); }} />
+      {dropDeployment && <RestDeploymentDelete api={id} deployment={dropDeployment} stages={all} open onOpenChange={() => setDropDeployment(null)} onDone={() => setDropDeployment(null)} />}
     </>
   );
 }

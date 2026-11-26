@@ -64,13 +64,15 @@ export function TablePage({ name, search }: OwnProps) {
   };
   const here = (action: string) => go({ do: action });
   const close = () => go(search.tab ? { tab: search.tab } : {});
+  // What was done to an index is said under the tabs, on the Indexes tab (the board's place); the rest is said above them.
+  const inIndexes = search.dialog === "index-created" || search.dialog === "index-deleted";
   return (
     <>
       <ResourcePage
         detail={shown}
         details={false}
         meta={<>Created {t.createdMs ? dateTimeUtc(t.createdMs) : "—"}. {headerWords(t)}</>}
-        banner={banner(search.dialog, search.name, t, close)}
+        banner={inIndexes ? undefined : banner(search.dialog, search.name, t, close)}
         tab={tab}
         onTab={(id) => go(id === "overview" ? {} : { tab: id })}
         onVerb={(v) => v.id === "explore" && here("explore")}
@@ -87,7 +89,7 @@ export function TablePage({ name, search }: OwnProps) {
         refresh={<RefreshControl updatedAt={detail.dataUpdatedAt} fetching={detail.isFetching} onRefresh={refresh} interval={false} />}
         tabs={[
           { id: "overview", label: "Overview", render: () => <Overview t={t} d={d} /> },
-          { id: "indexes", label: "Indexes", render: () => <IndexesTab name={table} global={t.global} local={t.local} onCreate={() => here("index-create")} onDeleted={(i) => go({ tab: "indexes", dialog: "index-deleted", name: i })} /> },
+          { id: "indexes", label: "Indexes", render: () => <IndexesTab name={table} global={t.global} local={t.local} onCreate={() => here("index-create")} onDeleted={(i) => go({ tab: "indexes", dialog: "index-deleted", name: i })} banner={inIndexes ? banner(search.dialog, search.name, t, close) : undefined} justMade={search.dialog === "index-created"} /> },
           { id: "monitor", label: "Monitor", render: () => <MonitorTab name={table} indexes={t.global.map((i) => i.name)} /> },
           { id: "exports", label: "Exports and streams", render: () => <ExportsTab t={t} /> },
           { id: "settings", label: "Additional settings", render: () => <SettingsTab t={t} go={here} /> },

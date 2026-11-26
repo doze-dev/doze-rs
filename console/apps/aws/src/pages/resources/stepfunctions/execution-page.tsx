@@ -23,7 +23,7 @@ import { executionWords, graphWords, redriveWarning, stepNote } from "./executio
 import { parseDefinition, statesOf } from "./graph";
 import { GraphView, Legend } from "./graph-view";
 import { type HistoryEvent, readRun, tsMs } from "./history";
-import { machineHref, useWorkerCalls } from "./hooks";
+import { machineHref, useMachineGone, useWorkerCalls } from "./hooks";
 import { aliasOf, taskResource, taskTarget, taskWords, versionOf } from "./model";
 import { EventsView, StepDetails } from "./steps";
 import { TableView } from "./table-view";
@@ -59,6 +59,7 @@ export function ExecutionPage({ arn }: { arn: string }) {
   const machine = useOpRead<{ definition?: string; name?: string; stateMachineArn?: string }>(t, "DescribeStateMachineForExecution", { executionArn: arn });
   const events = useQuery({ queryKey: deepKey(t, "history", arn), queryFn: ({ signal }) => history(arn, signal), retry: false, staleTime: Number.POSITIVE_INFINITY });
   const workers = useWorkerCalls();
+  const gone = useMachineGone(exec.data?.stateMachineArn);
   const [selected, setSelected] = useState<string | undefined>();
   const [view, setView] = useState<View>("graph");
   const [summary, setSummary] = useState<Summary>("details");
@@ -110,7 +111,7 @@ export function ExecutionPage({ arn }: { arn: string }) {
           
           { label: "Step Functions", to: "/resources/stepfunctions" },
           { label: "State machines", to: "/resources/stepfunctions/machines" },
-          ...(machineName ? [{ label: machineName, to: machineHref(machineName) }, { label: "Executions", to: machineHref(machineName) }] : []),
+          ...(machineName && !gone ? [{ label: machineName, to: machineHref(machineName) }, { label: "Executions", to: machineHref(machineName) }] : []),
         ], e?.name ?? arn.split(":").pop() ?? arn)}
         titleExtra={status ? <StatusDot tone={status.tone} data-testid="execution-status">{status.word}</StatusDot> : undefined}
         sub={e && sentence ? <span data-testid="execution-sentence"><Emphasis text={sentence} names={names} /></span> : undefined}
@@ -118,7 +119,7 @@ export function ExecutionPage({ arn }: { arn: string }) {
         actions={
           e && (
             <>
-              <Button variant="outline" className="bg-card" onClick={() => open("start")} data-testid="start-open"><PlayIcon /> Start new execution</Button>
+              {!gone && <Button variant="outline" className="bg-card" onClick={() => open("start")} data-testid="start-open"><PlayIcon /> Start new execution</Button>}
               {e.status === "RUNNING" && <Button variant="outline" className="border-bad/40 bg-card text-bad hover:text-bad" onClick={() => open("stop")} data-testid="stop-open"><CircleStopIcon /> Stop execution</Button>}
             </>
           )
@@ -161,7 +162,7 @@ export function ExecutionPage({ arn }: { arn: string }) {
                   ["Status", status ? <StatusDot key="s" tone={status.tone}>{status.word}</StatusDot> : null],
                   ["Start date", when(startMs)],
                   ...(stopMs !== null ? [["Stop date", when(stopMs)]] : []),
-                  ["State machine", <Link key="m" to="/resources/$service/$kind/$name" params={{ service: "stepfunctions", kind: "machines", name: machineName }} className="rounded-sm font-mono text-[13px] text-link hover:underline">{machineName}</Link>],
+                  ["State machine", gone ? <span key="m" className="font-mono text-[13px]" data-testid="machine-gone">{machineName} <span className="font-sans text-muted-foreground">(deleted: this execution keeps the definition it ran)</span></span> : <Link key="m" to="/resources/$service/$kind/$name" params={{ service: "stepfunctions", kind: "machines", name: machineName }} className="rounded-sm font-mono text-[13px] text-link hover:underline">{machineName}</Link>],
                   ["Started with", via],
                   ...((e.redriveCount ?? 0) > 0 ? [["Redrive count", String(e.redriveCount)]] : []),
                 ] as [string, React.ReactNode][]).map(([k, v]) => (

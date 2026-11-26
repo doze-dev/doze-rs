@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { baseName, copySource, longDate, nameProblems, nameRefusal, parentPrefix, regionWords, shortDate, size, suggestName, uploadKey, versioningOf, whenMs, wiredChip, callKey, storageWords, firstEnableWords, fifoDestinationHint } from "./words";
+import { baseName, copySource, longDate, nameProblems, nameRefusal, parentPrefix, regionWords, shortDate, size, suggestName, uploadKey, versioningOf, whenMs, wiredChip, callKey, storageWords, firstEnableWords, fifoDestinationHint, copyNotifies, notifiedWords } from "./words";
 
 describe("S3 words", () => {
   test("a Region and a time are written as the AWS console writes them", () => {
@@ -78,4 +78,16 @@ test("the SQS destination hint names the FIFO queues that are left out of the li
   expect(fifoDestinationHint([])).toBe("FIFO queues are not supported as a destination: naming one by its ARN is refused with InvalidArgument.");
   expect(fifoDestinationHint(["orders-events.fifo"])).toBe("FIFO queues are not supported as a destination: orders-events.fifo is a FIFO queue, so it is not in the list, and naming it by its ARN is refused with InvalidArgument.");
   expect(fifoDestinationHint(["a.fifo", "b.fifo"])).toContain("a.fifo and b.fifo are FIFO queues, so they are not in the list");
+});
+
+test("a copy names the notifications it sets off, by event and key filter", () => {
+  const rule = (name: string, events: string[], prefix = "", suffix = "") => ({ name, events, prefix, suffix });
+  expect(copyNotifies("product-images", "a/b.jpg", [rule("resize", ["s3:ObjectCreated:*"], "", ".jpg"), rule("inventory", ["s3:ObjectRemoved:*"])])).toBe("A copy is written as a new object, so product-images notifies resize again.");
+  expect(copyNotifies("b", "x.png", [rule("resize", ["s3:ObjectCreated:*"], "", ".jpg")])).toBe("A copy is written as a new object, so a rule that fires on creation would notify; b has none for x.png.");
+  expect(copyNotifies("b", "k", [rule("one", ["s3:ObjectCreated:Copy"]), rule("two", ["s3:ObjectCreated:*"]), rule("one", ["s3:ObjectCreated:*"])])).toContain("notifies one and two again");
+});
+
+test("the destinations a creation notifies agree with the verb", () => {
+  expect(notifiedWords(["resize-product-image"])).toBe("resize-product-image is notified when an object is created in the bucket");
+  expect(notifiedWords(["resize-product-image", "inventory"])).toBe("resize-product-image and inventory are notified when an object is created in the bucket");
 });

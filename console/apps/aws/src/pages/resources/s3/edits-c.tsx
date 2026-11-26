@@ -114,6 +114,7 @@ function LifecycleFormPage({ name, current }: { name: string; current: unknown }
     <Field label={label} help={help}>{(i) => <Input id={i} value={String(f[key])} onChange={(e) => set({ [key]: e.target.value })} inputMode="numeric" className="w-40 font-mono" data-testid={`lc-${key}`} />}</Field>
   );
   const existing = lifecycleRules(current);
+  const delay = <p className="text-[13px] text-muted-foreground">There is a delay between a rule being met and the version being removed, because S3 queues expirations asynchronously. Here rules take effect at the next UTC midnight.</p>;
   return (
     <SettingForm name={name} callBelow tab="management" title="Create lifecycle rule" sub={`Tell S3 what to do with objects in ${name} as they age.`} operation="PutBucketLifecycleConfiguration" input={problem ? null : { LifecycleConfiguration: withRule(current, lifecycleRule(sent)) }} saved={`Lifecycle rule ${f.name} created.`} submitLabel="Create rule" disabled={Boolean(problem)} disabledWhy={problem}
       note="Adding a rule replaces the bucket's lifecycle configuration, so the call carries every rule: the ones that exist and the new one.">
@@ -140,16 +141,20 @@ function LifecycleFormPage({ name, current }: { name: string; current: unknown }
         <Choice id="lc-transition-current" checked={false} disabled title="Transition current versions of objects between storage classes" description="Not offered here: there is one storage class locally, so a transition has nowhere to go." />
         <Choice id="lc-transition-previous" checked={false} disabled title="Transition previous versions of objects between storage classes" description="Not offered here: there is one storage class locally, so a transition has nowhere to go. A transition put with the AWS CLI is kept and returned, and never acted on." />
         <Choice id="lc-expire-on" checked={on.expire} onChange={(v) => tick({ expire: v })} title="Expire current versions of objects" description="On a versioned bucket this adds a delete marker.">{day("expireDays", "Days after object creation")}</Choice>
-        <Choice id="lc-previous-on" checked={on.previous} onChange={(v) => tick({ previous: v })} title="Permanently delete previous versions of objects">
-          {day("noncurrentDays", "Days after objects become noncurrent", "The value must be a non-zero positive integer: how many days a version stays noncurrent before S3 can delete it. Permanent deletion cannot be undone.")}
-          {day("keepNewer", "Number of newer versions to retain (optional)", "The local janitor keeps this many of the newest noncurrent versions whatever their age. On AWS you can retain up to 100 newer noncurrent versions.")}
-        </Choice>
+        <Choice id="lc-previous-on" checked={on.previous} onChange={(v) => tick({ previous: v })} title="Permanently delete previous versions of objects" />
         <Choice id="lc-cleanup-on" checked={on.cleanup} onChange={(v) => tick({ cleanup: v })} title="Delete expired delete markers or incomplete multipart uploads" description="Incomplete multipart uploads are aborted after the number of days you set; the janitor also removes expired object delete markers.">
           <div className="flex items-center gap-2"><Checkbox id="lc-markers" checked={f.deleteMarkers} onCheckedChange={(v) => set({ deleteMarkers: v === true })} data-testid="lc-deleteMarkers" /><Label htmlFor="lc-markers" className="font-normal">Delete expired object delete markers</Label></div>
           {day("abortDays", "Delete incomplete multipart uploads: days after they start")}
         </Choice>
-        <p className="text-[13px] text-muted-foreground">There is a delay between a rule being met and the version being removed, because S3 queues expirations asynchronously. Here rules take effect at the next UTC midnight.</p>
+        {!on.previous && delay}
       </FormSection>
+      {on.previous && (
+        <FormSection title="Permanently delete noncurrent versions of objects" testId="section-noncurrent">
+          {day("noncurrentDays", "Days after objects become noncurrent", "The value must be a non-zero positive integer: how many days a version stays noncurrent before S3 can delete it. Permanent deletion cannot be undone.")}
+          {day("keepNewer", "Number of newer versions to retain (optional)", "The local janitor keeps this many of the newest noncurrent versions whatever their age. On AWS you can retain up to 100 newer noncurrent versions.")}
+          {delay}
+        </FormSection>
+      )}
     </SettingForm>
   );
 }

@@ -4,6 +4,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { client, PATHS } from "../../../api/client";
 import { useAbout } from "../../../api/queries";
+import { useResourceList } from "../../../api/resources";
 import type { CallsPage } from "../../../api/types/CallsPage";
 import { callOp, on } from "../deep/api";
 
@@ -26,6 +27,14 @@ export function useRunning(machines: readonly { name: string; express: boolean }
       return out;
     },
   });
+}
+
+/** Whether a state machine is gone: its list has been read to the end and does not hold it. A deleted machine's executions stay
+ * readable (each keeps the definition it ran), but there is no page of the machine to open, and nothing new to start on it. */
+export function useMachineGone(arn: string | undefined): boolean {
+  const list = useResourceList("stepfunctions", "machines");
+  if (!arn || !list.isSuccess || list.hasNextPage) return false;
+  return !list.data.pages.some((p) => p.rows.some((r) => r.id === arn));
 }
 
 /** The region and account the console is for. */
@@ -125,4 +134,23 @@ export function useAliases(name: string) {
 /** The newest calls the record holds that Step Functions answered, newest first (the worker calls of an activity are among them). */
 export function useWorkerCalls() {
   return useQuery({ queryKey: ["stepfunctions", "worker-calls"], queryFn: ({ signal }) => client.api<CallsPage>(`${PATHS.calls}?limit=200&console=no`, {}, signal), retry: false });
+}
+
+/** The input of the machine's newest run that succeeded (ListExecutions, then DescribeExecution): what a person starts it with again,
+ * because that input is known to run. `null` when none has succeeded. Read only while the Start dialog is open. */
+export function useLastGoodInput(name: string, enabled: boolean) {
+  const t = on.machine(name);
+  return useQuery({
+    queryKey: ["resources", "deep", "stepfunctions", "machines", name, "last-input"],
+    enabled,
+    retry: false,
+    staleTime: 0,
+    queryFn: async ({ signal }): Promise<{ name: string; input: string } | null> => {
+      const l = await callOp<Listed>(t, "ListExecutions", { statusFilter: "SUCCEEDED", maxResults: 1 }, signal);
+      const last = l.executions?.[0];
+      if (!last) return null;
+      const d = await callOp<{ input?: string }>(t, "DescribeExecution", { executionArn: last.executionArn }, signal);
+      return d.input ? { name: last.name, input: d.input } : null;
+    },
+  });
 }

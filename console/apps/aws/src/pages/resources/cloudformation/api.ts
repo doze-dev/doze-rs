@@ -14,10 +14,11 @@ export const STACKS = { service: "cloudformation", kind: "stacks" } as const;
 /** The kinds of this service, for the lists and the invalidation of them. */
 export const EXPORTS = { service: "cloudformation", kind: "exports" } as const;
 
-/** A read of one operation, made when the page opens and when its input changes. `every`: read again that often while it says so. */
-export function useCfnRead<T>(operation: string, input: object, { enabled = true, every }: { enabled?: boolean; every?: (data: T | undefined) => number | false } = {}) {
+/** A read of one operation, made when the page opens and when its input changes. `every`: read again that often while it says so.
+ * `scope`: a word that is part of the read's identity but not of what is asked (a read made under another scope is made afresh). */
+export function useCfnRead<T>(operation: string, input: object, { enabled = true, every, scope }: { enabled?: boolean; every?: (data: T | undefined) => number | false; scope?: string } = {}) {
   return useQuery({
-    queryKey: ["cfn", operation, input],
+    queryKey: scope === undefined ? ["cfn", operation, input] : ["cfn", operation, input, scope],
     queryFn: ({ signal }) => callKindOp<T>(STACKS, operation, input, signal),
     enabled,
     retry: false,
@@ -32,7 +33,14 @@ export function useStack(nameOrId: string, enabled = true) {
 
 export const useResources = (name: string, enabled = true) => useCfnRead<{ StackResourceSummaries?: StackResource[] }>("ListStackResources", { StackName: name }, { enabled });
 export const useTemplate = (name: string, stage: "Original" | "Processed" = "Original", enabled = true) => useCfnRead<{ TemplateBody?: string | object; StagesAvailable?: string[] }>("GetTemplate", { StackName: name, TemplateStage: stage }, { enabled });
-export const useEvents = (nameOrId: string, token?: string, enabled = true) => useCfnRead<{ StackEvents?: StackEvent[]; NextToken?: string }>("DescribeStackEvents", { StackName: nameOrId, ...(token ? { NextToken: token } : {}) }, { enabled });
+/** A stack's events, newest first. Read again while the stack is being worked on, and under the status it settles at: the status flips
+ * before a page has the last events (the stack's own UPDATE_COMPLETE), so a page that read them under the working status says only what
+ * the work in progress had written, and is read afresh when the status says it is done. */
+export function useEvents(nameOrId: string, token?: string, enabled = true) {
+  const status = useStack(nameOrId, enabled).data?.Stacks?.[0]?.StackStatus ?? "";
+  const working = inProgress(status);
+  return useCfnRead<{ StackEvents?: StackEvent[]; NextToken?: string }>("DescribeStackEvents", { StackName: nameOrId, ...(token ? { NextToken: token } : {}) }, { enabled, scope: working ? "working" : status, every: () => (working ? 1500 : false) });
+}
 
 /** The text of a template as `GetTemplate` answers: a JSON template may come as an object. */
 export const templateText = (body: string | object | undefined): string => (typeof body === "string" ? body : body === undefined ? "" : JSON.stringify(body, null, 2));

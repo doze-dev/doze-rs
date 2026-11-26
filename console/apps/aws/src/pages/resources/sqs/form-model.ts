@@ -239,8 +239,9 @@ export function attributes(f: QueueForm, base: Base, queueArn: string): Record<s
     if (scope !== was.scope) out.DeduplicationScope = scope;
     if (limit !== was.throughput) out.FifoThroughputLimit = limit;
   }
+  // A policy typed that is not a JSON object is a problem of the form (Save says so): it is not what the call carries.
   const policy = policyOf(f, queueArn);
-  if (!same(policy, was.policy)) out.Policy = policy ?? "";
+  if (!problems(f, { create: false }).policy && !same(policy, was.policy)) out.Policy = policy ?? "";
   const allow = allowPolicy(f);
   if (!same(allow, was.allow)) out.RedriveAllowPolicy = allow ?? "";
   if (f.sse !== was.sse || (f.sse === "kms" && f.kms.trim() !== was.kms)) {
@@ -249,9 +250,11 @@ export function attributes(f: QueueForm, base: Base, queueArn: string): Record<s
     else Object.assign(out, was.sse === "kms" ? { KmsMasterKeyId: "", SqsManagedSseEnabled: "false" } : { SqsManagedSseEnabled: "false" });
   }
   if (f.sse === "kms") put("KmsDataKeyReusePeriodSeconds", toSeconds(f.reuse.value, f.reuse.unit), was.reuse);
+  // The switch is on and no queue is chosen yet: there is nothing to send for it (an empty policy would say "no dead-letter queue").
+  const choosing = f.dlqOn && !f.dlq;
   const target = f.dlqOn ? f.dlq : null;
   const max = f.dlqOn ? Number(f.maxReceives) : null;
-  if (target !== was.dlqArn || max !== was.max) out.RedrivePolicy = target ? JSON.stringify({ deadLetterTargetArn: target, maxReceiveCount: max }) : "";
+  if (!choosing && (target !== was.dlqArn || max !== was.max)) out.RedrivePolicy = target ? JSON.stringify({ deadLetterTargetArn: target, maxReceiveCount: max }) : "";
   return out;
 }
 

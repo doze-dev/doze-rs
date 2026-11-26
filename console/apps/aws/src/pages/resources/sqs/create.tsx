@@ -88,8 +88,8 @@ export function SqsCreate() {
       }
       submitLabel="Create queue"
       pending={make.isPending}
-      disabled={tried && Object.keys(p).length > 0}
-      disabledWhy={Object.values(p)[0]}
+      disabled={(tried && Object.keys(p).length > 0) || Boolean(p.policy)}
+      disabledWhy={p.policy ?? Object.values(p)[0]}
       onCancel={back}
       onSubmit={submit}
       testId="queue-create"

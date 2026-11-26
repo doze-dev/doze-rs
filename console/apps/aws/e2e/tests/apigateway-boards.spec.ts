@@ -321,6 +321,72 @@ test("apigateway__rest-stage: a second stage is made from a deployment of the hi
   await expect(page.getByTestId("stage-chip-beta")).toBeVisible();
 });
 
+test("apigateway: a stage, a deployment, a method and a resource are deleted by typing their names, and a deployment a stage serves is refused in words", async ({ page }) => {
+  // A deployment of its own (no stage serves it), and a third stage on the deployment the stage beta serves.
+  const served = json<{ item: { stageName: string; deploymentId: string }[] }>(["apigateway", "get-stages", "--rest-api-id", rest()]).item.find((x) => x.stageName === "beta")?.deploymentId ?? "";
+  expect(served).not.toBe("");
+  const spare = json<{ id: string }>(["apigateway", "create-deployment", "--rest-api-id", rest(), "--description", "spare snapshot"]).id;
+  cli(["apigateway", "create-stage", "--rest-api-id", rest(), "--stage-name", "scratch", "--deployment-id", served]);
+  await go(page, apiPath("restapis", rest(), "?tab=stages&name=scratch"), "Stages");
+  await page.getByTestId("tab-history").click();
+  // The deployment that stages serve is refused in words, and the button is not offered; the spare one is not.
+  await page.getByTestId(`delete-deployment-${served}`).click();
+  const dep = page.getByTestId("deployment-delete");
+  await expect(page.getByTestId("deployment-delete-blocker")).toContainText("serve this deployment");
+  await expect(page.getByTestId("deployment-delete-blocker")).toContainText("beta");
+  await shot(page, "rest-deployment-delete-blocked");
+  await dep.getByTestId("deployment-delete-input").fill(served);
+  await expect(dep.getByTestId("deployment-delete-submit")).toBeDisabled();
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await page.getByTestId(`delete-deployment-${spare}`).click();
+  await expect(page.getByTestId("deployment-delete-blocker")).toHaveCount(0);
+  await expect(dep.getByTestId("deployment-delete-submit")).toBeDisabled();
+  await dep.getByTestId("deployment-delete-input").fill(spare);
+  await dep.getByTestId("deployment-delete-submit").click();
+  await expect(dep).toBeHidden();
+  expect(cli(["apigateway", "get-deployments", "--rest-api-id", rest()])).not.toContain(spare);
+  // The stage scratch: its URL and what stays are in the dialog, and the name is typed.
+  await page.getByTestId("delete-stage").click();
+  const stage = page.getByTestId("stage-delete");
+  await expect(stage).toContainText("Delete the stage scratch of larder-public?");
+  await expect(stage.getByTestId("stage-delete-stays")).toContainText(`The deployment ${served} stays in the deployment history`);
+  await expect(stage.getByTestId("stage-delete-submit")).toBeDisabled();
+  await shot(page, "rest-stage-delete");
+  await stage.getByTestId("stage-delete-input").fill("scratch");
+  await stage.getByTestId("stage-delete-submit").click();
+  await expect(page.getByTestId("stage-chip-scratch")).toHaveCount(0);
+  expect(cli(["apigateway", "get-stages", "--rest-api-id", rest()])).not.toContain("scratch");
+  // A resource with a method and a child: the dialog counts what goes with it; the method goes first, then the resource with its child.
+  const root = json<{ items: { id: string; path: string }[] }>(["apigateway", "get-resources", "--rest-api-id", rest()]).items.find((r) => r.path === "/")!.id;
+  const tmp = json<{ id: string }>(["apigateway", "create-resource", "--rest-api-id", rest(), "--parent-id", root, "--path-part", "scratchpad"]).id;
+  cli(["apigateway", "create-resource", "--rest-api-id", rest(), "--parent-id", tmp, "--path-part", "inner"]);
+  cli(["apigateway", "put-method", "--rest-api-id", rest(), "--resource-id", tmp, "--http-method", "GET", "--authorization-type", "NONE"]);
+  cli(["apigateway", "put-method", "--rest-api-id", rest(), "--resource-id", tmp, "--http-method", "POST", "--authorization-type", "NONE"]);
+  await go(page, apiPath("restapis", rest(), `?key=${tmp}`), "Resources");
+  await page.getByTestId("delete-method-POST").click();
+  const method = page.getByTestId("method-delete");
+  await expect(method).toContainText("Delete POST /scratchpad?");
+  await expect(method.getByTestId("method-delete-stage")).toContainText("until you deploy the API again");
+  await shot(page, "rest-method-delete");
+  await method.getByTestId("method-delete-input").fill("POST");
+  await method.getByTestId("method-delete-submit").click();
+  await expect(method).toBeHidden();
+  await expect(page.getByTestId("delete-method-POST")).toHaveCount(0);
+  await expect(page.getByTestId("delete-method-GET")).toBeVisible();
+  await page.getByTestId("delete-resource").click();
+  const res = page.getByTestId("resource-delete");
+  await expect(res).toContainText("Delete the resource /scratchpad?");
+  await expect(res).toContainText("Its 1 child resource (/scratchpad/inner) and its 1 method (GET /scratchpad) go with it.");
+  await shot(page, "rest-resource-delete");
+  await res.getByTestId("resource-delete-input").fill("/scratchpad");
+  await res.getByTestId("resource-delete-submit").click();
+  await expect(page.getByTestId("resource-/scratchpad")).toHaveCount(0);
+  expect(cli(["apigateway", "get-resources", "--rest-api-id", rest()])).not.toContain("scratchpad");
+  // The root resource has no Delete.
+  await go(page, apiPath("restapis", rest(), `?key=${root}`), "Resources");
+  await expect(page.getByTestId("delete-resource")).toBeDisabled();
+});
+
 test("apigateway__rest-delete: a typed confirm that names the API with what goes with it, and the usage plan that lists it", async ({ page, refusals }) => {
   await go(page, apiPath("restapis", rest()), "Resources");
   await page.getByTestId("api-actions").click();

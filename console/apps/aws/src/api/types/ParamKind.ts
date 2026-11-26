@@ -3,4 +3,4 @@
 /**
  * What a filter or selector of a list takes.
  */
-export type ParamKind = "select" | "text" | "chips";
+export type ParamKind = "select" | "text" | "chips" | "hidden";

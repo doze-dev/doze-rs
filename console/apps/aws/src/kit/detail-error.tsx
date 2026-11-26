@@ -10,7 +10,7 @@ import { Button } from "@doze/ui/components/ui/button";
 import { ApiFailure } from "@doze/ui/lib/api";
 import { useCatalogue } from "../api/resources";
 import { forget, markAbsent } from "../shell/pins";
-import { withCurrent } from "./crumbs";
+import { serviceTrail, withCurrent } from "./crumbs";
 
 /** Said when the console could not reach doze-aws, or it failed: the service did not answer, so "is it running" is the advice. */
 export const HINT = "Check that doze-aws is still running, then try again. Nothing was changed.";
@@ -42,7 +42,7 @@ export function DetailError({ service, kind, name, what, error, onRetry, retryin
   if (!isMissing(error)) return <ErrorBlock what={what ?? `This ${one} could not be read`} error={error} hint={HINT} onRetry={onRetry} retrying={retrying} testId={testId} />;
   const { message, code } = errorWords(error);
   const list = `/resources/${service}/${kind}`;
-  const crumbs = [{ label: "Resources", to: "/resources" }, ...(s ? [{ label: s.title, to: `/resources/${service}` }] : []), { label: k?.title ?? sentence(kind), to: list }];
+  const crumbs = [...serviceTrail(service, s?.title), { label: k?.title ?? sentence(kind), to: list }];
   return (
     <>
       {header && <PageHeader title={`${sentence(one)} not found`} crumbs={withCurrent(crumbs, name)} />}

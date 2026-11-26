@@ -254,3 +254,49 @@ fn a_signed_saml_assertion_is_read_for_its_subject_issuer_and_session_name_and_e
     );
     assert_eq!(code, "InvalidIdentityTokenException");
 }
+
+#[test]
+fn a_trust_policy_that_names_an_external_id_is_met_only_by_that_external_id() {
+    let mut w = World::new();
+    w.ok("CreateUser", &json!({"UserName": "u"}));
+    let key = w.ok("CreateAccessKey", &json!({"UserName": "u"}))["AccessKey"]["AccessKeyId"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let trust = TRUST
+        .replace(
+            r#"{"Service":"lambda.amazonaws.com"}"#,
+            r#"{"AWS":"arn:aws:iam::000000000000:user/u"}"#,
+        )
+        .replace(
+            r#""Action":"sts:AssumeRole""#,
+            r#""Action":"sts:AssumeRole","Condition":{"StringEquals":{"sts:ExternalId":"larder-7"}}"#,
+        );
+    w.ok(
+        "CreateRole",
+        &json!({"RoleName": "partner", "AssumeRolePolicyDocument": trust}),
+    );
+    w.ok(
+        "PutUserPolicy",
+        &json!({"UserName": "u", "PolicyName": "p", "PolicyDocument": r#"{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"sts:AssumeRole","Resource":"*"}]}"#}),
+    );
+    w.core.mode = aws_peers::Mode::Enforce;
+    w.sts.access_key_id = key;
+    let arn = "arn:aws:iam::000000000000:role/partner";
+    // No external ID, and a wrong one, do not meet the condition.
+    let (code, _) = w.sts_err(
+        "AssumeRole",
+        &json!({"RoleArn": arn, "RoleSessionName": "ss"}),
+    );
+    assert_eq!(code, "AccessDenied");
+    let (code, _) = w.sts_err(
+        "AssumeRole",
+        &json!({"RoleArn": arn, "RoleSessionName": "ss", "ExternalId": "other"}),
+    );
+    assert_eq!(code, "AccessDenied");
+    let got = w.sts_ok(
+        "AssumeRole",
+        &json!({"RoleArn": arn, "RoleSessionName": "ss", "ExternalId": "larder-7"}),
+    );
+    assert!(got["Credentials"]["SessionToken"].is_string());
+}

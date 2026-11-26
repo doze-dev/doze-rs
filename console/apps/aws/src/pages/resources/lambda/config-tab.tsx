@@ -39,8 +39,8 @@ function Row({ k, v, sub, mono = false }: { k: string; v: React.ReactNode; sub?:
   );
 }
 const Rows = ({ children }: { children: React.ReactNode }) => <dl className="grid grid-cols-[minmax(7rem,12rem)_minmax(0,1fr)] [&>div:last-child>*]:border-b-0">{children}</dl>;
-const edit = (label: string, onClick: () => void, testId: string, icon = <PencilIcon />) => (
-  <Button type="button" variant="outline" className="bg-card" onClick={onClick} data-testid={testId}>{icon} {label}</Button>
+const edit = (label: string, onClick: () => void, testId: string, icon = <PencilIcon />, disabled = false) => (
+  <Button type="button" variant="outline" className="bg-card" onClick={onClick} disabled={disabled} data-testid={testId}>{icon} {label}</Button>
 );
 
 export function ConfigTab({ d, f, section, sel, go, triggers }: { d: ResourceDetail; f: Fn; section: string; sel?: string; go: (to: Go) => void; triggers: readonly Trigger[] }) {
@@ -79,7 +79,8 @@ function General({ f, go }: { f: Fn; go: (to: Go) => void }) {
 
 function Triggers({ d, sel, go, triggers }: { d: ResourceDetail; sel?: string; go: (to: Go) => void; triggers: readonly Trigger[] }) {
   const mappings = triggers.filter((t) => t.how === "mapping");
-  const chosen = mappings.find((m) => m.id === sel);
+  // The page opens with the mapping selected (the board's), and Edit and Delete act on the one that is.
+  const chosen = mappings.find((m) => m.id === sel) ?? (sel === undefined ? mappings[0] : undefined);
   const rm = useRemove(d.name, "DeleteEventSourceMapping", "trigger-delete-dialog");
   const columns: DataColumn<Trigger>[] = [
     { id: "trigger", header: "Trigger", size: 460, min: 260, accessorFn: (t) => t.name, cell: (c) => <span className="grid leading-5"><span className="font-mono text-[13.5px] font-semibold text-bright">{c.row.original.name}</span><span className="truncate font-mono text-[12px] text-muted-foreground">{c.row.original.source}</span></span> },
@@ -89,14 +90,14 @@ function Triggers({ d, sel, go, triggers }: { d: ResourceDetail; sel?: string; g
   const add = <Button type="button" onClick={() => go({ tab: "configuration", p: "triggers", view: "trigger-add" })} data-testid="trigger-add"><PlusIcon /> Add trigger</Button>;
   const policyOnes = triggers.filter((t) => t.how === "policy");
   return (
-    <Card title="Triggers" lede="Each trigger invokes the function on its own; an event carries data from one trigger only." actions={mappings.length > 0 ? <>{edit("Edit", () => chosen && go({ tab: "configuration", p: "triggers", view: "trigger-edit", sel: chosen.id }), "trigger-edit")}<Button type="button" variant="outline" className="bg-card" disabled={!chosen} onClick={() => chosen && rm.ask({ title: "Delete trigger", input: { UUID: chosen.id }, text: <>Delete the trigger <b className="font-mono font-semibold text-bright">{chosen.name}</b>? {d.name} is no longer invoked from it. The source keeps what it holds; only the event source mapping goes.</>, then: () => go({ tab: "configuration", p: "triggers" }) })} data-testid="trigger-delete"><Trash2Icon /> Delete</Button>{add}</> : undefined} testId="triggers-card">
+    <Card title="Triggers" lede="Each trigger invokes the function on its own; an event carries data from one trigger only." actions={mappings.length > 0 ? <>{edit("Edit", () => chosen && go({ tab: "configuration", p: "triggers", view: "trigger-edit", sel: chosen.id }), "trigger-edit", undefined, !chosen)}<Button type="button" variant="outline" className="bg-card" disabled={!chosen} onClick={() => chosen && rm.ask({ title: "Delete trigger", input: { UUID: chosen.id }, text: <>Delete the trigger <b className="font-mono font-semibold text-bright">{chosen.name}</b>? {d.name} is no longer invoked from it. The source keeps what it holds; only the event source mapping goes.</>, then: () => go({ tab: "configuration", p: "triggers", done: "trigger-deleted" }) })} data-testid="trigger-delete"><Trash2Icon /> Delete</Button>{add}</> : undefined} testId="triggers-card">
       {mappings.length === 0 ? (
         <EmptyTab icon={WorkflowIcon} title="No triggers" action={<Button type="button" variant="outline" className="bg-card" onClick={() => go({ tab: "configuration", p: "triggers", view: "trigger-add" })} data-testid="trigger-add-empty">Add trigger</Button>} testId="triggers-none">
           Nothing invokes {d.name} automatically. Add a trigger such as a queue, a stream or a schedule.
         </EmptyTab>
       ) : (
         <>
-          <DataTable aria-label="Triggers" data={mappings} columns={columns} rowId={(t) => t.id ?? t.name} rowHeight={56} maxHeight={360} onRowClick={(t) => go({ tab: "configuration", p: "triggers", sel: t.id })} rowClassName={(t) => (t.id === sel ? "bg-pick/60 shadow-[inset_3px_0_0_var(--primary)]" : "cursor-pointer")} />
+          <DataTable aria-label="Triggers" data={mappings} columns={columns} rowId={(t) => t.id ?? t.name} rowHeight={56} maxHeight={360} onRowClick={(t) => go({ tab: "configuration", p: "triggers", sel: t.id })} rowClassName={(t) => (t.id === chosen?.id ? "bg-pick/60 shadow-[inset_3px_0_0_var(--primary)]" : "cursor-pointer")} />
           <p className="mt-3 text-[13px] text-muted-foreground" data-testid="triggers-hint">The list shows Lambda event source mappings (ListEventSourceMappings). Select a trigger, then choose Edit or Delete.</p>
         </>
       )}
@@ -130,7 +131,7 @@ function Permissions({ d, f, go }: { d: ResourceDetail; f: Fn; go: (to: Go) => v
           <EmptyTab icon={ShieldIcon} title="No resource-based policy statements" action={<Button type="button" variant="outline" className="bg-card" onClick={() => go({ tab: "configuration", p: "permissions", view: "permission-add" })}>Add permissions</Button>} testId="policy-none">No other service or account has been given permission to invoke {d.name}.</EmptyTab>
         ) : (
           <>
-            <PolicyTable statements={policy.statements} onDelete={(sid) => rm.ask({ title: "Delete permission statement", input: { StatementId: sid }, text: <>Delete the statement <b className="font-mono font-semibold text-bright">{sid}</b> from the resource-based policy of {d.name}? What it let in can no longer invoke the function.</> })} />
+            <PolicyTable statements={policy.statements} onDelete={(sid) => rm.ask({ title: "Delete permission statement", input: { StatementId: sid }, text: <>Delete the statement <b className="font-mono font-semibold text-bright">{sid}</b> from the resource-based policy of {d.name}? What it let in can no longer invoke the function.</>, then: () => go({ tab: "configuration", p: "permissions", done: "permission-deleted" }) })} />
             <p className="mt-3 text-[13px] text-muted-foreground">The columns are the elements of the policy statements that GetPolicy returns.</p>
           </>
         )}
@@ -153,7 +154,7 @@ function FunctionUrl({ d, f, go }: { d: ResourceDetail; f: Fn; go: (to: Go) => v
   return (
     <Card title="Function URL" lede="A function URL is a dedicated HTTP(S) endpoint for the function." testId="url-card">
       {!f.url ? (
-        <EmptyTab icon={LinkIcon} title="No function URL" action={<Button type="button" onClick={() => go({ tab: "configuration", p: "url", view: "url-create" })} data-testid="url-create">Create function URL</Button>} testId="url-none">
+        <EmptyTab icon={LinkIcon} title="No function URL" action={<Button type="button" onClick={() => go({ tab: "configuration", p: "url", view: "url-create" })} data-testid="url-create"><PlusIcon /> Create function URL</Button>} testId="url-none">
           {d.name} has no URL. A URL can be added to $LATEST or to an alias, but not to another version.
         </EmptyTab>
       ) : (
@@ -168,7 +169,7 @@ function FunctionUrl({ d, f, go }: { d: ResourceDetail; f: Fn; go: (to: Go) => v
             {f.cors?.AllowHeaders && <Row k="AllowHeaders" v={f.cors.AllowHeaders.join(", ")} mono />}
             {f.cors?.MaxAge !== undefined && <Row k="MaxAge" v={`${f.cors.MaxAge} ${f.cors.MaxAge === 1 ? "second" : "seconds"}`} />}
           </Rows>
-          <div className="mt-5 flex flex-wrap gap-3"><CopyButton text={f.url} label="Copy URL" what="URL copied" className="bg-card" /><Button type="button" variant="outline" className="bg-card" onClick={() => rm.ask({ title: "Delete function URL", input: {}, text: <>Delete the function URL of {d.name}? <span className="font-mono">{f.url}</span> stops answering, and a new URL gets another address.</> })} data-testid="url-delete"><Trash2Icon /> Delete function URL</Button></div>
+          <div className="mt-5 flex flex-wrap gap-3"><CopyButton text={f.url} label="Copy URL" what="URL copied" className="bg-card" /><Button type="button" variant="outline" className="bg-card" onClick={() => rm.ask({ title: "Delete function URL", input: {}, text: <>Delete the function URL of {d.name}? <span className="font-mono">{f.url}</span> stops answering, and a new URL gets another address.</>, then: () => go({ tab: "configuration", p: "url", done: "url-deleted" }) })} data-testid="url-delete"><Trash2Icon /> Delete function URL</Button></div>
           {rm.dialog}
           <p className="mt-4 max-w-[46rem] border-l-2 pl-3.5 text-[13px] leading-5 text-foreground" data-testid="url-teach">
             Once you create a function URL, its URL endpoint never changes. Any HTTP client can invoke the function through it. <span className="text-muted-foreground">{urlAuthNote(f.urlAuth)}</span>

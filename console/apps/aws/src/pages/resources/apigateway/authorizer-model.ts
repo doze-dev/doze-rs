@@ -1,5 +1,6 @@
 // An authorizer's form and the call it makes, for a REST API (CreateAuthorizer of `apigateway`) and an HTTP API (`apigatewayv2`).
-import { restLambdaUri } from "./words";
+import type { HttpAuthorizer, Route } from "./types";
+import { count, lambdaName, restLambdaUri } from "./words";
 
 export type RestAuthorizerForm = {
   name: string;
@@ -90,4 +91,16 @@ export function httpAuthorizerInput(f: HttpAuthorizerForm, o: { api: string; reg
     identitySource: sources,
     authorizerResultTtlInSeconds: /^\d+$/.test(f.ttl) ? Number(f.ttl) : 0,
   };
+}
+
+/** What the Lambda function hint says of the request authorizers the API already has: each one, how many routes name it, and the function it
+ * calls (`admin-request-auth, already on 2 routes, calls the function admin-auth.`). `null` when there is none. */
+export function existingAuthorizerWords(authorizers: readonly Pick<HttpAuthorizer, "authorizerId" | "name" | "authorizerType" | "authorizerUri">[], routes: readonly Pick<Route, "authorizerId">[]): string | null {
+  const lines = authorizers.flatMap((a) => {
+    const fn = lambdaName(a.authorizerUri);
+    if (a.authorizerType !== "REQUEST" || !fn) return [];
+    const n = routes.filter((r) => r.authorizerId === a.authorizerId).length;
+    return [`${a.name}, ${n === 0 ? "on no route yet" : `already on ${count(n, "route")}`}, calls the function ${fn}.`];
+  });
+  return lines.length === 0 ? null : lines.join(" ");
 }

@@ -2,6 +2,7 @@
 import { CheckIcon, XIcon } from "lucide-react";
 import { useState } from "react";
 import { Input } from "@doze/ui/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@doze/ui/components/ui/select";
 import { Button } from "@doze/ui/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@doze/ui/components/ui/dialog";
 import { Label } from "@doze/ui/components/ui/label";
@@ -30,7 +31,12 @@ export function RulePatternStep({ pattern, onPattern, tried }: { pattern: string
   return (
     <>
       <FormSection title="Event source" testId="section-source">
-        <Field label="Event source">{(id) => <Input id={id} value="AWS events or EventBridge partner events" readOnly className="bg-muted text-muted-foreground" data-testid="event-source" />}</Field>
+        <Field label="Event source">{(id) => (
+          <Select value="aws">
+            <SelectTrigger id={id} className="w-full bg-card" data-testid="event-source"><SelectValue /></SelectTrigger>
+            <SelectContent><SelectItem value="aws">AWS events or EventBridge partner events</SelectItem></SelectContent>
+          </Select>
+        )}</Field>
       </FormSection>
       <FormSection title="Sample events" description="An event to test the pattern against. It is only used here; it is not saved with the rule." testId="section-sample">
         <div className="grid gap-1.5">
@@ -48,7 +54,12 @@ export function RulePatternStep({ pattern, onPattern, tried }: { pattern: string
         <RuleHelp>The test needs a whole event: <span className="font-mono">id</span>, <span className="font-mono">account</span>, <span className="font-mono">source</span>, <span className="font-mono">time</span>, <span className="font-mono">region</span>, <span className="font-mono">resources</span> and <span className="font-mono">detail-type</span>. Copy an AWS sample, switch to Enter my own, and paste it to start from a real shape. EventBridge partner events are not available in doze-aws: it refuses partner event sources.</RuleHelp>
       </FormSection>
       <FormSection title="Creation method" testId="section-method">
-        <Field label="Method" hint="Use schema is not available in doze-aws: there is no Schema registry to build a pattern from.">{(id) => <Input id={id} value="Custom pattern (JSON editor)" readOnly className="bg-muted text-muted-foreground" data-testid="creation-method" />}</Field>
+        <Field label="Method" hint="Use schema is not available in doze-aws: there is no Schema registry to build a pattern from.">{(id) => (
+          <Select value="custom">
+            <SelectTrigger id={id} className="w-full bg-card" data-testid="creation-method"><SelectValue /></SelectTrigger>
+            <SelectContent><SelectItem value="schema" disabled>Use schema (not available in doze-aws)</SelectItem><SelectItem value="custom">Custom pattern (JSON editor)</SelectItem></SelectContent>
+          </Select>
+        )}</Field>
       </FormSection>
       <FormSection title="Event pattern" description="An event matches when every field you list matches. Each field's value is a list; one entry of the list matching is enough." testId="section-pattern">
         <JsonBox value={pattern} onChange={(p) => { onPattern(p); test.reset(); }} label="Event pattern" rows={9} testId="event-pattern" extra={<><Button type="button" variant="outline" size="sm" className="bg-card" onClick={() => setForm(true)} data-testid="pattern-form-open">Event pattern form</Button><Button type="button" size="sm" variant="outline" className="ml-auto bg-card" disabled={problem !== null || test.isPending} onClick={() => test.mutate({ EventPattern: pattern, Event: sample } as never)} data-testid="test-pattern">Test pattern</Button></>} />

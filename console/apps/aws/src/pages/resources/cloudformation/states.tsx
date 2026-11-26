@@ -59,10 +59,11 @@ function Rolled({ stack, d }: { stack: Stack; d: ResourceDetail }) {
 function Updated({ stack }: { stack: Stack }) {
   const name = stack.StackName;
   const events = useEvents(name);
-  const said = updatedSaid(name, events.data?.StackEvents ?? []);
+  // Said once the events are read under the settled status: before that they are the work in progress's, and it would say less than happened.
+  const said = events.data ? updatedSaid(name, events.data.StackEvents ?? []) : null;
   return (
     <div className="grid gap-8" data-testid="updated-state">
-      <Lede said={said} className="mb-0" />
+      {said ? <Lede said={said} className="mb-0" /> : <Skeleton className="h-6 w-96" data-testid="updated-reading" />}
       <Callout tone="info" lead="The update completed." testId="updated-note">If a resource had failed, the stack would show UPDATE_ROLLBACK_COMPLETE here instead, with the previous template restored and what the update made deleted again.</Callout>
       <EventsTab name={name} note={false} lede="Newest first, with the update on top of the stack's creation." />
       <RuleHelp className="max-w-[56rem]">Only the resources an update touches get events: one that is new goes CREATE_IN_PROGRESS then CREATE_COMPLETE, one that changes UPDATE_IN_PROGRESS then UPDATE_COMPLETE, and one it leaves alone has none; the stack itself ends UPDATE_COMPLETE_CLEANUP_IN_PROGRESS and then UPDATE_COMPLETE. An update that changes nothing is refused rather than recorded, and a change set with no changes fails the same way. Resources the new template drops are deleted by the update. The events from the stack's creation sit below these{stack.LastUpdatedTime ? `; the update ended ${at(stack.LastUpdatedTime)}` : ""}.</RuleHelp>

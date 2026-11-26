@@ -28,14 +28,14 @@ test("a table's item is created as rows, scanned, queried by its key, edited and
   await page.getByTestId("q-pk").fill("a");
   await page.getByTestId("items-run").click();
   await expect(rows).toHaveCount(1);
-  await rows.first().getByRole("checkbox").click();
+  await rows.first().getByRole("radio").click();
   await page.getByTestId("item-edit").click();
   await expect(page.locator("h1")).toHaveText("Edit item");
   await page.getByTestId("attr-status").getByTestId("attr-value").fill("shipped");
   await advance(page);
   await expect(page.getByTestId("item-banner")).toContainText("Item saved.");
   await expect(rows.first()).toContainText("shipped");
-  await rows.first().getByRole("checkbox").click();
+  await rows.first().getByRole("radio").click();
   await page.getByTestId("item-delete").click();
   await page.getByTestId("item-delete-dialog-submit").click();
   await expect(page.getByTestId("item-banner")).toContainText("Item deleted.");

@@ -46,7 +46,7 @@ export function DestCreate({ connection }: { connection?: string }) {
       onCancel={() => { done(); void navigate({ to: "/resources/$service/$second", params: { service: "eventbridge", second: "api-destinations" }, search: {} }); }}
       onSubmit={() => {
         setTried(true);
-        if (!problem && chosen) make.mutate(input as never, { onSuccess: () => { done(); void navigate({ to: "/resources/$service/$kind/$name", params: { service: "eventbridge", kind: "api-destinations", name: f.name }, search: {} }); } });
+        if (!problem && chosen) make.mutate(input as never, { onSuccess: () => { done(); void navigate({ to: "/resources/$service/$kind/$name", params: { service: "eventbridge", kind: "api-destinations", name: f.name }, search: { done: "created" } }); } });
       }}
       testId="dest-create"
     >

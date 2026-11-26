@@ -43,7 +43,7 @@ export function ScheduleFields({ value, onChange, tried }: { value: string; onCh
       {mode === "cron" ? (
         <div className="grid gap-4" data-testid="cron-fields">
           <p className="text-[13.5px] font-medium text-bright">Cron expression</p>
-          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="grid gap-3 sm:grid-cols-3" data-testid="cron-grid">
             {CRON_PARTS.map((k) => (
               <div key={k} className="grid gap-1.5">
                 <Label htmlFor={`cron-${k}`}>{LABELS[k]}</Label>
@@ -60,7 +60,7 @@ export function ScheduleFields({ value, onChange, tried }: { value: string; onCh
                 <Segmented<"utc" | "local"> label="Time zone" value={zone} onChange={setZone} options={[{ value: "utc", label: "UTC" }, { value: "local", label: "Local time zone" }]} testId="zone" />
               </div>
               {runs === null ? <p className="text-[13px] text-muted-foreground">The dates of an expression with L, W or # are not listed here; the service takes it as written.</p> : runs.length === 0 ? <p className="text-[13px] text-muted-foreground">This expression never fires.</p> : (
-                <ol className="grid gap-x-8 gap-y-1 font-mono text-[13px] sm:grid-cols-2" data-testid="run-list">
+                <ol className="grid gap-x-8 gap-y-1 font-mono text-[13px] sm:grid-flow-col sm:grid-cols-2 sm:grid-rows-5" data-testid="run-list">
                   {runs.map((t) => <li key={t}>{zone === "utc" ? runWords(t) : localRunWords(t)}</li>)}
                 </ol>
               )}

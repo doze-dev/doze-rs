@@ -57,7 +57,7 @@ export function BucketsList() {
         </div>
       ) : rows.length === 0 ? (
         <div data-testid="list-empty">
-          <EmptyState icon={DatabaseIcon} title="No buckets" action={<Button onClick={() => go({ do: "create" })}><PlusIcon /> Create bucket</Button>}>
+          <EmptyState icon={DatabaseIcon} title="No buckets" action={<Button variant="outline" className="bg-card" onClick={() => go({ do: "create" })} data-testid="empty-create">Create bucket</Button>}>
             You have no buckets in this region. Create a bucket to store objects.
           </EmptyState>
           <FromYourApp service="s3" />

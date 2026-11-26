@@ -61,6 +61,19 @@ describe("an edit", () => {
     const f = { ...formOf(q, [], dlqArn), visibility: { value: "60", unit: "seconds" as const }, dlqOn: false };
     expect(attributes(f, { create: false, queue: q, dlqArn }, ARN)).toEqual({ VisibilityTimeout: "60", RedrivePolicy: "" });
   });
+  test("a dead-letter switch that is on with no queue chosen sends no RedrivePolicy (not an empty one), on a new queue and on an edit", () => {
+    const blank = { ...formOf(queue({}), [], null), name: "q", dlqOn: true, dlq: "" };
+    expect(createInput(blank, ARN)).toEqual({ QueueName: "q" });
+    const q = queue({ dlq: "dlq", maxReceives: 5 });
+    const dlqArn = "arn:aws:sqs:us-east-1:1:dlq";
+    expect(attributes({ ...formOf(q, [], dlqArn), dlq: "" }, { create: false, queue: q, dlqArn }, ARN)).toEqual({});
+  });
+  test("an access policy that is not JSON is a problem of the form, and not what the call carries", () => {
+    const q = queue({});
+    const f = { ...formOf(q, [], null), policyMode: "advanced" as const, policy: "{ not json" };
+    expect(problems(f, { create: false }).policy).toBe("The access policy is not a JSON object.");
+    expect(attributes(f, { create: false, queue: q, dlqArn: null }, ARN)).toEqual({});
+  });
   test("moving from SSE-KMS to SSE-SQS clears the key", () => {
     const q = queue({ sse: "kms", kms: "alias/a", reuse: 300 });
     const f = { ...formOf(q, [], null), sse: "sqs" as const };
@@ -74,5 +87,30 @@ describe("the basic access policy", () => {
     const p = JSON.parse(basicPolicy({ send: "accounts", receive: "everyone", principals: "123456789012" }, ARN)!) as { Statement: { Principal: unknown; Action: unknown }[] };
     expect(p.Statement[0]).toMatchObject({ Principal: { AWS: ["arn:aws:iam::123456789012:root"] }, Action: "sqs:SendMessage" });
     expect(p.Statement[1]).toMatchObject({ Principal: "*", Action: ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes"] });
+  });
+});
+
+describe("a field that is not ready is no member of the call", () => {
+  test("the dead-letter switch on before a queue is chosen sends no RedrivePolicy, on a new queue and on an edit", () => {
+    const f = { ...emptyForm(), name: "q", dlqOn: true, dlq: "" };
+    expect(JSON.stringify(createInput(f, ARN))).not.toContain("RedrivePolicy");
+    const q = queue();
+    const edited = { ...formOf(q, [], null), dlqOn: true, dlq: "" };
+    expect(attributes(edited, { create: false, queue: q, dlqArn: null }, ARN)).toEqual({});
+    // Once a queue is chosen it is sent.
+    expect(createInput({ ...f, dlq: "arn:dlq" }, ARN)).toEqual({ QueueName: "q", Attributes: { RedrivePolicy: JSON.stringify({ deadLetterTargetArn: "arn:dlq", maxReceiveCount: 5 }) } });
+  });
+
+  test("an access policy that is not JSON yet is not written into the call as a half string, and not as an empty one that would remove the queue's", () => {
+    const q = queue({ policy: '{"Version":"2012-10-17","Statement":[]}' });
+    const f = { ...formOf(q, [], null), policy: '{ "Version": "2012-10-17", "Stat' };
+    expect(problems(f, { create: false }).policy).toBeTruthy();
+    expect(attributes(f, { create: false, queue: q, dlqArn: null }, ARN)).toEqual({});
+    expect(problems(f, { create: false }).policy).toContain("not a JSON object");
+    // On a new queue too.
+    const made = { ...emptyForm(), name: "q", policyMode: "advanced" as const, policy: "{ not json" };
+    expect(JSON.stringify(createInput(made, ARN))).not.toContain("Policy");
+    expect(problems({ ...made, policy: '{"Version":"2012-10-17"}' }, { create: true }).policy).toBeUndefined();
+    expect(problems({ ...made, policy: "   " }, { create: true }).policy).toBeUndefined();
   });
 });

@@ -9,6 +9,7 @@
     clippy::too_many_lines
 )]
 
+use sha2::Digest;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -204,6 +205,20 @@ async fn an_http_endpoint_confirms_through_its_subscribe_url_and_is_sent_notific
         path.starts_with("/_aws/sns/confirm?Action=ConfirmSubscription&TopicArn="),
         "{url}"
     );
+    // Signed as AWS signs a confirmation: a digest (SCOPE cuts real signing) of Message, MessageId, SubscribeURL, Timestamp, Token,
+    // TopicArn and Type, never an empty `Signature`.
+    let field = |k: &str| doc[k].as_str().unwrap().to_owned();
+    let to_sign = format!(
+        "Message\n{}\nMessageId\n{}\nSubscribeURL\n{}\nTimestamp\n{}\nToken\n{}\nTopicArn\n{}\nType\nSubscriptionConfirmation\n",
+        field("Message"),
+        field("MessageId"),
+        field("SubscribeURL"),
+        field("Timestamp"),
+        field("Token"),
+        field("TopicArn")
+    );
+    let digest = aws_core::base64::encode(&sha2::Sha256::digest(to_sign.as_bytes()));
+    assert_eq!(doc["Signature"], digest.as_str());
 
     // Nothing is sent to an endpoint that has not confirmed.
     query(

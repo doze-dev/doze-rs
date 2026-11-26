@@ -1,8 +1,9 @@
 //! The JSON an SQS queue receives for a notification when the subscription is not raw (the fields and their order recorded 2026-11-09).
 //!
 //! **The signature is not one.** SCOPE.md keeps the envelope's fields and cuts message signing: a validator that wants SNS's certificate
-//! cannot be satisfied locally. `Signature` is a digest of the text AWS would sign, `SigningCertURL` names a certificate this endpoint
-//! does not serve, and `UnsubscribeURL` is the local endpoint's.
+//! cannot be satisfied locally. `Signature` is a digest of the text AWS would sign (a notification's, and a subscription confirmation's:
+//! [`confirmation_signature`]), `SigningCertURL` names a certificate this endpoint does not serve (it answers 404), and `UnsubscribeURL`
+//! is the local endpoint's.
 
 use std::collections::BTreeMap;
 
@@ -52,8 +53,7 @@ pub(crate) struct Context<'a> {
 
 /// The notification for one subscription, with `text` as its message.
 pub(crate) fn notification(ctx: &Context<'_>, m: &Message, text: &str) -> String {
-    let to_sign = string_to_sign(ctx, m, text);
-    let signature = aws_core::base64::encode(&Sha256::digest(to_sign.as_bytes()));
+    let signature = digest(&string_to_sign(ctx, m, text));
     let cert = format!("{}/SimpleNotificationService-doze.pem", ctx.endpoint);
     let unsubscribe = format!(
         "{}/?Action=Unsubscribe&SubscriptionArn={}",
@@ -77,6 +77,37 @@ pub(crate) fn notification(ctx: &Context<'_>, m: &Message, text: &str) -> String
             .collect(),
     };
     serde_json::to_string(&note).unwrap_or_default()
+}
+
+/// The digest a message carries as its `Signature`: SHA-256 of the text AWS would sign, in base64.
+fn digest(to_sign: &str) -> String {
+    aws_core::base64::encode(&Sha256::digest(to_sign.as_bytes()))
+}
+
+/// What a `SubscriptionConfirmation` says, for its signature.
+pub(crate) struct Confirmation<'a> {
+    pub(crate) message: &'a str,
+    pub(crate) message_id: &'a str,
+    /// Absent when the endpoint is a peer call with no address to confirm at.
+    pub(crate) subscribe_url: Option<&'a str>,
+    pub(crate) timestamp: &'a str,
+    pub(crate) token: &'a str,
+    pub(crate) topic_arn: &'a str,
+}
+
+/// The signature of a `SubscriptionConfirmation`, over the fields AWS signs in its order: `Message`, `MessageId`, `SubscribeURL`,
+/// `Timestamp`, `Token`, `TopicArn`, `Type` (the SNS Developer Guide's "Verifying the signatures of Amazon SNS messages"). As a
+/// notification's, it is a digest, not a signature.
+pub(crate) fn confirmation_signature(c: &Confirmation<'_>) -> String {
+    let mut out = format!("Message\n{}\nMessageId\n{}\n", c.message, c.message_id);
+    if let Some(url) = c.subscribe_url {
+        out.push_str(&format!("SubscribeURL\n{url}\n"));
+    }
+    out.push_str(&format!(
+        "Timestamp\n{}\nToken\n{}\nTopicArn\n{}\nType\nSubscriptionConfirmation\n",
+        c.timestamp, c.token, c.topic_arn
+    ));
+    digest(&out)
 }
 
 /// The event a Lambda function receives for one notification: AWS's `Records[].Sns` shape. It differs from the queue envelope in

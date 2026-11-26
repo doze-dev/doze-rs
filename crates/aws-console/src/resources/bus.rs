@@ -18,6 +18,8 @@ use aws_wire::service::Caller;
 use axum::body::Bytes;
 use serde_json::Value;
 
+use crate::ring::Recorder;
+
 /// The access key the console's calls carry, and the caller Live shows them under.
 pub const CONSOLE: &str = "console";
 
@@ -38,6 +40,8 @@ pub fn is_console_request(request: &str) -> bool {
 pub struct Bus {
     peers: Arc<Peers>,
     caller: Caller,
+    /// Told which publish is in flight, so the deliveries SNS makes for it are counted ([`Recorder::publishing`]).
+    recorder: Option<Arc<Recorder>>,
 }
 
 impl Bus {
@@ -54,7 +58,15 @@ impl Bus {
                 service: None,
                 session_token: None,
             },
+            recorder: None,
         }
+    }
+
+    /// The same bus, telling `recorder` of each publish it makes while it is under way.
+    #[must_use]
+    pub fn recording(mut self, recorder: Arc<Recorder>) -> Self {
+        self.recorder = Some(recorder);
+        self
     }
 
     /// Who it calls as: the console, with the account's root rights.
@@ -105,6 +117,7 @@ impl Bus {
                 "{CONSOLE}-{}",
                 PUBLISHES.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
             );
+            let _publishing = self.recorder.as_deref().map(|r| r.publishing(&id));
             aws_peers::seen::within_request(&id, work).await
         } else {
             work.await

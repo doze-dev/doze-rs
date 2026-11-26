@@ -11,7 +11,7 @@ import { ApiFailure } from "@doze/ui/lib/api";
 import { PlusIcon } from "lucide-react";
 import { Field, FormPage, FormSection, RadioCards, RuleHelp, useServiceCrumbs } from "../../../kit";
 import { HTTP, useHttpApis, useRefreshReads, useRestApis, useRoutes } from "./api";
-import { type Backend, type Wizard, emptyBackend, emptyWizard, keyOfBackend, pathOf, wizardCalls, wizardProblem } from "./http-model";
+import { type Backend, type Wizard, emptyBackend, emptyWizard, keyOfBackend, pathOf, routeKeysWords, wizardCalls, wizardProblem } from "./http-model";
 import { IntegrationFields, RouteFields } from "./http-wizard-parts";
 import { useWhere } from "./parts";
 import { callKindOp } from "../../../kit";
@@ -127,7 +127,7 @@ export function HttpWizard() {
           </FormSection>
           <FormSection title="How routes match" testId="section-match">
             <RuleHelp>The console names each route after its Lambda function. <b>ANY</b> matches every method you have not defined for the path. A greedy variable such as <span className="font-mono">{"{proxy+}"}</span> catches all child paths, and must come last.</RuleHelp>
-            <RuleHelp>A request goes to the most specific match: a full route and method, then a greedy path, then the <span className="font-mono">$default</span> route.{other && otherRoutes.length > 0 ? <> {other.name} already has <span className="font-mono">{otherRoutes.slice(0, 2).map((r) => r.routeKey).join(" and ")}</span>; this new API is separate.</> : <> The new API is separate from any other in {where.region}.</>}</RuleHelp>
+            <RuleHelp>A request goes to the most specific match: a full route and method, then a greedy path, then the <span className="font-mono">$default</span> route.{other && otherRoutes.length > 0 ? <> {other.name} already has <span className="font-mono">{routeKeysWords(otherRoutes.map((r) => r.routeKey))}</span>; this new API is separate.</> : <> The new API is separate from any other in {where.region}.</>}</RuleHelp>
           </FormSection>
         </>
       )}

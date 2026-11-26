@@ -115,6 +115,17 @@ test("eventbridge__archive-create: a name, the bus, indefinite or days, a patter
   await submit(page);
   await expect(page.locator("h1").first()).toHaveText("orders-7d");
   expect(cli(["events", "describe-archive", "--archive-name", "orders-7d"])).toContain('"RetentionDays": 7');
+  // The archive's page says what was made and has the verbs of an archive: Replay opens Start replay on this archive, and Delete.
+  await expect(page.getByTestId("done-banner")).toContainText("Archive orders-7d created.");
+  await expect(page.getByTestId("verb-delete")).toBeVisible();
+  await expect(page.getByTestId("field-Retention (days)")).toContainText("7");
+  // Dates and sizes are said as the other pages say them, not as the service's raw numbers.
+  await expect(page.getByTestId("field-Created")).toContainText(/\d{4}-\d{2}-\d{2}/);
+  await expect(page.getByTestId("field-Size")).toContainText("0 B");
+  await shot(page, "eventbridge__archive-created");
+  await page.getByTestId("verb-replay").click();
+  await expect(page.locator("h1").first()).toHaveText("Start new replay");
+  await expect(page.getByTestId("field-archive")).toContainText("orders-7d");
 });
 
 test("eventbridge__replay-start: an archive, the bus it goes back to, the rules that receive it and a window of event time", async ({ page }) => {
@@ -144,7 +155,12 @@ test("eventbridge__replay-start: an archive, the bus it goes back to, the rules 
   await shot(page, "eventbridge__replay-start");
   await submit(page);
   await expect(page.locator("h1").first()).toHaveText("payments-redo");
+  await expect(page.getByTestId("done-banner")).toContainText("Replay payments-redo started.");
   await expect.poll(() => cli(["events", "describe-replay", "--replay-name", "payments-redo"]), { timeout: 15_000 }).toContain("COMPLETED");
+  // Cancel replay is a verb of a replay that is Starting or Running; this one is done, so its page has none.
+  await page.reload();
+  await expect(page.locator("h1").first()).toHaveText("payments-redo");
+  await expect(page.getByTestId("verb-cancel")).toHaveCount(0);
   // The same name is not started twice, and the archive keeps its events.
   expect(cli(["events", "describe-archive", "--archive-name", "payments-90d"])).toContain('"EventCount": 3');
 });
@@ -203,6 +219,8 @@ test("eventbridge__connection-create and api-destination-create: a connection ma
   await shot(page, "eventbridge__api-destination-create");
   await submit(page);
   await expect(page.locator("h1").first()).toHaveText("status-page");
+  await expect(page.getByTestId("done-banner")).toContainText("API destination status-page created.");
+  await expect(page.getByTestId("verb-delete")).toBeVisible();
   expect(cli(["events", "describe-api-destination", "--name", "status-page"])).toContain("ACTIVE");
   // A secret is never read back.
   expect(cli(["events", "describe-connection", "--name", "status-key"])).not.toContain("s3cret-value");

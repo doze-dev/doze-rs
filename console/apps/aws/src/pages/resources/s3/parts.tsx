@@ -5,6 +5,7 @@ import { ErrorBlock } from "@doze/ui/components/app/alert";
 import { PageHeader, type Crumb } from "@doze/ui/components/app/page-header";
 import { ResultBanner } from "@doze/ui/components/app/result-banner";
 import { Button } from "@doze/ui/components/ui/button";
+import { StatusDot } from "@doze/ui/components/app/status-dot";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { cn } from "@doze/ui/lib/utils";
 import { dismissFlash, type Flash, takeFlash } from "./flash";
@@ -26,9 +27,9 @@ export function ActionPage({ title, sub, crumbs, banner, actions, children, foot
   return (
     <div data-testid={testId}>
       <PageHeader title={title} sub={sub} crumbs={crumbs} actions={actions} mono={mono} />
-      {banner && <div className="mb-6 max-w-[62rem]">{banner}</div>}
-      <div className="grid max-w-[62rem] gap-6">{children}</div>
-      {footer && <div className="mt-6 flex max-w-[62rem] flex-wrap items-center justify-end gap-3 border-t pt-5">{footer}</div>}
+      {banner && <div className="mb-6">{banner}</div>}
+      <div className="grid gap-6">{children}</div>
+      {footer && <div className="mt-6 flex flex-wrap items-center justify-end gap-3 border-t pt-5">{footer}</div>}
     </div>
   );
 }
@@ -48,6 +49,9 @@ export function Rows({ rows, className, testId }: { rows: [string, React.ReactNo
     </dl>
   );
 }
+
+/** A setting that is on or off, as the boards draw it: a green dot and Enabled, or a ring and Disabled. */
+export const OnOff = ({ on }: { on: boolean }) => <StatusDot tone={on ? "ok" : "idle"}>{on ? "Enabled" : "Disabled"}</StatusDot>;
 
 export const Mono = ({ children }: { children: React.ReactNode }) => <span className="font-mono text-[13px]">{children}</span>;
 

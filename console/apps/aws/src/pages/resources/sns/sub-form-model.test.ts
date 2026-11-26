@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { changes, changeWords, confirmationOf, emptySubForm, formOfSubscription, problems, subscribeInput, type Subscription } from "./sub-form-model";
+import { changes, changeWords, confirmationOf, emptySubForm, filterBroken, formOfSubscription, problems, subscribeInput, type Subscription } from "./sub-form-model";
 
 const TOPIC = "arn:aws:sns:us-east-1:111122223333:orders-events.fifo";
 const sub = (over: Partial<Subscription> = {}): Subscription => ({ name: "n", arn: `${TOPIC}:abc`, topicArn: TOPIC, protocol: "sqs", endpoint: "arn:aws:sqs:us-east-1:111122223333:orders-events.fifo", pending: false, raw: false, filter: '{"event":["order_placed"]}', scope: "MessageAttributes", redrive: null, owner: "1", ...over });
@@ -33,4 +33,13 @@ test("an edit is one call for each setting changed, said in words", () => {
 test("the token is read out of a SubscribeURL", () => {
   expect(confirmationOf("http://127.0.0.1:4566/_aws/sns/confirm?Action=ConfirmSubscription&TopicArn=arn%3Aaws%3Asns%3Aus-east-1%3A1%3Aalerts&Token=abc123")).toEqual({ topicArn: "arn:aws:sns:us-east-1:1:alerts", token: "abc123" });
   expect(confirmationOf("nothing")).toBeNull();
+});
+
+test("a filter policy that is not JSON yet is no member of any call, and nothing is removed by it", () => {
+  const broken = '{ "event": ["a"';
+  expect(filterBroken({ filter: broken })).toBe(true);
+  expect(filterBroken({ filter: "" })).toBe(false);
+  expect(JSON.stringify(subscribeInput({ ...emptySubForm(TOPIC), endpoint: "arn:aws:sqs:us-east-1:111122223333:q", filter: broken }))).not.toContain("FilterPolicy");
+  const s = sub();
+  expect(changes({ ...formOfSubscription(s), filter: broken }, s)).toEqual([]);
 });

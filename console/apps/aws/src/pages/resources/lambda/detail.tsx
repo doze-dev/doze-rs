@@ -25,28 +25,13 @@ import { MonitorTab } from "./monitor-tab";
 import { AliasesTab, VersionsTab } from "./versions-tab";
 import { chipWords, madeSentence, sentenceOf, wiredOf } from "./model";
 import { TestTab } from "./test-tab";
+import { doneOf } from "./done-words";
 
 const Forms = lazy(() => import("./forms-page").then((m) => ({ default: m.FunctionForm })));
 
 const when = (v: string): string => {
   const ms = timeMs(v);
   return ms === null ? v : dateTimeUtc(ms);
-};
-
-/** What was just done, said as the board's banner: its title and what the call returned. */
-const DONE: Record<string, (name: string) => { title: string; returned: string }> = {
-  created: (n) => ({ title: `${n} was created.`, returned: "Its code is the Hello world example; change it here and choose Deploy." }),
-  deployed: (n) => ({ title: `The code of ${n} was deployed.`, returned: "UpdateFunctionCode replaced the package of $LATEST; published versions keep the code they had." }),
-  updated: (n) => ({ title: `The configuration of ${n} was saved.`, returned: "UpdateFunctionConfiguration changed what you changed; it applies to $LATEST." }),
-  env: (n) => ({ title: `The environment variables of ${n} were saved.`, returned: "UpdateFunctionConfiguration replaced the whole variables map." }),
-  "trigger-added": () => ({ title: "Trigger added.", returned: "CreateEventSourceMapping made a mapping; Lambda starts polling the queue." }),
-  "trigger-saved": () => ({ title: "Trigger saved.", returned: "UpdateEventSourceMapping changed the mapping." }),
-  "permission-added": () => ({ title: "Permission added.", returned: "AddPermission put one Allow statement in the resource-based policy." }),
-  "destination-saved": () => ({ title: "Destination saved.", returned: "The asynchronous invocation settings of the function were updated." }),
-  "url-created": () => ({ title: "A function URL was created for the $LATEST unpublished version.", returned: "The function URL appears in the Function URL section and under the function's name." }),
-  "alias-created": () => ({ title: "Alias created.", returned: "CreateAlias pointed the name at the version." }),
-  published: () => ({ title: "Version published.", returned: "PublishVersion made an immutable copy of $LATEST." }),
-  "layer-added": () => ({ title: "Layer added.", returned: "UpdateFunctionConfiguration set the function's layers." }),
 };
 
 export function FunctionDetail({ service, kind, name }: { service: string; kind: string; name: string }) {
@@ -87,14 +72,15 @@ function FunctionView({ d, updatedAt, fetching, refresh }: { d: ResourceDetail; 
   }, [d.calls]);
   if (search.view) return <Suspense fallback={<Skeleton className="h-96 rounded-[var(--radius-card)]" />}><Forms d={d} f={f} view={search.view} sel={search.sel} go={go} where={where} triggers={triggers} /></Suspense>;
   const tab = search.tab && TABS.some(([id]) => id === search.tab) ? search.tab : "code";
-  const done = search.done ? DONE[search.done]?.(d.name) : undefined;
+  const done = search.done ? doneOf(search.done, d.name) : undefined;
   const sentence = search.done === "created" ? madeSentence(d.name, f.roleName, triggers.length) : sentenceOf(f, triggers, lastRan);
   const wired = wiredOf(f, triggers);
   const shown: ResourceDetail = { ...d, sentence, wired };
   const clear = () => go({ tab: search.tab, p: search.p });
   const onVerb = (v: Verb) => {
     if (v.id === "trigger") go({ tab: "configuration", p: "triggers", view: "trigger-add" });
-    else if (v.id === "destination") go({ tab: "configuration", p: "triggers", view: "destination-add" });
+    // Opened from the header, so it is reached from, and returns to, the page it was chosen on (the crumbs say `send-email > Add destination`).
+    else if (v.id === "destination") go({ tab: search.tab, p: search.p, view: "destination-add" });
     else if (v.id === "delete") setDialog("delete");
   };
   const meta = <>Last modified {when(f.lastModified)}.{f.url ? <> Function URL: <span className="font-mono" data-testid="header-url">{f.url}</span></> : null}</>;

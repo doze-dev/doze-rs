@@ -110,16 +110,21 @@ export function TablesList({ search }: OwnProps) {
         </div>
       ) : (
         <>
-          <p className="mb-5 max-w-[62rem] text-[15px] leading-6 text-muted-foreground" data-testid="list-sentence">
-            <Emphasis text={listSentence(rows, region, one ?? null)} names={rows.map((r) => r.name)} bold={[/\d+ tables?/, /\d[\d,]* items?/]} />
-          </p>
+          {/* Just after a table was made the page says that and nothing else about the tables (the board's). */}
+          {!made && (
+            <p className="mb-5 max-w-[62rem] text-[15px] leading-6 text-muted-foreground" data-testid="list-sentence">
+              <Emphasis text={listSentence(rows, region, one ?? null)} names={rows.map((r) => r.name)} bold={[/\d+ tables?/, /\d[\d,]* items?/]} />
+            </p>
+          )}
           <SelectableTable
             aria-label="Tables"
             data={rows}
             columns={COLUMNS}
             rowId={(r) => r.name}
             selected={selected}
-            onSelectedChange={(s) => setSelected(s.size > 1 ? new Set([[...s].at(-1)!]) : s)}
+            single
+            hint="Choose a table to delete it."
+            onSelectedChange={setSelected}
             noun="table"
             maxHeight={620}
           />

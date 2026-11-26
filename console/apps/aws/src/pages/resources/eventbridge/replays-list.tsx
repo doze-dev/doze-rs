@@ -53,7 +53,7 @@ function Replays({ service, kind }: { service: string; kind: string }) {
     }
   };
   const columns: DataColumn<ReplayItem>[] = [
-    { id: "name", header: "Name", min: 130, accessorFn: (r) => r.ReplayName, cell: (c) => <ResourceTo to={{ service, kind, name: c.row.original.ReplayName }} className="font-mono text-[13px] font-medium" testId="row-link">{c.row.original.ReplayName}</ResourceTo> },
+    { id: "name", header: "Name", size: 230, min: 190, accessorFn: (r) => r.ReplayName, cell: (c) => <ResourceTo to={{ service, kind, name: c.row.original.ReplayName }} className="font-mono text-[13px] font-medium" testId="row-link">{c.row.original.ReplayName}</ResourceTo> },
     { id: "source", header: "Source", size: 130, accessorFn: (r) => arnName(r.EventSourceArn), cell: (c) => <ResourceTo to={{ service, kind: "archives", name: arnName(c.row.original.EventSourceArn) }} className="font-mono text-[13px]">{arnName(c.row.original.EventSourceArn)}</ResourceTo> },
     { id: "state", header: "State", size: 120, accessorFn: (r) => r.State ?? "", cell: (c) => <State state={c.row.original.State} /> },
     { id: "window", header: "Event window (UTC)", size: 300, min: 270, accessorFn: (r) => r.EventStartTime ?? 0, cell: (c) => windowWords(c.row.original.EventStartTime, c.row.original.EventEndTime) },
@@ -76,7 +76,7 @@ function Replays({ service, kind }: { service: string; kind: string }) {
         <div className="grid gap-3" data-testid="list-loading"><Skeleton className="h-9 w-80" /><Skeleton className="h-64 rounded-xl" /></div>
       ) : all.length === 0 ? (
         <div data-testid="list-empty">
-          <EmptyState icon={RotateCcwIcon} title="No replays" action={<Button onClick={() => go({ create: "yes" })}><PlusIcon /> Start replay</Button>}>A replay sends archived events back to a bus. Start one from an archive.</EmptyState>
+          <EmptyState icon={RotateCcwIcon} title="No replays" action={<Button variant="outline" className="bg-card" onClick={() => go({ create: "yes" })}><PlusIcon /> Start replay</Button>}>A replay sends archived events back to a bus. Start one from an archive.</EmptyState>
         </div>
       ) : (
         <>

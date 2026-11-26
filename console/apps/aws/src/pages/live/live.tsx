@@ -144,24 +144,25 @@ export function LivePage() {
 
   const columns = useMemo<DataColumn<Line>[]>(
     () => [
-      // The widths add up to what a 1440 px window leaves beside the rail, with the rest for Resource; in a narrower window the
-      // columns with a `min` give up width before the table scrolls (1024 px fits). The time is never cut; a
-      // long service title, operation or error code is, with the whole value on hover and in the drawer.
+      // The board's columns: Time, Caller, Operation, Resource, Result, Latency. The widths add up to what a 1440 px window leaves beside the rail,
+      // with the rest (about 246 px) for Resource (the time has room for a wider monospace face than the one the design was drawn in: on Linux it was 2 px short at 118); the result is wide enough for `REFUSED 400 InvalidParameterValue` whole. In a narrower window the
+      // columns with a `min` give up width before the table scrolls. The time is never cut; a long operation, resource or error code is, with the
+      // whole value on hover and in the drawer.
       {
         id: "time",
         header: "Time",
-        size: 122,
+        size: 132,
         enableSorting: false,
         accessorFn: (l) => clockMsUtc(l.call.at_ms),
         meta: { mono: true },
         cell: (c) => <span className={c.row.original.kind === "member" ? "pl-3 text-muted-foreground/80" : "text-muted-foreground"}>{c.getValue<string>()}</span>,
       },
-      { id: "service", header: "Service", size: 124, min: 96, enableSorting: false, accessorFn: (l) => serviceTitle(l.call.service, titles) ?? "", cell: (c) => c.getValue<string>() || dim },
+      { id: "caller", header: "Caller", size: 150, min: 110, enableSorting: false, accessorFn: (l) => callerOf(l.call), meta: { mono: true }, cell: (c) => <Caller call={c.row.original.call} titles={titles} names={names} /> },
       {
         id: "operation",
         header: "Operation",
-        size: 214,
-        min: 150,
+        size: 190,
+        min: 140,
         enableSorting: false,
         accessorFn: (l) => l.call.action ?? "",
         cell: (c) => {
@@ -191,7 +192,7 @@ export function LivePage() {
           );
         },
       },
-      { id: "resource", header: "Resource", enableSorting: false, accessorFn: (l) => resourceShown(l.call), meta: { mono: true }, cell: (c) => {
+      { id: "resource", header: "Resource", min: 200, enableSorting: false, accessorFn: (l) => resourceShown(l.call), meta: { mono: true }, cell: (c) => {
           const call = c.row.original.call;
           const href = resourceHref(call);
           if (!c.getValue<string>()) return dim;
@@ -208,8 +209,7 @@ export function LivePage() {
             </span>
           );
         } },
-      { id: "caller", header: "Caller", size: 186, min: 130, enableSorting: false, accessorFn: (l) => callerOf(l.call), meta: { mono: true }, cell: (c) => <Caller call={c.row.original.call} titles={titles} names={names} /> },
-      { id: "result", header: "Result", size: 320, min: 140, enableSorting: false, accessorFn: (l) => `${l.call.outcome} ${l.call.status}${l.call.error_code ? ` ${l.call.error_code}` : ""}`, cell: (c) => <Result call={c.row.original.call} /> },
+      { id: "result", header: "Result", size: 320, min: 200, enableSorting: false, accessorFn: (l) => `${l.call.outcome} ${l.call.status}${l.call.error_code ? ` ${l.call.error_code}` : ""}`, cell: (c) => <Result call={c.row.original.call} /> },
       { id: "latency", header: "Latency", size: 120, enableSorting: false, accessorFn: (l) => micros(l.call.duration_us), meta: { numeric: true, mono: true }, cell: (c) => {
           const lab = c.row.original.call.lab;
           const waited = lab?.effect.kind === "delayed" ? lab.effect.ms : 0;
@@ -343,6 +343,7 @@ export function LivePage() {
           )}
           {view !== "map" && (
             <>
+              <h2 className="mb-2 flex items-baseline gap-2 text-[15px] font-semibold text-bright" data-testid="wire-title">Wire <span className="text-[12.5px] font-normal text-muted-foreground">newest first</span></h2>
               <p className="mb-3 flex flex-wrap gap-x-6 gap-y-1 text-[12px] text-muted-foreground" data-testid="wire-legend">
                 <span><b className="font-bold tracking-[0.04em] text-refused">REFUSED</b> AWS itself would refuse the request</span>
                 <span><b className="font-bold tracking-[0.04em] text-warn">WOULD BE DENIED</b> AWS would deny this identity; soft IAM let it through</span>

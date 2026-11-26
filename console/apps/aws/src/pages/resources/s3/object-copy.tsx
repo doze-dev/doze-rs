@@ -14,14 +14,14 @@ import { useOpQuery } from "../deep/api";
 import { callOp } from "../deep/api";
 import type { OwnProps } from "../deep/registry";
 import { bucketOf, crumbs, NONE, useBucketNav, useSetting, useStale } from "./api";
-import { bpaOf, encryptionOf, ownershipOf, SSE_WORDS } from "./config";
+import { bpaOf, encryptionOf, notificationRules, ownershipOf, SSE_WORDS } from "./config";
 import { type SpecifyState, SpecifySettings } from "./copy-settings";
 import { aclChoices, sourceMetadata, specifyProps } from "./copy-props";
 import { RadioCards } from "./controls";
 import { setFlash } from "./flash";
 import { NO_SSE, sseOf } from "./upload-controls";
 import { Mono, Rows } from "./parts";
-import { baseName, copySource, s3Uri, shortDate, size } from "./words";
+import { baseName, copyNotifies, copySource, s3Uri, shortDate, size } from "./words";
 
 type Head = { ContentLength?: number; LastModified?: string | number; StorageClass?: string; ContentType?: string; CacheControl?: string; ContentDisposition?: string; ContentEncoding?: string; ContentLanguage?: string; Metadata?: Record<string, string> };
 const MODES = { copy: "Copy", move: "Move", rename: "Rename" } as const;
@@ -59,6 +59,7 @@ export function ObjectCopy({ name, search }: OwnProps) {
   const dv = useSetting<{ Status?: string }>(destBucket, "GetBucketVersioning", [], {}, known);
   const de = useSetting(destBucket, "GetBucketEncryption", NONE.encryption, {}, known);
   const dl = useSetting<{ ObjectLockConfiguration?: { ObjectLockEnabled?: string } }>(destBucket, "GetObjectLockConfiguration", NONE.lock, {}, known);
+  const dn = useSetting(destBucket, "GetBucketNotificationConfiguration", [], {}, known);
   const dow = useSetting(destBucket, "GetBucketOwnershipControls", NONE.ownership, {}, known);
   const dpa = useSetting(destBucket, "GetPublicAccessBlock", NONE.bpa, {}, known);
   // What the source has, as the settings start; what the person changed is laid over it.
@@ -105,11 +106,15 @@ export function ObjectCopy({ name, search }: OwnProps) {
         <DataTable aria-label="Source" data={[key]} rowId={(k) => k} columns={[{ id: "n", header: "Name", accessorFn: (k) => k, meta: { mono: true, wrap: true }, min: 200 }, { id: "m", header: "Last modified", size: 300, accessorFn: () => "", cell: () => shortDate(head.data?.LastModified) }, { id: "s", header: "Size", size: 110, meta: { numeric: true }, accessorFn: () => 0, cell: () => size(head.data?.ContentLength) }]} />
       </FormSection>
       <FormSection title="Destination">
-        <p className="text-[13px] text-muted-foreground">General purpose bucket. Directory buckets are an express-zone feature that doze-aws does not have, so this is the only destination type.</p>
+        <div className="grid gap-1" data-testid="destination-type">
+          <span className="text-[14px] font-medium text-bright">Destination type</span>
+          <span className="text-[14px] text-foreground">General purpose bucket</span>
+          <p className="text-[13px] text-muted-foreground">Not available in doze-aws: directory buckets are an express-zone feature, so this is the only destination type.</p>
+        </div>
         {mode === "rename" ? (
           <Field label="New name">{(id) => <Input id={id} value={newName} onChange={(e) => setNewName(e.target.value)} className="font-mono" data-testid="rename-name" />}</Field>
         ) : (
-          <Field label="Destination" error={parsed ? undefined : "Write it as s3://bucket/folder/."} hint="A copy is written as a new object, so a bucket that notifies on creation notifies again. Objects of less than 5 GB are copied.">
+          <Field label="Destination" testId="field-destination" error={parsed ? undefined : "Write it as s3://bucket/folder/."} hint={<>{known && destKey && !dn.isPending ? copyNotifies(destBucket, destKey, notificationRules(dn.data)) : "A copy is written as a new object, so a bucket that notifies on creation notifies again."} Copied objects do not keep the Object Lock settings of the original, and the console copies objects of less than 5 GB.</>}>
             {(id) => <div className="flex gap-2"><Input id={id} value={dest} onChange={(e) => setDest(e.target.value)} className="font-mono" spellCheck={false} data-testid="copy-dest" /><Button type="button" variant="outline" className="bg-card" onClick={() => setBrowse(true)} data-testid="browse-s3">Browse S3</Button></div>}
           </Field>
         )}

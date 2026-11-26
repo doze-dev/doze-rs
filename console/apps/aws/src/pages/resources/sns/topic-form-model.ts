@@ -46,6 +46,19 @@ export function defaultPolicy(name: string, region: string, account: string): st
   );
 }
 
+/** What the policy editor says of text that does not parse (its own help line says it; the form does not say it again). */
+export const NOT_JSON = "Not JSON: ";
+
+/** Whether the policy text is a JSON object: a policy that is not one is a problem of the form, and not what a call carries. */
+const isPolicy = (text: string): boolean => {
+  try {
+    const doc: unknown = JSON.parse(text);
+    return typeof doc === "object" && doc !== null && !Array.isArray(doc);
+  } catch {
+    return false;
+  }
+};
+
 const norm = (text: string): string => {
   try {
     return JSON.stringify(JSON.parse(text));
@@ -121,7 +134,7 @@ export function problems(f: TopicForm, create: boolean): Problems {
       const doc: unknown = JSON.parse(f.policy);
       if (typeof doc !== "object" || doc === null || Array.isArray(doc)) p.policy = "A policy is a JSON object.";
     } catch (e) {
-      p.policy = `Not JSON: ${(e as Error).message}`;
+      p.policy = `${NOT_JSON}${(e as Error).message}`;
     }
   }
   const r = f.retry;
@@ -162,7 +175,7 @@ export function createInput(f: TopicForm, region: string, account: string): Reco
   if (f.display.trim()) attrs.DisplayName = f.display.trim();
   if (Number(f.maxKib) * 1024 !== DEFAULT_MAX_SIZE && /^\d+$/.test(f.maxKib.trim())) attrs.MaximumMessageSize = String(Number(f.maxKib) * 1024);
   if (f.sse && f.kms.trim()) attrs.KmsMasterKeyId = f.kms.trim();
-  if (f.policy.trim() && norm(f.policy) !== norm(defaultPolicy(f.name, region, account))) attrs.Policy = norm(f.policy);
+  if (f.policy.trim() && isPolicy(f.policy) && norm(f.policy) !== norm(defaultPolicy(f.name, region, account))) attrs.Policy = norm(f.policy);
   if (!sameRetry(f.retry, DEFAULT_RETRY)) attrs.DeliveryPolicy = deliveryPolicy(f.retry);
   Object.assign(attrs, logAttrs(f));
   if (f.tracing) attrs.TracingConfig = "Active";
@@ -184,7 +197,7 @@ export function changes(f: TopicForm, t: Topic, region: string, account: string)
   const kms = f.sse ? f.kms.trim() : "";
   if (kms !== (t.kms ?? "")) set("KmsMasterKeyId", kms);
   const was = t.policy ?? defaultPolicy(t.name, region, account);
-  if (f.policy.trim() !== "" && norm(f.policy) !== norm(was)) set("Policy", norm(f.policy));
+  if (f.policy.trim() !== "" && isPolicy(f.policy) && norm(f.policy) !== norm(was)) set("Policy", norm(f.policy));
   if (!sameRetry(f.retry, retryOf(t.effective))) set("DeliveryPolicy", deliveryPolicy(f.retry));
   for (const l of LOGGED) {
     const g = f.logging[l];

@@ -3,11 +3,11 @@
 import type { Tone } from "@doze/ui/components/app/status-dot";
 
 const WORDS: Record<Tone, readonly string[]> = {
-  ok: ["active", "available", "complete", "completed", "delivered", "done", "enabled", "paid", "ready", "shipped", "succeeded", "success"],
+  ok: ["active", "available", "complete", "completed", "delivered", "done", "enabled", "paid", "ready", "succeeded", "success"],
   warn: ["created", "new", "open", "pending", "placed", "processing", "queued", "waiting"],
   bad: ["cancelled", "canceled", "declined", "error", "failed", "rejected", "refused"],
   idle: ["archived", "disabled", "expired", "inactive", "paused"],
-  info: [],
+  info: ["shipped"],
 };
 
 /** Whether the column holds a status. */

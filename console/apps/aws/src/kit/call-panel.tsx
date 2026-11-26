@@ -16,12 +16,29 @@ export type CallFormat = "json" | "outline";
 export type CallShape = { format?: CallFormat; service?: string; input?: unknown; /** How a list of plain values is drawn; see {@link listsOf}. */ lists?: ListStyle };
 
 /** A short list of plain values is drawn on one line (`"types": ["REGIONAL"]`) by every board but the Lambda boards', which put every list's
- * values on a line each. A list of objects is expanded in all of them. */
-export type ListStyle = "inline" | "expanded";
+ * values on a line each. A list of objects is expanded in all of them but the CloudFormation and Step Functions boards', which draw each small
+ * object on a line of its own (`{ "ParameterKey": "Stage", "ParameterValue": "prod" }`): `compact`. */
+export type ListStyle = "inline" | "expanded" | "compact";
 
 /** The services whose boards draw a call's lists expanded, even a list of one plain value (the Lambda boards: `"Architectures": [\n "x86_64"\n ]`). */
 const EXPANDED_LISTS = new Set(["lambda"]);
-export const listsOf = (service: string | undefined): ListStyle => (service && EXPANDED_LISTS.has(service) ? "expanded" : "inline");
+/** The services whose boards draw a list of small objects one object to a line (`stack-create-review`, `machine-tags-manage`). */
+const COMPACT_LISTS = new Set(["cloudformation", "stepfunctions"]);
+export const listsOf = (service: string | undefined): ListStyle => (service && EXPANDED_LISTS.has(service) ? "expanded" : service && COMPACT_LISTS.has(service) ? "compact" : "inline");
+
+/** The most characters a small object may take on its line in the `compact` style: a longer one is spread as any other. */
+const SMALL_OBJECT = 100;
+
+const scalar = (x: unknown): boolean => typeof x !== "object" || x === null;
+
+/** `{ "Key": "app", "Value": "larder" }` when `v` is a flat object that fits a line; else null. */
+function smallObject(v: unknown): string | null {
+  if (typeof v !== "object" || v === null || Array.isArray(v)) return null;
+  const e = Object.entries(v);
+  if (e.length === 0 || !e.every(([, x]) => scalar(x))) return null;
+  const line = `{ ${e.map(([k, x]) => `${JSON.stringify(k)}: ${JSON.stringify(x)}`).join(", ")} }`;
+  return line.length <= SMALL_OBJECT ? line : null;
+}
 
 /** The call as the panel draws it: the operation's name, then its input as `format` says. `input`: the operation's input as an SDK
  * takes it (a REST protocol's wire body is only some of its members); without it, the wire body less a query protocol's Action and
@@ -37,9 +54,13 @@ export function drawJson(v: unknown, indent = "", lists: ListStyle = "inline"): 
   const inner = indent + "  ";
   if (Array.isArray(v)) {
     if (v.length === 0) return "[]";
-    if (lists === "inline" && v.every((x) => typeof x !== "object" || x === null)) {
+    if (lists !== "expanded" && v.every(scalar)) {
       const flat = `[${v.map((x) => JSON.stringify(x)).join(", ")}]`;
       if (flat.length <= 48) return flat;
+    }
+    if (lists === "compact") {
+      const lines = v.map(smallObject);
+      if (lines.every((l) => l !== null)) return `[\n${lines.map((l) => inner + l).join(",\n")}\n${indent}]`;
     }
     return `[\n${v.map((x) => inner + drawJson(x, inner, lists)).join(",\n")}\n${indent}]`;
   }

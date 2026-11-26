@@ -103,7 +103,7 @@ export function MethodCreate({ api, apiName, resource, crumbs, onClose }: { api:
           </div>
         )}
         {lambda && (
-          <Field label="Lambda function" error={tried && !f.fn ? "Choose the Lambda function." : undefined} hint={<>The function&apos;s name, in {where.region}.{sentence && <> <Emphasis text={sentence} names={[f.fn ?? ""]} /></>} API Gateway must be allowed to invoke it, through its resource policy or an IAM role.</>}>
+          <Field label="Lambda function" error={tried && !f.fn ? "Choose the Lambda function." : undefined} hint={<>The function&apos;s name, in {where.region}.{sentence && <> <Emphasis text={sentence} names={[f.fn ?? ""]} /></>} On AWS, API Gateway must be allowed to invoke it. doze-aws does not check that permission.</>}>
             {(id) => <FunctionPicker id={id} by="name" value={f.fn} onChange={(fn) => set({ fn })} />}
           </Field>
         )}

@@ -23,6 +23,7 @@ import { TYPE_WORDS } from "./model";
 import { Ask, crumbs, Said, tableTarget, useTable, useTableNav } from "./parts";
 import { type Form, request, START, sourcesOf } from "./request";
 import { isStatusColumn, statusTone } from "./status";
+import { matchedWords } from "./filter-words";
 
 const PAGE = 50;
 /** The most attribute columns shown beside the keys; the rest are in an item's JSON. */
@@ -109,7 +110,7 @@ export function Explore({ name, search }: OwnProps) {
   const count = items.data?.Count ?? rows.length;
   const scanned = items.data?.ScannedCount ?? 0;
   const pkWords = ran.mode === "query" && ran.pk ? `${(ranSource?.keys[0]?.name ?? "").replace(/_id$/, "")} ${ran.pk}` : "";
-  const lede = !items.data ? undefined : ran.mode === "query" ? (count === 0 ? `Nothing the query found for ${pkWords}.` : `Everything the query found for ${pkWords}${items.data.LastEvaluatedKey ? " so far" : ""}.`) : ran.filter ? `Scanned ${number(scanned)} ${scanned === 1 ? "item" : "items"}; ${count} ${count === 1 ? "matches" : "match"} the filter.` : count === 0 ? "Nothing the scan found." : `Everything the scan read${items.data.LastEvaluatedKey ? " so far" : ""}.`;
+  const lede = !items.data ? undefined : ran.mode === "query" ? (count === 0 ? `Nothing the query found for ${pkWords}.` : `Everything the query found for ${pkWords}${items.data.LastEvaluatedKey ? " so far" : ""}.`) : ran.filter ? `Scanned ${number(scanned)} ${scanned === 1 ? "item" : "items"}; ${matchedWords(count, ran.filter, ran.names, ran.values)}.` : count === 0 ? "Nothing the scan found." : `Everything the scan read${items.data.LastEvaluatedKey ? " so far" : ""}.`;
   const gone = search.dialog === "item-deleted";
   const banner = search.dialog === "item-saved" ? "Item saved." : search.dialog === "item-created" ? "Item created." : null;
   return (
@@ -138,7 +139,8 @@ export function Explore({ name, search }: OwnProps) {
             columns={columns}
             rowId={id}
             selected={selected}
-            onSelectedChange={(s) => setSelected(s.size > 1 ? new Set([[...s].at(-1)!]) : s)}
+            single
+            onSelectedChange={setSelected}
             noun="item"
             maxHeight={560}
             empty={items.isFetching ? "Reading…" : ""}

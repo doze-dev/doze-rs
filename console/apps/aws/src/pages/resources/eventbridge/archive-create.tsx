@@ -41,7 +41,7 @@ export function ArchiveCreate({ bus }: { bus?: string }) {
       onCancel={() => void navigate({ to: "/resources/$service/$second", params: { service: "eventbridge", second: "archives" }, search: {} })}
       onSubmit={() => {
         setTried(true);
-        if (!problem) make.mutate(input as never, { onSuccess: () => void navigate({ to: "/resources/$service/$kind/$name", params: { service: "eventbridge", kind: "archives", name: f.name }, search: {} }) });
+        if (!problem) make.mutate(input as never, { onSuccess: () => void navigate({ to: "/resources/$service/$kind/$name", params: { service: "eventbridge", kind: "archives", name: f.name }, search: { done: "created" } }) });
       }}
       testId="archive-create"
     >

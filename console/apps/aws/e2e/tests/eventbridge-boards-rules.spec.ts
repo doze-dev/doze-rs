@@ -107,7 +107,13 @@ test("eventbridge__rule-create: Create rule's five steps, each reached in turn, 
   await pick(page, /Choose a topic/, "orders-created");
   await expect(page.getByTestId("arn-1")).toContainText(`arn:aws:sns:us-east-1:${server.account}:orders-created`);
   await expect(page.getByTestId("fanout-1")).toContainText("orders-created already fans out to");
-  await page.getByTestId("input-0-transformer").click();
+  // The input is one select, with a sentence naming the choices it is not on; Input transformer brings the button that opens the dialog, and the
+  // Execution role paragraph says why that section is not drawn.
+  await expect(page.getByTestId("execution-role-1")).toContainText("doze-aws assumes no role, so that section is not drawn.");
+  await expect(page.getByTestId("input-choices-1")).toContainText("The other choices are Part of the matched events (a JSON path), Constant (JSON text) and Input transformer (a template filled from the event).");
+  await expect(page.getByTestId("transformer-open-1")).toHaveCount(0);
+  await page.getByTestId("input-mode-1").click();
+  await page.getByRole("option", { name: "Input transformer" }).click();
   await page.getByTestId("transformer-open-1").click();
   const dialog = page.getByTestId("transformer-dialog");
   await dialog.getByTestId("transformer-generate").click();
@@ -181,7 +187,13 @@ test("eventbridge__rule-create-schedule: a scheduled rule on the default bus, it
   await expect(page.getByTestId("section-detail")).toContainText("Enable the scheduled rule");
   await page.getByTestId("rule-name").fill("nightly-report");
   await expect(page.getByTestId("section-detail")).toContainText("nightly-export is already on default.");
-  await page.getByTestId("schedule-mode-cron").click();
+  // It opens on the cron form, as the board draws it: six fields in two rows of three, and the dates down the columns (the sixth is in the first column).
+  await expect(page.getByTestId("cron-fields")).toBeVisible();
+  const grid = await page.getByTestId("cron-grid").evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(" ").length);
+  expect(grid).toBe(3);
+  const at = await page.getByTestId("run-list").locator("li").evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().left)));
+  expect(new Set(at.slice(0, 5)).size).toBe(1);
+  expect(at[5]).toBeGreaterThan(at[0]!);
   await page.getByTestId("cron-minutes").fill("0");
   await page.getByTestId("cron-hours").fill("18");
   await page.getByTestId("cron-dom").fill("?");
@@ -229,7 +241,7 @@ test("eventbridge__rule-delete: RemoveTargets, then DeleteRule, each as the call
   await expect(dialog.getByTestId("delete-calls")).toContainText("RemoveTargets");
   await expect(dialog.getByTestId("delete-calls")).toContainText('"Ids"');
   await expect(dialog.getByTestId("delete-calls")).toContainText("DeleteRule");
-  await expect(dialog.getByTestId("delete-calls")).toContainText("The API reference says a rule's targets must be removed before the rule can be deleted, which is why the calls go in this order. orders-created is not touched.");
+  await expect(dialog.getByTestId("delete-calls")).toContainText("The API reference says a rule's targets must be removed before the rule can be deleted, which is why the calls go in this order. The orders-created topic and its subscriptions are not touched.");
   await shot(page, "eventbridge__rule-delete");
   await page.getByTestId("rule-delete-submit").click();
   await expect(page.getByTestId("deleted-banner")).toContainText("Rule deleted.");

@@ -13,7 +13,7 @@ import { useResourceList } from "../../../api/resources";
 import { GROUPS, useEach, useRefresh } from "./api";
 import { GroupCreate } from "./group-create";
 import { CreatedBanner, GoneBanner, ListError, ListLoading, PageLine, SearchBox, useToList } from "./list-parts";
-import { crumbs, Say, To } from "./parts";
+import { KINDS, listCrumbs, Say, To } from "./parts";
 import { groupsSentence } from "./sentences";
 import { useGroupPolicies } from "./user-data";
 
@@ -55,7 +55,7 @@ function Groups({ gone, created }: { gone?: string; created?: string }) {
     <>
       <PageHeader
         title="User groups"
-        crumbs={crumbs()}
+        crumbs={listCrumbs(KINDS.groups)}
         sub="A group manages the permissions of several users with similar roles. Policies attached to the group apply to every member."
         refresh={<RefreshControl updatedAt={list.dataUpdatedAt} fetching={list.isFetching} onRefresh={refresh} interval={false} />}
         actions={<Button onClick={create} data-testid="create-open"><PlusIcon /> Create group</Button>}

@@ -25,6 +25,7 @@ import { EventsTab } from "./tab-events";
 import { InfoTab } from "./tab-info";
 import { OutputsTab, ParametersTab, ResourcesTab } from "./tab-lists";
 import { TemplateTab } from "./tab-template";
+import { inTemplateOrder, resourceOrder } from "./template-order";
 
 const UPDATABLE = ["CREATE_COMPLETE", "UPDATE_COMPLETE", "UPDATE_ROLLBACK_COMPLETE", "IMPORT_COMPLETE", "IMPORT_ROLLBACK_COMPLETE"];
 const verb = (id: string, label: string, danger = false): Verb => ({ id, label, danger, op: null, needs: null });
@@ -62,7 +63,8 @@ function StackView({ d, updatedAt, fetching, refetch }: { d: ResourceDetail; upd
   const events = useEvents(nm, undefined, status === "ROLLBACK_COMPLETE");
   const exportNames = (stack?.Outputs ?? []).flatMap((o) => (o.ExportName ? [o.ExportName] : []));
   const importers = useImporters(exportNames);
-  const template = useTemplate(nm, "Original", deleting || asked === "resources");
+  // Read for the order the stack's resources are listed in (the strip), for the ones its delete keeps, and for the Template tab.
+  const template = useTemplate(nm, "Original");
   const del = useDelete(d.service, d.kind, exportNames);
   const view = status === "REVIEW_IN_PROGRESS" ? "review" : status === "ROLLBACK_COMPLETE" ? "rolled" : search.done === "updated" && status === "UPDATE_COMPLETE" ? "updated" : "tabs";
   const sets = useCfnRead<{ Summaries?: ChangeSetRow[] }>("ListChangeSets", { StackName: nm });
@@ -93,7 +95,7 @@ function StackView({ d, updatedAt, fetching, refetch }: { d: ResourceDetail; upd
   const verbs = view === "rolled" ? [verb("delete", "Delete", true)] : view === "review" ? (reviewSet ? [verb("execute", "Execute change set"), verb("dropset", "Delete change set", true)] : [verb("delete", "Delete", true)]) : [verb("update", "Update"), verb("delete", "Delete", true)];
   const shown: ResourceDetail = { ...d, badges: [statusBadge(status)], sentence: null, wired: [], verbs };
   const said = stackSaid({ name: nm, status, reason: stack.StackStatusReason, created: stack.CreationTime ? at(stack.CreationTime) : null, updated: stack.LastUpdatedTime ? at(stack.LastUpdatedTime) : null, resources: rows, exports: exportNames, importers: importers.data ?? {}, failed: null });
-  const owned = rows.filter((r) => r.ResourceStatus !== "DELETE_COMPLETE");
+  const owned = inTemplateOrder(rows.filter((r) => r.ResourceStatus !== "DELETE_COMPLETE"), resourceOrder(templateText(template.data?.TemplateBody)));
   const strip = owned.length > 0 && (
     <FlowStrip groups={[{ label: "Owns", chips: [{ label: nm, self: true }] }, { chips: owned.map((r) => ({ label: resourceTarget(r)?.name ?? r.LogicalResourceId, to: resourceTarget(r) ?? undefined, title: `${r.LogicalResourceId} (${r.ResourceType})` })) }]} />
   );

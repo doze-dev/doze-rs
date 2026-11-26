@@ -5,6 +5,7 @@ import { ChevronRightIcon } from "lucide-react";
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { cn } from "@doze/ui/lib/utils";
+import { Soft } from "../../../kit/soft";
 import { clock, day, type Zone } from "./range";
 
 export type LogEvent = { timestamp?: number; message?: string; logStreamName?: string; eventId?: string; ingestionTime?: number };
@@ -58,7 +59,7 @@ function Row({ e, group, wrap, withStream, zone }: { e: LogEvent; group: string;
           </td>
         )}
         <td className={cn("py-2 pr-4 font-mono text-[13px] leading-5 text-bright", wrap ? "break-words whitespace-pre-wrap" : "max-w-0 truncate whitespace-pre")} data-testid="log-message">
-          {message}
+          {wrap ? <Soft text={message} /> : message}
         </td>
       </tr>
       {open && (
