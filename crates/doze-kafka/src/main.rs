@@ -40,6 +40,10 @@ fn parse() -> (cli::Args, run::Flags) {
 }
 
 fn main() -> std::process::ExitCode {
+    // A flush on macOS is fsync(2), not F_FULLFSYNC: it keeps a write through a crash of the broker or of macOS and does not
+    // empty the drive's cache for every program on the machine once per acks=all produce. A power cut can lose what the
+    // drive had not yet written (weight.md, "A flush per produce on macOS"; the owner's call, 2026-11-26).
+    kafka_storage::fs::full_flush(false);
     // Started by doze as its kafka module (`kafka-plugin`), or as `doze-kafka module`: docs/port/phase11.md.
     #[cfg(feature = "module")]
     if module::invoked() {

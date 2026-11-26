@@ -88,7 +88,7 @@ impl MetaStore {
     /// [`MetaStore::commit_offsets`], except that when every offset is already stored as it is (offset, epoch and
     /// metadata), committed less than `within_ms` before, nothing is written and each keeps its earlier commit time.
     /// Java's consumer commits every position it holds every five seconds whether it moved or not, and each write is a
-    /// flush of the database (`F_FULLFSYNC` on macOS): a quiet app cost one every five seconds for nothing. The caller
+    /// flush of the database: a quiet app cost one every five seconds for nothing. The caller
     /// picks `within_ms` well under how long offsets are kept, since a commit time that lags is one that expires sooner.
     ///
     /// # Errors

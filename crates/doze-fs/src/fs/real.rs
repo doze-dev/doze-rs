@@ -3,9 +3,67 @@
 use std::fs::{File, OpenOptions};
 use std::io;
 use std::path::Path;
+#[cfg(target_vendor = "apple")]
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::UNIX_EPOCH;
 
 use super::{DirEntry, Fs, FsFile};
+
+/// Whether a flush on macOS empties the drive's own write cache too (`F_FULLFSYNC`, what std's `sync_data` and `sync_all`
+/// do there), or only hands the data to the drive (`fsync(2)`).
+#[cfg(target_vendor = "apple")]
+static FULL_FLUSH: AtomicBool = AtomicBool::new(true);
+
+/// How a flush on macOS ends: `true` (the default) waits for the drive to empty its write cache (`F_FULLFSYNC`); `false`
+/// stops once the drive has the data (`fsync(2)`). Both keep what was flushed through a crash of the program or of macOS;
+/// only a power cut can lose what was in the drive's cache with `false`. `F_FULLFSYNC` takes milliseconds and empties the
+/// cache for every program on the machine, so a broker that flushes per request (doze-kafka's acks=all) asks for `false`
+/// at start. Elsewhere this does nothing: Linux's `fsync` is already the whole flush.
+pub fn full_flush(on: bool) {
+    #[cfg(target_vendor = "apple")]
+    FULL_FLUSH.store(on, Ordering::Relaxed);
+    #[cfg(not(target_vendor = "apple"))]
+    let _ = on;
+}
+
+/// Flushes `file`'s data (`sync_data`), or on macOS as [`full_flush`] says.
+fn flush(file: &File) -> io::Result<()> {
+    if plain() {
+        return plain_fsync(file);
+    }
+    file.sync_data()
+}
+
+/// Flushes a directory's entries (`sync_all`), or on macOS as [`full_flush`] says.
+#[cfg(unix)]
+fn flush_dir(dir: &File) -> io::Result<()> {
+    if plain() {
+        return plain_fsync(dir);
+    }
+    dir.sync_all()
+}
+
+/// Whether a flush stops once the drive has the data (macOS, [`full_flush`] off).
+fn plain() -> bool {
+    #[cfg(target_vendor = "apple")]
+    {
+        !FULL_FLUSH.load(Ordering::Relaxed)
+    }
+    #[cfg(not(target_vendor = "apple"))]
+    {
+        false
+    }
+}
+
+#[cfg(target_vendor = "apple")]
+fn plain_fsync(file: &File) -> io::Result<()> {
+    rustix::fs::fsync(file).map_err(io::Error::from)
+}
+
+#[cfg(not(target_vendor = "apple"))]
+fn plain_fsync(file: &File) -> io::Result<()> {
+    file.sync_data()
+}
 
 /// The operating system's files.
 #[derive(Debug, Clone, Copy, Default)]
@@ -84,7 +142,7 @@ impl Fs for RealFs {
 
     #[cfg(unix)]
     fn sync_dir(&self, path: &Path) -> io::Result<()> {
-        File::open(path)?.sync_all()
+        flush_dir(&File::open(path)?)
     }
 
     #[cfg(not(unix))]
@@ -178,7 +236,7 @@ impl FsFile for RealFile {
     }
 
     fn sync_data(&self) -> io::Result<()> {
-        self.0.sync_data()
+        flush(&self.0)
     }
 
     fn modified_ms(&self) -> io::Result<i64> {
