@@ -326,6 +326,45 @@ fn a_stopped_stacks_names_keep_resolving_until_it_is_back() {
 }
 
 #[test]
+fn a_stack_with_twins_comes_back_at_its_own_address() {
+    // A twin (`sync-aws.shop.doze` beside `aws.shop.doze`) is parked at the primary's address; the primary coming back
+    // must not see it as taken and probe to another slot.
+    let h = home();
+    let daemon = Other::spawn();
+    let mut r = reg(&h, "doze");
+    r.pid = daemon.pid();
+    let aws = r.claim(&Name::qualified("aws", "shop")).unwrap();
+    aws.twin(&Name::qualified("sync-aws", "shop")).unwrap();
+    assert_eq!(r.park().unwrap(), 2);
+    drop(daemon);
+
+    let back = reg(&h, "doze");
+    let again = back.claim(&Name::qualified("aws", "shop")).unwrap();
+    assert_eq!(again.ip, aws.ip, "the stack moved");
+    assert_eq!(
+        back.resolve("sync-aws.shop.doze"),
+        Some(aws.ip),
+        "its parked twin stays beside it until claimed again"
+    );
+    let twin = again.twin(&Name::qualified("sync-aws", "shop")).unwrap();
+    assert_eq!(twin.ip, aws.ip);
+    // The twin claimed first does not move the primary either.
+    let h = home();
+    let daemon = Other::spawn();
+    let mut r = reg(&h, "doze");
+    r.pid = daemon.pid();
+    let aws = r.claim(&Name::qualified("aws", "shop")).unwrap();
+    aws.twin(&Name::qualified("sync-aws", "shop")).unwrap();
+    r.park().unwrap();
+    drop(daemon);
+    let back = reg(&h, "doze");
+    back.claim_at(&Name::qualified("sync-aws", "shop"), aws.ip)
+        .unwrap();
+    let again = back.claim(&Name::qualified("aws", "shop")).unwrap();
+    assert_eq!(again.ip, aws.ip);
+}
+
+#[test]
 fn a_parked_name_yields_to_any_claim_and_expires() {
     let h = home();
     let ips = stopped_stack(&h, &["db", "web"]);

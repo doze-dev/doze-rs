@@ -7,7 +7,7 @@
 
 #![allow(clippy::unwrap_used, clippy::indexing_slicing, clippy::print_stdout)]
 
-use doze_names::nat::{PortTable, Sum, translate_with};
+use doze_names::nat::{PortTable, translate};
 use std::hint::black_box;
 use std::time::Instant;
 
@@ -36,7 +36,7 @@ fn packet(len: usize) -> Vec<u8> {
     let mut q = p.clone();
     q[12..16].copy_from_slice(&GW);
     q[16..20].copy_from_slice(&DB);
-    assert!(translate_with(&mut q, GW, &t, Sum::Whole));
+    assert!(translate(&mut q, GW, &t));
     // q is now DB -> GW with valid sums; swapping the addresses leaves both sums valid.
     q[12..16].copy_from_slice(&GW);
     q[16..20].copy_from_slice(&DB);
@@ -60,29 +60,22 @@ fn per_second(len: usize, n: u32, mut f: impl FnMut(&mut [u8], &[u8])) -> f64 {
 fn main() {
     let mut table = PortTable::default();
     table.add(DB, 5432, 51000);
-    println!(
-        "{:>8}  {:>14}  {:>14}  {:>14}",
-        "packet", "copy only", "whole sum", "adjusted sum"
-    );
+    println!("{:>8}  {:>14}  {:>14}", "packet", "copy only", "translated");
     for (len, n) in [
         (64usize, 20_000_000u32),
         (1500, 4_000_000),
         (16384, 400_000),
     ] {
         let copy = per_second(len, n, |b, s| b.copy_from_slice(s));
-        let run = |sum: Sum| {
-            per_second(len, n, |b, s| {
-                b.copy_from_slice(s);
-                assert!(translate_with(b, GW, &table, sum));
-            })
-        };
-        let (whole, adjusted) = (run(Sum::Whole), run(Sum::Adjust));
+        let translated = per_second(len, n, |b, s| {
+            b.copy_from_slice(s);
+            assert!(translate(b, GW, &table));
+        });
         println!(
-            "{:>6} B  {:>11.2} M/s  {:>11.2} M/s  {:>11.2} M/s",
+            "{:>6} B  {:>11.2} M/s  {:>11.2} M/s",
             len,
             copy / 1e6,
-            whole / 1e6,
-            adjusted / 1e6
+            translated / 1e6
         );
     }
 }

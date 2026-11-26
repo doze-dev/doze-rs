@@ -166,6 +166,43 @@ fn the_table_follows_a_service_that_restarted() {
 }
 
 #[test]
+fn a_new_connection_to_a_service_that_died_without_writing_is_refused() {
+    // The service's process, as another process: it registers a port and is killed (nothing written).
+    let mut child = std::process::Command::new(if cfg!(windows) { "ping" } else { "sleep" })
+        .args(if cfg!(windows) {
+            vec!["-n", "60", "127.0.0.1"]
+        } else {
+            vec!["60"]
+        })
+        .spawn()
+        .unwrap();
+    let mut r = reg(TRANSLATED);
+    r.pid = child.id();
+    let lease = r.claim(&Name::qualified("db", "shop")).unwrap();
+    let v = lease.ip.octets();
+    lease.forward(5432, 51885).unwrap();
+    let c = TableCache::new(r.path(), TRANSLATED);
+    c.check_connection(v);
+    assert_eq!(c.current().private(v, 5432), Some(51885), "alive: kept");
+    assert_eq!(c.current().owner(v), Some(child.id()));
+    child.kill().unwrap();
+    child.wait().unwrap();
+    let before = c.generation();
+    c.check_connection([127, 0, 9, 9]);
+    assert_eq!(
+        c.generation(),
+        before,
+        "an address nobody owns costs no rebuild"
+    );
+    c.check_connection(v);
+    assert_eq!(
+        c.current().private(v, 5432),
+        None,
+        "the dead service's port is still translated"
+    );
+}
+
+#[test]
 fn the_table_follows_the_files_without_a_ticker() {
     let r = reg(TRANSLATED);
     let lease = r.claim(&Name::qualified("db", "shop")).unwrap();

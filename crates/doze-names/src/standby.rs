@@ -43,41 +43,50 @@ impl Standby {
 
     /// Waits until it is worth trying the bind again; `true` when asked to stop instead.
     pub(crate) async fn wait(&mut self, stop: &mut watch::Receiver<bool>) -> bool {
-        let wait = if self.soon > 0 {
+        let wait = self.next_wait();
+        tokio::select! {
+            _ = stop.changed() => true,
+            () = tokio::time::sleep(wait) => false,
+            () = changed(&mut self.changes) => {
+                // A change: try soon, a few times. The watcher ending instead: try now, then on the short timer.
+                if self.changes.is_some() {
+                    self.soon = SOON_TRIES;
+                }
+                false
+            }
+        }
+    }
+
+    fn next_wait(&mut self) -> Duration {
+        if self.soon > 0 {
             self.soon -= 1;
             SOON
         } else if self.changes.is_some() {
             STANDBY
         } else {
             RETRY
-        };
-        tokio::select! {
-            _ = stop.changed() => true,
-            () = tokio::time::sleep(wait) => false,
-            () = changed(&mut self.changes) => {
-                self.soon = SOON_TRIES;
-                false
-            }
         }
     }
 }
 
+/// Returns at the next change, or at once when the watcher has ended (and then forgets it, so the waiter goes back
+/// to [`RETRY`]); never, when there is no watcher.
 async fn changed(rx: &mut Option<watch::Receiver<u64>>) {
-    // A watcher that ended (it never does while its folder exists) leaves the timer to do the work.
-    let ended = match rx {
-        Some(r) => r.changed().await.is_err(),
-        None => true,
+    let Some(r) = rx else {
+        return std::future::pending().await;
     };
-    if ended {
+    if r.changed().await.is_err() {
         *rx = None;
-        std::future::pending::<()>().await;
     }
 }
+
+/// The receivers of every watched folder in this process. The relay thread holds the only sender, so a watcher that
+/// fails closes the channel and every waiter hears it.
+static WATCHED: OnceLock<Mutex<BTreeMap<PathBuf, watch::Receiver<u64>>>> = OnceLock::new();
 
 /// The changes to `dir`, from one thread per folder per process that waits on it (and never wakes while nothing is
 /// written). `None` where the system cannot say, or the folder cannot be watched.
 fn changes(dir: &Path) -> Option<watch::Receiver<u64>> {
-    static WATCHED: OnceLock<Mutex<BTreeMap<PathBuf, watch::Sender<u64>>>> = OnceLock::new();
     if !Watch::notifies() {
         return None;
     }
@@ -85,26 +94,32 @@ fn changes(dir: &Path) -> Option<watch::Receiver<u64>> {
         .get_or_init(Mutex::default)
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
-    if let Some(tx) = all.get(dir) {
-        return Some(tx.subscribe());
+    // A folder whose watcher ended is watched afresh.
+    if let Some(rx) = all.get(dir).filter(|rx| rx.has_changed().is_ok()) {
+        return Some(rx.clone());
     }
     let mut w = Watch::dir(dir).ok()?;
+    let rx = relay(move || w.wait(Duration::from_secs(24 * 3600)))?;
+    all.insert(dir.to_path_buf(), rx.clone());
+    Some(rx)
+}
+
+/// A thread that calls `wait` until it fails, counting the changes it reports. When it fails the thread ends and the
+/// sender with it, which closes the channel.
+fn relay(
+    mut wait: impl FnMut() -> std::io::Result<bool> + Send + 'static,
+) -> Option<watch::Receiver<u64>> {
     let (tx, rx) = watch::channel(0u64);
-    let sender = tx.clone();
     std::thread::Builder::new()
         .name("doze-names-watch".into())
         .spawn(move || {
-            loop {
-                match w.wait(Duration::from_secs(24 * 3600)) {
-                    Ok(true) => sender.send_modify(|n| *n = n.wrapping_add(1)),
-                    Ok(false) => {}
-                    // Nothing to wait on: the waiters fall back to their timer.
-                    Err(_) => return,
+            while let Ok(changed) = wait() {
+                if changed {
+                    tx.send_modify(|n| *n = n.wrapping_add(1));
                 }
             }
         })
         .ok()?;
-    all.insert(dir.to_path_buf(), tx);
     Some(rx)
 }
 
@@ -144,5 +159,35 @@ mod tests {
         let (tx, mut stop) = watch::channel(false);
         tx.send(true).unwrap();
         assert!(s.wait(&mut stop).await);
+    }
+
+    #[tokio::test]
+    async fn a_watcher_that_fails_sends_the_waiters_back_to_the_short_timer() {
+        let mut calls = 0;
+        let rx = relay(move || {
+            calls += 1;
+            if calls < 3 {
+                Ok(true)
+            } else {
+                Err(std::io::Error::other("the folder's watch went away"))
+            }
+        })
+        .unwrap();
+        let mut s = Standby {
+            changes: Some(rx),
+            soon: 0,
+        };
+        let (_tx, mut stop) = watch::channel(false);
+        let t = std::time::Instant::now();
+        // Whatever changes were reported first, the end is heard, not waited out on the 10 s timer.
+        while s.changes.is_some() {
+            assert!(!s.wait(&mut stop).await);
+            assert!(
+                t.elapsed() < Duration::from_secs(3),
+                "the end was never heard"
+            );
+        }
+        s.soon = 0;
+        assert_eq!(s.next_wait(), RETRY);
     }
 }

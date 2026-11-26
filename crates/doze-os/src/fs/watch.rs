@@ -188,26 +188,35 @@ mod tests {
         if !Watch::notifies() {
             return;
         }
-        // Written while nobody waits: the next wait still sees it, at once.
+        // Made while nobody waits: the next wait still sees it, at once. That wake is the temporary file's.
         std::fs::write(d.join("names.json.tmp"), "{\"a\":1}").unwrap();
-        std::fs::rename(d.join("names.json.tmp"), d.join("names.json")).unwrap();
         let t = Instant::now();
         assert!(w.wait(Duration::from_secs(5)).unwrap());
         assert!(t.elapsed() < Duration::from_secs(1));
-        // And from another thread while it waits.
+        assert!(
+            !w.wait(Duration::from_millis(50)).unwrap(),
+            "the temporary file's change was not consumed"
+        );
+        // The rename over the watched name alone, from another thread while it waits: a wake of its own.
         let d2 = d.clone();
         let writer = std::thread::spawn(move || {
             std::thread::sleep(Duration::from_millis(100));
-            std::fs::write(d2.join("names.ports.json.tmp"), "{}").unwrap();
-            std::fs::rename(d2.join("names.ports.json.tmp"), d2.join("names.ports.json")).unwrap();
+            std::fs::rename(d2.join("names.json.tmp"), d2.join("names.json")).unwrap();
         });
         let t = Instant::now();
-        assert!(w.wait(Duration::from_secs(5)).unwrap());
+        assert!(
+            w.wait(Duration::from_secs(5)).unwrap(),
+            "the rename never woke it"
+        );
         assert!(
             t.elapsed() < Duration::from_secs(2),
-            "woken by the change, not the time"
+            "woken by the rename, not the time"
         );
         writer.join().unwrap();
+        assert_eq!(
+            std::fs::read_to_string(d.join("names.json")).unwrap(),
+            "{\"a\":1}"
+        );
         let _ = std::fs::remove_dir_all(&d);
     }
 

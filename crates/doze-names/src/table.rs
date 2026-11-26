@@ -57,6 +57,9 @@ pub fn read_port_table(path: &Path, net: Net) -> PortTable {
             ports.extend(s.ports.iter().map(|(k, v)| (k.clone(), *v)));
         }
         let v = ip.octets();
+        if let Ok(pid) = u32::try_from(e.pid) {
+            t.set_owner(v, pid);
+        }
         for (public, private) in &ports {
             if let Ok(public) = public.parse::<u16>()
                 && public != 0
@@ -151,6 +154,19 @@ impl TableCache {
                     self.refresh(true);
                 }
             }
+        }
+    }
+
+    /// What the daemon does as a connection opens to address `v`: the table is checked against the files (one stat
+    /// each), and the process that registered `v`'s ports against the system (one `kill(pid, 0)`). A service that died
+    /// without writing is still in the table until the next forced rebuild, a minute away; its private port may by
+    /// then be someone else's listener, and this connection would go there. So a dead owner rebuilds the table now,
+    /// which leaves its ports out, and the connection is refused.
+    pub fn check_connection(&self, v: [u8; 4]) {
+        self.refresh(false);
+        let owner = self.current().owner(v);
+        if owner.is_some_and(|pid| !doze_os::process::alive(pid)) {
+            self.refresh(true);
         }
     }
 

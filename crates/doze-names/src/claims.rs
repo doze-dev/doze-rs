@@ -3,7 +3,7 @@
 use crate::pool::address_for;
 use crate::registry::{Entry, Registry};
 use crate::{Error, Name, Tier, label};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::net::Ipv4Addr;
 
 /// The entry recording which project a stack name belongs to; like the other bookkeeping keys, not an in-zone name.
@@ -32,6 +32,57 @@ impl Registry {
         self.claim_inner(name, Some(ip), false)
     }
 
+    /// The address a claim of `name` gets, and the one it had when it was parked, if it was.
+    fn address(
+        &self,
+        m: &BTreeMap<String, Entry>,
+        name: &Name,
+        want: Option<Ipv4Addr>,
+        shared: bool,
+    ) -> Result<(Ipv4Addr, Option<Ipv4Addr>), Error> {
+        let pid = i64::from(self.pid);
+        // The address this name had when its stack parked it: a stack coming back gets it again. Its twins
+        // (`sync-aws.shop.doze` beside `aws.shop.doze`) were parked at the same address and do not count against it,
+        // or the hash would see its own twin there and move the stack to another slot; nor does a twin this process
+        // has already claimed there again.
+        let parked_at = m
+            .get(&name.host)
+            .filter(|c| c.is_parked())
+            .and_then(Entry::addr)
+            .filter(|ip| self.net.in_pool(*ip));
+        let taken: BTreeSet<Ipv4Addr> = m
+            .iter()
+            .filter(|(host, e)| {
+                **host != name.host && !(e.addr() == parked_at && (e.is_parked() || e.pid == pid))
+            })
+            .filter_map(|(_, e)| e.addr())
+            .collect();
+        let Some(ip) = want else {
+            let ip = match parked_at.filter(|ip| !taken.contains(ip)) {
+                Some(ip) => ip,
+                None => address_for(self.net, name, &taken)?,
+            };
+            return Ok((ip, parked_at));
+        };
+        if self.net.in_pool(ip) && taken.contains(&ip) {
+            let clash = m.iter().find(|(host, e)| {
+                **host != name.host
+                    && e.addr() == Some(ip)
+                    && !(shared && e.pid == pid)
+                    && !e.is_parked()
+            });
+            if let Some((host, e)) = clash {
+                return Err(Error::AddrTaken {
+                    ip: ip.to_string(),
+                    host: host.clone(),
+                    pid: holder_pid(e),
+                    owner: e.owner.clone(),
+                });
+            }
+        }
+        Ok((ip, parked_at))
+    }
+
     fn claim_inner(
         &self,
         name: &Name,
@@ -52,34 +103,7 @@ impl Registry {
                     owner: cur.owner.clone(),
                 });
             }
-            let taken: BTreeSet<Ipv4Addr> = m
-                .iter()
-                .filter(|(host, _)| **host != name.host)
-                .filter_map(|(_, e)| e.addr())
-                .collect();
-            let ip = match want {
-                None => address_for(self.net, name, &taken)?,
-                Some(ip) => {
-                    if self.net.in_pool(ip) && taken.contains(&ip) {
-                        let clash = m.iter().find(|(host, e)| {
-                            **host != name.host
-                                && e.addr() == Some(ip)
-                                && !(shared && e.pid == pid)
-                                && !e.is_parked()
-                        });
-                        if let Some((host, e)) = clash {
-                            let (host, owner) = (host.clone(), e.owner.clone());
-                            return Err(Error::AddrTaken {
-                                ip: ip.to_string(),
-                                host,
-                                pid: holder_pid(e),
-                                owner,
-                            });
-                        }
-                    }
-                    ip
-                }
-            };
+            let (ip, parked_at) = self.address(m, name, want, shared)?;
             // Keep a route this process already published, so claiming again (on every topology change) does not
             // drop it from the front door; keep its ports only at the same address.
             let mut entry = Entry {
@@ -99,8 +123,9 @@ impl Registry {
             }
             // A parked name at an address this claim takes yields it: two names on one address would send each
             // other's clients to the wrong service once the parked one's stack came back. (A new name is not given a
-            // parked address by the hash, which counts parked ones as taken; this is an address asked for.)
-            if self.net.in_pool(ip) {
+            // parked address by the hash, which counts parked ones as taken; this is an address asked for.) Its own
+            // twins, parked at its own old address, stay: they belong beside it and are claimed again in a moment.
+            if self.net.in_pool(ip) && Some(ip) != parked_at {
                 m.retain(|host, e| !(e.is_parked() && *host != name.host && e.addr() == Some(ip)));
             }
             m.insert(name.host.clone(), entry);

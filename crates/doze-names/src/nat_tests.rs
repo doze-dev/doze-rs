@@ -225,126 +225,29 @@ fn other_packets_are_dropped() {
     assert!(!translate(&mut frag, GW, &table()), "a fragment");
 }
 
-/// A small xorshift, so the property tests below are the same on every run.
-fn rng(seed: u32) -> impl FnMut() -> u32 {
-    let mut x = seed.max(1);
-    move || {
-        x ^= x << 13;
-        x ^= x >> 17;
-        x ^= x << 5;
-        x
-    }
-}
-
 #[test]
-fn an_adjusted_checksum_is_the_whole_one() {
-    // RFC 1624 against the sum worked out again, over random data with one word changed, including the words and sums
-    // at the edges (0, 0xffff) where eqn. 2 went wrong.
-    let mut next = rng(7);
-    for n in 0..4000 {
-        let len = 2 + 2 * (next() as usize % 300);
-        let mut b: Vec<u8> = (0..len).map(|_| next() as u8).collect();
-        if n % 7 == 0 {
-            b.fill(0xff);
-        }
-        let at = 2 * (next() as usize % (len / 2));
-        let old = u16_at(&b, at).unwrap();
-        let new = match n % 5 {
-            0 => 0,
-            1 => 0xffff,
-            _ => next() as u16,
-        };
-        let sum = checksum(&b, 0);
-        b[at..at + 2].copy_from_slice(&new.to_be_bytes());
-        let whole = checksum(&b, 0);
-        let adjusted = adjust(sum, old, new);
-        // 0 and 0xffff are the same number in one's complement; either verifies.
-        let same =
-            adjusted == whole || (adjusted ^ whole == 0xffff && (adjusted == 0 || whole == 0));
-        assert!(
-            same,
-            "{len} bytes, word {at}: {old:#x} -> {new:#x}: {adjusted:#x} vs {whole:#x}"
-        );
-        // All zeros (one word, set to 0) is the one input whose sum has no single right spelling.
-        if b.iter().any(|x| *x != 0) {
-            let mut with = b.clone();
-            with.extend_from_slice(&adjusted.to_be_bytes());
-            assert_eq!(slow_checksum(&with, 0), 0, "the adjusted sum verifies");
-        }
-    }
-}
-
-#[test]
-fn adjusting_translates_as_working_it_out_whole_does() {
-    // Every packet the daemon handles, both ways: the adjusted packet is the whole-sum packet byte for byte, or differs
-    // only by the one's complement zero in the TCP checksum, and both verify.
-    let mut next = rng(42);
-    for n in 0..2000 {
-        let payload: String = (0..next() % 1400)
-            .map(|_| char::from(b'a' + (next() % 26) as u8))
-            .collect();
-        let (seq, ack) = (next(), next());
-        let flags = [ACK, SYN, ACK | 0x08, FIN | ACK][n % 4];
-        let client = 49152 + (next() % 16000) as u16;
-        let pkt = if n % 2 == 0 {
-            tcp(GW, DB, client, 5432, flags, seq, ack, &payload)
-        } else {
-            tcp(GW, DB, 51000, client, flags, seq, ack, &payload)
-        };
-        let (mut whole, mut adjusted) = (pkt.clone(), pkt.clone());
-        assert!(translate_with(&mut whole, GW, &table(), Sum::Whole));
-        assert!(translate_with(&mut adjusted, GW, &table(), Sum::Adjust));
-        assert_eq!(read(&adjusted), read(&whole), "packet {n}");
-        let (mut a, mut w) = (adjusted.clone(), whole.clone());
-        a[36..38].fill(0);
-        w[36..38].fill(0);
-        assert_eq!(a, w, "packet {n}: only the TCP checksum may differ");
-    }
-}
-
-#[test]
-fn adjusting_waits_until_the_checksums_are_known_to_arrive_whole() {
-    let good = tcp(GW, DB, 49200, 5432, ACK, 1, 1, "x");
-    let mut c = Checksums::default();
-    let mut notes = Vec::new();
-    for _ in 0..Checksums::LEARN {
+fn a_partial_checksum_is_put_right() {
+    // Why every sum is worked out whole: a packet whose checksum was left for the hardware (here, any wrong value)
+    // leaves right, at every size, where adjusting it for the port would have carried the error on.
+    for len in [0usize, 1, 7, 8, 9, 1400, 16000] {
+        let payload = "x".repeat(len);
+        let mut p = tcp(GW, DB, 49200, 5432, ACK, 1, 1, &payload);
+        p[36..38].copy_from_slice(&0xbeefu16.to_be_bytes());
+        p[10..12].copy_from_slice(&0x1234u16.to_be_bytes());
+        assert!(translate(&mut p, GW, &table()));
         assert_eq!(
-            c.for_packet(&good, |n| notes.push(n.to_string())),
-            Sum::Whole
+            read(&p),
+            seen(DB, GW, 49200, 51000, ACK, 1, 1, &payload),
+            "{len} bytes"
         );
     }
-    assert_eq!(notes.len(), 1, "said once, when it starts adjusting");
-    assert_eq!(c.for_packet(&good, |_| {}), Sum::Adjust);
-    // A ping or a broken packet is no evidence either way.
-    let mut ping = good.clone();
-    ping[9] = ICMP;
-    assert_eq!(c.for_packet(&ping, |_| {}), Sum::Whole);
-    assert_eq!(c.for_packet(&good[..30], |_| {}), Sum::Adjust);
-
-    // A partial checksum (what a stack that leaves it to the hardware hands over) seen while learning, or at a sample
-    // later, means whole sums for good.
-    let mut partial = good.clone();
-    partial[36..38].copy_from_slice(&0x1234u16.to_be_bytes());
-    let mut learning = Checksums::default();
-    assert_eq!(learning.for_packet(&partial, |_| {}), Sum::Whole);
-    for _ in 0..Checksums::LEARN * 2 {
-        assert_eq!(learning.for_packet(&good, |_| {}), Sum::Whole);
-    }
-    let whole = (0..Checksums::SAMPLE * 2)
-        .filter(|_| c.for_packet(&partial, |_| {}) == Sum::Whole)
-        .count();
-    assert!(
-        whole > Checksums::SAMPLE as usize,
-        "a bad sample did not stop adjusting"
-    );
 }
 
 #[test]
-fn a_partial_checksum_is_put_right_when_worked_out_whole() {
-    // Why whole sums stay the fallback: a packet whose checksum was left for the hardware comes out right.
-    let mut p = tcp(GW, DB, 49200, 5432, ACK, 1, 1, "partial");
-    p[36..38].copy_from_slice(&0xbeefu16.to_be_bytes());
-    assert_eq!(sums_hold(&p), Some(false));
-    assert!(translate_with(&mut p, GW, &table(), Sum::Whole));
-    assert_eq!(sums_hold(&p), Some(true));
+fn an_address_says_whose_it_is() {
+    let mut t = table();
+    assert_eq!(t.owner(DB), None);
+    t.set_owner(DB, 4242);
+    assert_eq!(t.owner(DB), Some(4242));
+    assert_eq!(t.owner(GW), None);
 }

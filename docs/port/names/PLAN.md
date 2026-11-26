@@ -288,14 +288,18 @@ elevated Windows runners). Tests never touch the real zone: a private home with 
     daemon, three loops apiece). They now wait for the registry's folder to change (the holder's record goes when it
     lets go: take-over is immediate, then five tries 100 ms apart), with 10 s for a holder killed without writing; 2 s
     where nothing can be watched (Linux, Windows).
-  - netd per packet (nat.rs): the translation swaps the addresses (which leaves both sums as they were) and changes one
-    port, so the TCP checksum is adjusted (RFC 1624 eqn. 3) and the IP header's left alone, once `Checksums` has seen
-    64 packets arrive with complete sums (then one in 1024 is still checked; one partial sum means whole sums for
-    good, logged). The whole sum adds 8 bytes at a time; the port table is one map each way keyed by address and port
-    with a one-multiply hash; the loop keeps its table and looks at a generation counter instead of taking the lock
-    and the reference count per packet. `cargo bench -p doze-names --bench translate` (copy of the packet included;
-    M packets/s, Apple silicon): 64 B 33.6 → 194, 1500 B 13.9 → 60.6, 16 KB 1.70 → 6.9 (the copy alone: 7.0). The
-    translation was never most of a packet's cost (one `recv` and one `send` per packet are, and tun-rs has no batch
-    read on macOS's utun), so the valkey ceiling is to be measured again on the owner's Mac after the helper reinstall.
+    A returning stack gets its parked address back, and its twins (parked at the same address) do not count against
+    it. A new connection is checked against its service's process too (`TableCache::check_connection`, one
+    `kill(pid, 0)` per SYN), so one that died without writing is refused at once rather than for up to the minute
+    until the forced rebuild.
+  - netd per packet (nat.rs): both checksums are still worked out whole on every packet. An RFC 1624 adjustment for the
+    port was tried and dropped in review: it is only right when the sum arrived complete, and an interface that hands
+    over partial sums for some packets only (large segments) cannot be ruled out by sampling earlier ones. The whole
+    sum now adds 8 bytes at a time; the port table is one map each way keyed by address and port with a one-multiply
+    hash; the loop keeps its table and looks at a generation counter instead of taking the lock and the reference
+    count per packet. `cargo bench -p doze-names --bench translate` (copy of the packet included; M packets/s, Apple
+    silicon): 64 B 33.6 → 96, 1500 B 13.9 → 20.3, 16 KB 1.70 → 2.18. The translation was never most of a packet's
+    cost (one `recv` and one `send` per packet are, and tun-rs has no batch read on macOS's utun), so the valkey
+    ceiling is to be measured again on the owner's Mac after the helper reinstall.
   - Job versions: VERSION_DARWIN 5, VERSION_LINUX 3, so `doze setup` installs the new daemon (it holds the resolver
     from boot, so the SOA reaches clients only once it is reinstalled).

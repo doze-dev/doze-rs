@@ -36,6 +36,9 @@ pub trait Forwards {
 pub struct PortTable {
     to_private: HashMap<u64, u16, BuildHasherDefault<KeyHash>>,
     to_public: HashMap<u64, u16, BuildHasherDefault<KeyHash>>,
+    /// The process each address's ports are registered by, so a new connection can be checked against a service
+    /// that died without writing (`TableCache::check_connection`).
+    owners: HashMap<u64, u32, BuildHasherDefault<KeyHash>>,
 }
 
 fn key(v: [u8; 4], port: u16) -> u64 {
@@ -47,6 +50,16 @@ impl PortTable {
     pub fn add(&mut self, v: [u8; 4], public: u16, private: u16) {
         self.to_private.insert(key(v, public), private);
         self.to_public.insert(key(v, private), public);
+    }
+
+    /// Records that `pid` registered address `v`'s ports.
+    pub fn set_owner(&mut self, v: [u8; 4], pid: u32) {
+        self.owners.insert(u64::from(u32::from_be_bytes(v)), pid);
+    }
+
+    /// The process that registered address `v`'s ports, if it has any.
+    pub fn owner(&self, v: [u8; 4]) -> Option<u32> {
+        self.owners.get(&u64::from(u32::from_be_bytes(v))).copied()
     }
 
     /// How many public ports it holds.
@@ -105,35 +118,20 @@ fn addr(b: &[u8], at: usize) -> Option<[u8; 4]> {
     b.get(at..at + 4)?.try_into().ok()
 }
 
-/// How a translated TCP packet's checksums are put right.
-///
-/// The translation swaps the two addresses and changes one port. Swapping leaves every sum as it was (the internet
-/// checksum is a sum, and both addresses are in it, in the IP header and in TCP's pseudo-header), so only the port
-/// moves the TCP checksum, and RFC 1624's update for one changed word puts it right in constant time. That is only
-/// sound if the checksum arrived right: a stack that leaves it for the hardware to fill in hands over a partial one,
-/// and adjusting a partial sum gives a wrong one. [`Checksums`] decides which this machine's kernel does.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Sum {
-    /// Work both sums out over the whole packet: right whatever arrived (Go's way, and the way until it is known).
-    Whole,
-    /// Adjust the TCP checksum for the changed port (RFC 1624, eqn. 3), and leave the IP header's alone.
-    Adjust,
-}
-
 /// Rewrites one IPv4 packet read from the interface, in place; whether it should be written back. `gw` is the
-/// interface's address. Both checksums are worked out whole ([`Sum::Whole`]).
+/// interface's address.
+///
+/// Both checksums are worked out whole on every packet, never adjusted for the changed port (RFC 1624): adjusting
+/// is only right if the sum arrived complete, and a stack that leaves it to the hardware may hand over a partial one
+/// for some packets and not others (large segments, say), which no sample of earlier packets can rule out. A
+/// whole sum is right whatever arrived, and it is not where a packet's time goes (`benches/translate.rs`: the `recv`
+/// and `send` around it are).
 // fuzz:parser fuzz_packet
 pub fn translate(p: &mut [u8], gw: [u8; 4], f: &dyn Forwards) -> bool {
-    translate_with(p, gw, f, Sum::Whole)
+    translate_inner(p, gw, f).unwrap_or(false)
 }
 
-/// [`translate`], with the checksums put right as `sum` says. A reset or a ping is always worked out whole: it is
-/// built here, not adjusted.
-pub fn translate_with(p: &mut [u8], gw: [u8; 4], f: &dyn Forwards, sum: Sum) -> bool {
-    translate_inner(p, gw, f, sum).unwrap_or(false)
-}
-
-fn translate_inner(p: &mut [u8], gw: [u8; 4], f: &dyn Forwards, sum: Sum) -> Option<bool> {
+fn translate_inner(p: &mut [u8], gw: [u8; 4], f: &dyn Forwards) -> Option<bool> {
     let first = *p.first()?;
     if first >> 4 != 4 {
         return Some(false);
@@ -171,26 +169,15 @@ fn translate_inner(p: &mut [u8], gw: [u8; 4], f: &dyn Forwards, sum: Sum) -> Opt
             let (sport, dport) = (u16_at(body, 0)?, u16_at(body, 2)?);
             // The service's answer is looked for first: its source port is one it listens on at this address, which
             // the kernel never gives a client, so the two cannot be confused.
-            let (at, old, new) = if let Some(public) = f.public(dst, sport) {
-                (ihl, sport, public)
+            if let Some(public) = f.public(dst, sport) {
+                put(p, ihl, &public.to_be_bytes())?;
             } else if let Some(private) = f.private(dst, dport) {
-                (ihl + 2, dport, private)
+                put(p, ihl + 2, &private.to_be_bytes())?;
             } else {
                 return refuse(p, ihl, total);
-            };
-            put(p, at, &new.to_be_bytes())?;
-            match sum {
-                Sum::Whole => {
-                    set_addrs(p, ihl, dst, src)?;
-                    tcp_checksum(p, ihl, total)?;
-                }
-                Sum::Adjust => {
-                    put(p, 12, &dst)?;
-                    put(p, 16, &src)?;
-                    let was = u16_at(p, ihl + 16)?;
-                    put(p, ihl + 16, &adjust(was, old, new).to_be_bytes())?;
-                }
             }
+            set_addrs(p, ihl, dst, src)?;
+            tcp_checksum(p, ihl, total)?;
             Some(true)
         }
         _ => Some(false),
@@ -267,27 +254,6 @@ fn pseudo_header(p: &[u8], ihl: usize, total: usize) -> Option<u32> {
     Some(words.iter().map(|w| u32::from(*w)).sum::<u32>() + u32::from(TCP) + len)
 }
 
-/// Whether a TCP packet arrived with both checksums right: the test [`Checksums`] samples with. `None` for what is
-/// not a whole TCP packet, which says nothing either way (and is not translated).
-fn sums_hold(p: &[u8]) -> Option<bool> {
-    let ihl = usize::from(p.first()? & 0x0f) * 4;
-    let total = packet_len(p);
-    if p.get(9) != Some(&TCP) || ihl < 20 || total < ihl + 20 || total > p.len() {
-        return None;
-    }
-    let pseudo = pseudo_header(p, ihl, total)?;
-    Some(checksum(p.get(..ihl)?, 0) == 0 && checksum(p.get(ihl..total)?, pseudo) == 0)
-}
-
-/// A checksum `sum` over data in which one 16-bit word went from `old` to `new` (RFC 1624, eqn. 3:
-/// `HC' = ~(~HC + ~m + m')`), which, unlike eqn. 2, never turns a sum into the negative zero.
-pub fn adjust(sum: u16, old: u16, new: u16) -> u16 {
-    let mut s = u32::from(!sum) + u32::from(!old) + u32::from(new);
-    s = (s & 0xffff) + (s >> 16);
-    s = (s & 0xffff) + (s >> 16);
-    !u16::try_from(s).unwrap_or(0)
-}
-
 /// The internet checksum of `b`, continued from `sum`. Eight bytes at a time, as two 32-bit words: a sum of 32-bit
 /// words folds to the same 16-bit one's complement sum (2^16 is 1 modulo 0xffff), with a quarter of the additions.
 pub(crate) fn checksum(b: &[u8], sum: u32) -> u16 {
@@ -308,56 +274,6 @@ pub(crate) fn checksum(b: &[u8], sum: u32) -> u16 {
         s = (s >> 16) + (s & 0xffff);
     }
     !u16::try_from(s).unwrap_or(0)
-}
-
-/// Whether this machine's kernel hands the interface TCP packets with their checksums complete, learnt from the
-/// packets themselves: the first [`Checksums::LEARN`] are checked and translated whole, and only if every one held are
-/// later ones adjusted ([`Sum::Adjust`]). One in [`Checksums::SAMPLE`] is still checked after that; a single bad one
-/// goes back to whole sums for good. Nothing is kept per connection, as the translation keeps nothing: an
-/// interface's checksum offload is the interface's, the same for every packet.
-#[derive(Debug, Default, Clone)]
-pub struct Checksums {
-    held: u32,
-    seen: u32,
-    whole_for_good: bool,
-}
-
-impl Checksums {
-    /// Packets checked before adjusting is trusted.
-    pub const LEARN: u32 = 64;
-    /// After that, one packet in this many is checked.
-    pub const SAMPLE: u32 = 1024;
-
-    /// How to put `p`'s checksums right; `p` is a packet as read, before [`translate_with`]. Says, through `note`, the
-    /// moment the answer changes.
-    pub fn for_packet(&mut self, p: &[u8], note: impl FnOnce(&str)) -> Sum {
-        if self.whole_for_good || p.get(9) != Some(&TCP) {
-            return Sum::Whole;
-        }
-        let learning = self.held < Self::LEARN;
-        self.seen = self.seen.wrapping_add(1);
-        if !learning && !self.seen.is_multiple_of(Self::SAMPLE) {
-            return Sum::Adjust;
-        }
-        let Some(held) = sums_hold(p) else {
-            return Sum::Whole;
-        };
-        if !held {
-            self.whole_for_good = true;
-            note(
-                "a TCP packet arrived with its checksum unfinished: working every checksum out whole",
-            );
-            return Sum::Whole;
-        }
-        if learning {
-            self.held += 1;
-            if self.held == Self::LEARN {
-                note("TCP checksums arrive complete: adjusting them for the changed port");
-            }
-            return Sum::Whole;
-        }
-        Sum::Adjust
-    }
 }
 
 #[cfg(test)]
