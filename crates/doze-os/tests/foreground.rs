@@ -1,6 +1,6 @@
 //! A command run in the foreground (`doze run`, `doze connect`) hears each SIGINT once: one sent to doze alone, one
-//! sent to doze's whole group, and Ctrl-C typed at the terminal. The command is `sh` counting its SIGINTs (each ends
-//! the `sleep` it waits on) and exiting with 40 + the count; the helper plays doze (`doze_os::foreground::run`).
+//! sent to doze's whole group, and Ctrl-C typed at the terminal. The command is `sh` counting its SIGINTs (each breaks
+//! off the `wait` it is in) and exiting with 40 + the count; the helper plays doze (`doze_os::foreground::run`).
 #![cfg(unix)]
 #![allow(
     clippy::unwrap_used,
@@ -18,10 +18,14 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
-/// The command: counts SIGINTs for about three seconds, after saying it is ready (`mark`).
+/// The command: counts SIGINTs for three seconds, after saying it is ready (`mark`). It waits in the `wait` builtin,
+/// which a trapped signal always breaks off (POSIX), on a `sleep` in the background (which ignores SIGINT, so it is
+/// not ended by one). A loop of foreground commands would not do: bash 3.2 (macOS's `sh`) drops a trapped SIGINT that
+/// lands after it has reaped one and before it puts its trap handler back (about 1 in 100 in a loop of them, with no
+/// doze involved), which failed this test on CI with 40.
 fn script(mark: &Path) -> String {
     format!(
-        "n=0; trap 'n=$((n+1))' INT; : > '{}'; i=0; while [ $i -lt 30 ]; do sleep 0.1; i=$((i+1)); done; exit $((40+n))",
+        "n=0; trap 'n=$((n+1))' INT; sleep 3 & : > '{}'; until wait; do :; done; exit $((40+n))",
         mark.display()
     )
 }
@@ -39,6 +43,8 @@ fn doze(mark: &Path) -> Command {
     c
 }
 
+/// Waits for the command's mark. That is enough: the command writes it once its trap is set, and doze's handlers are
+/// in before the command starts.
 fn ready(mark: &Path, child: &mut Child) {
     let t0 = Instant::now();
     while !mark.exists() {
@@ -52,7 +58,6 @@ fn ready(mark: &Path, child: &mut Child) {
         );
         std::thread::sleep(Duration::from_millis(20));
     }
-    std::thread::sleep(Duration::from_millis(100)); // into its first sleep
 }
 
 fn pid(child: &Child) -> Pid {

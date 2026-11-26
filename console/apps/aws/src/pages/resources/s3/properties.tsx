@@ -7,7 +7,7 @@ import { useTags } from "../../../kit";
 import { Card } from "../deep/parts";
 import { bucketOf, NONE, useSetting } from "./api";
 import { encryptionOf, notificationRules, propertiesSentence, type Rule, SSE_WORDS, websiteOf } from "./config";
-import { NoneYet, Reading, Rows, Mono } from "./parts";
+import { NoneYet, OnOff, Reading, Rows, Mono } from "./parts";
 import { bucketArn, longDate, regionWords, type Versioning, versioningOf } from "./words";
 
 /** The reads of the tab; the page above it uses them for its sentence too (react-query makes each call once). */
@@ -96,12 +96,12 @@ export function PropertiesTab({ name, region, created, p, go }: { name: string; 
       </Card>
       <Card title="Object Lock" lede="Prevent an object from being deleted or overwritten for a fixed time or indefinitely.">
         <Reading q={p.lock} what="Object Lock" height="h-16">
-          <Rows rows={[["Object Lock", lock?.ObjectLockEnabled === "Enabled" ? "Enabled" : "Disabled"], ...(retention ? [["Default retention", `${retention.Mode ?? ""} ${retention.Days ? `${retention.Days} days` : retention.Years ? `${retention.Years} years` : ""}`.trim()] as [string, React.ReactNode]] : [])]} />
+          <Rows rows={[["Object Lock", <OnOff key="lock" on={lock?.ObjectLockEnabled === "Enabled"} />], ...(retention ? [["Default retention", `${retention.Mode ?? ""} ${retention.Days ? `${retention.Days} days` : retention.Years ? `${retention.Years} years` : ""}`.trim()] as [string, React.ReactNode]] : [])]} />
         </Reading>
       </Card>
       <Card title="Static website hosting" lede="Host a static website from this bucket." actions={edit(go, "website-edit")}>
         <Reading q={p.website} what="Static website hosting" height="h-16">
-          <Rows rows={[["Static website hosting", site ? "Enabled" : "Disabled"], ...(site?.index ? ([["Index document", <Mono key="i">{site.index}</Mono>], ...(site.error ? [["Error document", <Mono key="e">{site.error}</Mono>]] : []), ["Bucket website endpoint", <Mono key="u">{`${about.data?.endpoint ?? ""}/_aws/s3-website/${name}/`}</Mono>]] as [string, React.ReactNode][]) : site ? [["Redirects every request to", <Mono key="r">{`${site.redirectProtocol ? `${site.redirectProtocol}://` : ""}${site.redirectHost}`}</Mono>] as [string, React.ReactNode]] : [])]} />
+          <Rows rows={[["Static website hosting", <OnOff key="site" on={Boolean(site)} />], ...(site?.index ? ([["Index document", <Mono key="i">{site.index}</Mono>], ...(site.error ? [["Error document", <Mono key="e">{site.error}</Mono>]] : []), ["Bucket website endpoint", <Mono key="u">{`${about.data?.endpoint ?? ""}/_aws/s3-website/${name}/`}</Mono>]] as [string, React.ReactNode][]) : site ? [["Redirects every request to", <Mono key="r">{`${site.redirectProtocol ? `${site.redirectProtocol}://` : ""}${site.redirectHost}`}</Mono>] as [string, React.ReactNode]] : [])]} />
         </Reading>
       </Card>
     </div>

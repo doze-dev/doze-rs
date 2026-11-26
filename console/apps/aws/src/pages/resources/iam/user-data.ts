@@ -10,7 +10,8 @@ export type UserKeys = { keys: AccessKey[]; /** Epoch seconds, by key ID; absent
 export function useUserKeys(names: readonly string[]): { byUser: Map<string, UserKeys>; ready: boolean; error: unknown } {
   const lists = useEach<{ AccessKeyMetadata: AccessKey[] }>(USERS, "ListAccessKeys", names.map((UserName) => ({ UserName })));
   const keys = lists.flatMap((q) => q.data?.AccessKeyMetadata ?? []);
-  const used = useEach<KeyUsed>(USERS, "GetAccessKeyLastUsed", keys.map((k) => ({ AccessKeyId: k.AccessKeyId })));
+  // A key's last use is read by its id, which does not name its user: the user owns the read, so deleting the user does not read it again (IAM would answer 404).
+  const used = useEach<KeyUsed>(USERS, "GetAccessKeyLastUsed", keys.map((k) => ({ AccessKeyId: k.AccessKeyId })), true, keys.map((k) => k.UserName));
   const listed = lists.every((q) => q.isSuccess || q.isError);
   const done = listed && used.every((q) => q.isSuccess || q.isError);
   const stamp = lists.map((q) => q.dataUpdatedAt).join() + used.map((q) => q.dataUpdatedAt).join();

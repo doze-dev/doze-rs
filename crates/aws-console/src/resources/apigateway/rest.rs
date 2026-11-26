@@ -143,6 +143,8 @@ pub(super) const REST: Kind = Kind {
         ops::free("DeleteStage"),
         ops::free("GetDeployments"),
         ops::free("CreateDeployment"),
+        // A deployment a stage serves is refused by the service, which the delete says in words before it asks.
+        ops::free("DeleteDeployment"),
         ops::free("GetAuthorizers"),
         ops::free("CreateAuthorizer"),
         ops::free("DeleteAuthorizer"),

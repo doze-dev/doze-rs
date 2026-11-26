@@ -80,12 +80,15 @@ impl State {
     #[must_use]
     pub fn bus(&self) -> Option<crate::resources::bus::Bus> {
         let peers = self.facts.peers.clone()?;
-        Some(crate::resources::bus::Bus::new(
-            peers,
-            &self.facts.account,
-            &crate::regions::current(&self.facts.region),
-            &self.facts.endpoint,
-        ))
+        Some(
+            crate::resources::bus::Bus::new(
+                peers,
+                &self.facts.account,
+                &crate::regions::current(&self.facts.region),
+                &self.facts.endpoint,
+            )
+            .recording(Arc::clone(&self.recorder)),
+        )
     }
 
     /// The URL a browser on this machine reaches the console at (a wildcard address is reached on loopback).

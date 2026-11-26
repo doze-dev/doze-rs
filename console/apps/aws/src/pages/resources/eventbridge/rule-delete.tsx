@@ -3,7 +3,7 @@ import { useState } from "react";
 import { CallsPanel, PlainConfirm, callKindOp, scopeOf, useForgetDeleted } from "../../../kit";
 import { RULES } from "./api";
 import type { TargetItem } from "./types";
-import { list } from "./words";
+import { list, untouchedWords } from "./words";
 
 export type Doomed = { name: string; targets: readonly TargetItem[] };
 
@@ -30,7 +30,7 @@ export function RuleDelete({ open, onOpenChange, bus, rules, onDone }: { open: b
       setState({ pending: false, error });
     }
   };
-  const topics = [...new Set(rules.flatMap((r) => r.targets.map((t) => t.Arn.split(":").pop() ?? t.Arn)))];
+  const untouched = untouchedWords(rules.flatMap((r) => r.targets.map((t) => t.Arn)));
   return (
     <PlainConfirm
       open={open}
@@ -43,7 +43,7 @@ export function RuleDelete({ open, onOpenChange, bus, rules, onDone }: { open: b
       onConfirm={() => void run()}
       testId="rule-delete"
     >
-      <CallsPanel requests={deleteCalls(bus, rules)} title="The calls this will make" testId="delete-calls" note={<>The API reference says a rule's targets must be removed before the rule can be deleted, which is why the calls go in this order.{topics.length > 0 ? <> {list(topics)} {topics.length === 1 ? "is" : "are"} not touched.</> : null}</>} />
+      <CallsPanel requests={deleteCalls(bus, rules)} title="The calls this will make" testId="delete-calls" note={<>The API reference says a rule's targets must be removed before the rule can be deleted, which is why the calls go in this order.{untouched ? <> {untouched}</> : null}</>} />
     </PlainConfirm>
   );
 }

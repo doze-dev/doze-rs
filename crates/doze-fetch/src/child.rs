@@ -260,7 +260,7 @@ pub fn run(
 ) -> std::io::Result<()> {
     let mut line = String::new();
     input.read_line(&mut line)?;
-    let reply = match serde_json::from_str::<Request>(&line) {
+    let reply = match serde_json::from_slice::<Request>(line.as_bytes()) {
         Ok(req) => {
             let said = starting(&req, place);
             // The log is a courtesy: a reply is owed whether or not it could be written.
@@ -334,7 +334,7 @@ impl ChildDownloads {
             .await
             .map_err(|_| Error::new(ErrorKind::TimedOut, "the download did not finish in time"))?
             .map_err(|e| Error::new(ErrorKind::Unavailable, format!("the fetch: {e}")))?;
-        serde_json::from_str(out.trim()).map_err(|e| {
+        serde_json::from_slice(out.trim().as_bytes()).map_err(|e| {
             Error::new(
                 ErrorKind::Internal,
                 format!("the fetch answered {out:?}: {e}"),

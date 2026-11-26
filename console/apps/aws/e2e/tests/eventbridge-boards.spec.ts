@@ -115,6 +115,10 @@ test("eventbridge__bus-create-refused: a name that exists is refused on the name
   await expect(page.getByTestId("section-tags-summary")).toHaveText("Environment=dev, Team=platform.");
   await expect(page.getByTestId("call-panel-came-back")).toContainText("ResourceAlreadyExistsException");
   await expect(page.getByTestId("call-panel")).toContainText("CreateArchive was never sent");
+  // The panel is the board's: the call that was refused and what came back, not the call after it as well.
+  await expect(page.getByTestId("call-panel-code")).toHaveCount(1);
+  await expect(page.getByTestId("call-panel-code")).toContainText("CreateEventBus");
+  await expect(page.getByTestId("call-panel-code")).not.toContainText("CreateArchive");
   await expect(page.getByTestId("bus-name")).toHaveValue("larder-audit");
   await shot(page, "eventbridge__bus-create-refused");
   // The sections have just folded and the page has scrolled to the name; a click that lands as it moves is not a click.
@@ -279,6 +283,9 @@ test("eventbridge__bus-delete: the rules that go with the bus are named, and an 
   await expect(dialog).toContainText("Deleting an event bus deletes the rules associated with that event bus: a-rule and b-rule");
   await expect(dialog).toContainText("never the default one");
   await expect(dialog).toContainText("gets ResourceNotFoundException from PutEvents: Event bus larder-audit does not exist.");
+  // The archive that takes this bus's events stays, and the dialog says so.
+  await expect(dialog.getByTestId("bus-delete-archives")).toContainText("larder-audit-archive");
+  await expect(dialog).toContainText("an archive is its own resource, and DeleteEventBus does not touch it.");
   await shot(page, "eventbridge__bus-delete");
   await page.getByTestId("bus-delete-submit").click();
   await expect(page.getByTestId("deleted-banner")).toContainText("Event bus deleted.");

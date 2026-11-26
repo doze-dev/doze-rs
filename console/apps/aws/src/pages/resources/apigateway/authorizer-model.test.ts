@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { emptyHttp, emptyRest, httpAuthorizerInput, httpAuthorizerProblem, identitySource, restAuthorizerInput, restAuthorizerProblem } from "./authorizer-model";
+import { emptyHttp, emptyRest, existingAuthorizerWords, httpAuthorizerInput, httpAuthorizerProblem, identitySource, restAuthorizerInput, restAuthorizerProblem } from "./authorizer-model";
 
 const o = { api: "k3x", region: "us-east-1", account: "111122223333" };
 
@@ -44,5 +44,16 @@ describe("an HTTP authorizer", () => {
     expect(httpAuthorizerProblem(f)).toBeNull();
     expect(httpAuthorizerProblem({ ...f, issuer: "idp" })).toBe("The issuer is a URL, such as https://idp.example.com/.");
     expect(httpAuthorizerProblem({ ...emptyHttp, name: "a", fn: "f", sources: [""], ttl: "300" })).toBe("Caching needs at least one identity source.");
+  });
+});
+
+describe("what the Lambda hint says of the authorizers the API has", () => {
+  const fn = (name: string) => `arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:111122223333:function:${name}/invocations`;
+  test("names each request authorizer with its routes and its function", () => {
+    const auths = [{ authorizerId: "a1", name: "admin-request-auth", authorizerType: "REQUEST", authorizerUri: fn("admin-auth") }, { authorizerId: "a2", name: "jwt", authorizerType: "JWT" }];
+    const routes = [{ authorizerId: "a1" }, { authorizerId: "a1" }, { authorizerId: undefined }];
+    expect(existingAuthorizerWords(auths, routes)).toBe("admin-request-auth, already on 2 routes, calls the function admin-auth.");
+    expect(existingAuthorizerWords(auths, [])).toBe("admin-request-auth, on no route yet, calls the function admin-auth.");
+    expect(existingAuthorizerWords([auths[1]!], routes)).toBeNull();
   });
 });

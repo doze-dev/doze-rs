@@ -343,6 +343,10 @@ test("kinesis__stream-detail and the edits: capacity, retention, encryption, sha
   // Capacity mode: a switch changes the mode and keeps the shards.
   await page.getByTestId("edit-capacity").click();
   await expect(page.getByTestId("capacity-dialog")).toContainText("Switching keeps the 2 shards the stream has");
+  // It opens on the mode a person came to switch to (the stream is Provisioned, so On-demand is chosen), and Save is on.
+  await expect(page.getByTestId("cap-ON_DEMAND")).toBeChecked();
+  await expect(page.getByTestId("capacity-dialog")).not.toContainText("It already is");
+  await expect(page.getByTestId("capacity-dialog-save")).toBeEnabled();
   await shot(page, "kinesis__stream-capacity-edit");
   await page.getByTestId("cap-ON_DEMAND").click();
   await page.getByTestId("capacity-dialog-save").click();
@@ -351,6 +355,10 @@ test("kinesis__stream-detail and the edits: capacity, retention, encryption, sha
   await page.reload();
   // Retention: hours, with the day equivalent; Increase is chosen by the direction.
   await page.getByTestId("edit-retention").click();
+  // A period the API refuses has no call to show (not an Increase of 12 hours with Save off).
+  await page.getByTestId("retention-hours").fill("12");
+  await expect(page.getByTestId("retention-dialog-save")).toBeDisabled();
+  await expect(page.getByTestId("retention-dialog-call")).not.toContainText("IncreaseStreamRetentionPeriod");
   await page.getByTestId("retention-hours").fill("72");
   await expect(page.getByTestId("retention-dialog")).toContainText("That is 3 days. The API takes hours (RetentionPeriodHours).");
   await expect(page.getByTestId("retention-dialog-call")).toContainText("IncreaseStreamRetentionPeriod");

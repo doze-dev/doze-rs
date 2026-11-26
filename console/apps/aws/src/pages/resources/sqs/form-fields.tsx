@@ -120,14 +120,16 @@ export function Configuration({ f, set, p, show, create, hints }: FieldProps & {
 function FifoSettings({ f, set }: Pick<FieldProps, "f" | "set">) {
   return (
     <>
-      <div className="flex items-start gap-3" data-testid="field-dedup">
-        <Switch id="queue-dedup" checked={f.dedup} onCheckedChange={(dedup) => set({ dedup })} className="mt-0.5" data-testid="queue-dedup" />
-        <div className="grid gap-1">
-          <Label htmlFor="queue-dedup">Content-based deduplication {f.dedup ? "Enabled" : "Disabled"} <span className="rounded-full bg-muted px-2 py-px text-[11.5px] font-normal text-muted-foreground">Optional</span></Label>
-          <RuleHelp>When on, SQS derives the deduplication ID from a SHA-256 hash of the message body, so a message with an identical body inside the 5-minute deduplication interval is accepted but not delivered. Default off.</RuleHelp>
+      <div className="grid gap-2" data-testid="field-dedup">
+        <span className="text-[14px] font-medium text-bright">Content-based deduplication</span>
+        <div className="flex items-center gap-3">
+          <Switch id="queue-dedup" checked={f.dedup} onCheckedChange={(dedup) => set({ dedup })} data-testid="queue-dedup" />
+          <Label htmlFor="queue-dedup" className="font-normal">{f.dedup ? "Enabled" : "Disabled"}</Label>
         </div>
+        <RuleHelp>When on, SQS derives the deduplication ID from a SHA-256 hash of the message body, so a message with an identical body inside the 5-minute deduplication interval is accepted but not delivered. Default off.</RuleHelp>
       </div>
       <div className="grid gap-3">
+        <span className="text-[14px] font-medium text-bright">High throughput FIFO</span>
         <div className="flex items-start gap-3" data-testid="field-high-throughput">
           <Checkbox id="queue-high" checked={f.highThroughput} onCheckedChange={(on) => set({ highThroughput: on === true, ...(on === true ? { scope: "messageGroup", limit: "perMessageGroupId" } : { scope: "queue", limit: "perQueue" }) })} className="mt-0.5" data-testid="queue-high" />
           <div className="grid gap-1">

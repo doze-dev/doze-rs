@@ -13,7 +13,7 @@ import { FormPage, useKindOp } from "../../../kit";
 import { Rich } from "./parts";
 import { countWord, disabledCount, PROTOCOLS, protocolOf, type Protocol } from "./protocols";
 import { b, type Part } from "./sentences";
-import { emptySubForm, problems, subscribeInput, type SubForm } from "./sub-form-model";
+import { emptySubForm, filterBroken, problems, subscribeInput, type SubForm } from "./sub-form-model";
 import { Details, FilterPolicy, Redrive } from "./sub-form-sections";
 import { tail } from "./sub-model";
 
@@ -71,8 +71,8 @@ export function SubCreate() {
       banner={refused ? <Alert tone="bad" title="The subscription was not made." testId="create-refused">Subscribe returned {refused.code}: {refused.message}.</Alert> : <Rich parts={sentenceOf(f)} testId="create-sentence" />}
       submitLabel="Create subscription"
       pending={make.isPending}
-      disabled={tried && Object.keys(p).length > 0}
-      disabledWhy={Object.values(p)[0]}
+      disabled={filterBroken(f) || (tried && Object.keys(p).length > 0)}
+      disabledWhy={filterBroken(f) ? "Fix the filter policy to continue." : Object.values(p)[0]}
       onCancel={back}
       onSubmit={submit}
       testId="sub-create-form"

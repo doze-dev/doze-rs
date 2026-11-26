@@ -1,5 +1,4 @@
-import { InfoIcon } from "lucide-react";
-import { Alert } from "@doze/ui/components/app/alert";
+import { Callout } from "@doze/ui/components/app/callout";
 import { CopyButton } from "@doze/ui/components/app/copy-button";
 import { StatusDot } from "@doze/ui/components/app/status-dot";
 import type { About } from "../../api/types/About";
@@ -81,9 +80,9 @@ export function Overview({ a, goTo }: { a: About; goTo: (tab: "code" | "services
   const creds = credsFor(a.auth);
   return (
     <div className="grid grid-cols-1">
-      <Alert tone="info" title="One address, every service." icon={InfoIcon} testId="connect-one" className="mb-10">
+      <Callout tone="note" lead="One address, every service." testId="connect-one" className="mb-10">
         Names such as <span className="font-mono">aws.larder.doze</span> exist only when the doze app hosts doze-aws as a module. Run on its own, an instance is reached by IP and port, and every service answers there.
-      </Alert>
+      </Callout>
       <Section title="Address" testId="connect-address">
         <div className="grid gap-6 md:grid-cols-2">
           <div className={panel} data-testid="connect-ip">
@@ -114,30 +113,31 @@ export function Overview({ a, goTo }: { a: About; goTo: (tab: "code" | "services
       </Section>
       <Section title="Environment" testId="connect-env" lede="Paste into the shell your app runs from.">
         <CodeBlock code={envBlock(a.endpoint, a.region, creds)} what="Environment block copied" testId="env-block" copyLabel="Copy block" />
-        <Alert tone="info" icon={InfoIcon} testId="connect-keys" className="mt-5" title={a.auth === "trust" ? "Credentials are not checked." : "Signatures are checked."}>
-          {a.auth === "trust" ? "Any non-empty key and secret work. " : "Use the keys doze-aws was started with (--access-key, --secret-key); this console does not show the secret. "}
-          {a.iam === "off" ? "IAM is off: no policy is checked." : a.iam === "soft" ? "IAM runs in soft mode: it evaluates and records every request and never blocks one." : "IAM is enforced: a key IAM issued is refused what its policies do not allow."}
-        </Alert>
-        <p className="mt-4 text-[13.5px]" data-testid="connect-env-cmd">
-          Or let the instance print it. <span className="font-mono">eval &quot;$(doze-aws env)&quot;</span> sets these, and clears what would send calls elsewhere (a per-service AWS_ENDPOINT_URL_*, a leftover AWS_SESSION_TOKEN). See the variables{" "}
-          <button type="button" className={link} onClick={() => goTo("services")} data-testid="goto-services">
-            by service
-          </button>
-          , or the same call{" "}
-          <button type="button" className={link} onClick={() => goTo("code")} data-testid="goto-code">
-            in code
-          </button>
-          .
-        </p>
+        {/* The board's two callouts, side by side. */}
+        <div className="mt-5 grid gap-5 md:grid-cols-2">
+          <Callout tone="note" testId="connect-keys" lead={a.auth === "trust" ? "Credentials are not checked." : "Signatures are checked."}>
+            {a.auth === "trust" ? "Any non-empty key and secret work. " : "Use the keys doze-aws was started with (--access-key, --secret-key); this console does not show the secret. "}
+            {a.iam === "off" ? "IAM is off: no policy is checked." : a.iam === "soft" ? "IAM runs in soft mode: it evaluates and records every request and never blocks one." : "IAM is enforced: a key IAM issued is refused what its policies do not allow."}
+          </Callout>
+          <Callout tone="note" testId="connect-env-cmd" lead="Or let the instance print it.">
+            <span className="font-mono">eval &quot;$(doze-aws env)&quot;</span> sets these, and clears what would send calls elsewhere (a per-service AWS_ENDPOINT_URL_*, a leftover AWS_SESSION_TOKEN). See the variables{" "}
+            <button type="button" className={link} onClick={() => goTo("services")} data-testid="goto-services">
+              by service
+            </button>
+            , or the same call{" "}
+            <button type="button" className={link} onClick={() => goTo("code")} data-testid="goto-code">
+              in code
+            </button>
+            .
+          </Callout>
+        </div>
       </Section>
+      <CheckCard a={a} />
       <Settings />
       <Shapes a={a} />
-      <div className="mb-10">
-        <CheckCard a={a} />
-      </div>
-      <p className="max-w-[46rem] text-[13px] text-muted-foreground" data-testid="connect-follows">
-        Every URL follows the address you asked with. Ask through <span className="font-mono">{hostOf(a.endpoint)}</span> and a queue URL comes back as <span className="font-mono">{hostOf(a.endpoint)}/…</span>; ask through <span className="font-mono">localhost:{a.endpoint.split(":").pop()}</span> and it comes back as <span className="font-mono">localhost:{a.endpoint.split(":").pop()}/…</span>. Nothing stored changes when you switch.
-      </p>
+      <Callout tone="note" lead="Every URL follows the address you asked with." testId="connect-follows">
+        Ask through <span className="font-mono">{hostOf(a.endpoint)}</span> and a queue URL comes back as <span className="font-mono">{hostOf(a.endpoint)}/…</span>; ask through <span className="font-mono">localhost:{a.endpoint.split(":").pop()}</span> and it comes back as <span className="font-mono">localhost:{a.endpoint.split(":").pop()}/…</span>. Nothing stored changes when you switch.
+      </Callout>
     </div>
   );
 }

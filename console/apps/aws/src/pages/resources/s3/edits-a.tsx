@@ -5,7 +5,7 @@ import { Input } from "@doze/ui/components/ui/input";
 import { Field, FormSection, LocalStatus } from "../../../kit";
 import type { OwnProps } from "../deep/registry";
 import { NONE, useSetting } from "./api";
-import { BpaChoice, type Encryption, EncryptionChoice, OwnershipChoice, RadioCards, VersioningChoice } from "./controls";
+import { BpaChoice, BucketKeyChoice, type Encryption, EncryptionType, KmsKeyChoice, OwnershipChoice, RadioCards, VersioningChoice } from "./controls";
 import { Loaded, SettingForm } from "./edit";
 import { BPA_ALL, bpaOf, encryptionConfig, encryptionOf, ownershipOf, type Ownership, websiteConfig, websiteOf, SSE_SHORT } from "./config";
 import { firstEnableWords } from "./words";
@@ -73,10 +73,20 @@ function EncryptionForm({ name, start }: { name: string; start: Encryption }) {
   return (
     <SettingForm name={name} callBelow tab="properties" title="Edit default encryption" sub={`New objects in ${name} are encrypted with the type you choose.`} operation="PutBucketEncryption" input={{ ServerSideEncryptionConfiguration: encryptionConfig(e.algorithm, e.key, e.bucketKey) }} saved={`Default encryption is now ${SSE_SHORT[e.algorithm]}.`} disabled={noKey} disabledWhy="Choose or enter the AWS KMS key." note="Amazon S3 does not validate the KMS key ID provided in PutBucketEncryption requests, so check that it is correct.">
       <FormSection title="Encryption type">
-        <EncryptionChoice value={e} onChange={setE} />
+        <EncryptionType value={e} onChange={setE} />
         <p className="text-[13px] text-muted-foreground">Buckets and new objects are encrypted with SSE-S3 as the base level, at no cost. Choosing SSE-KMS or DSSE-KMS puts you under the requests-per-second quota of AWS KMS. Objects already in the bucket keep the encryption they have.</p>
         <LocalStatus state="stored" reason="Objects are plain files under the data directory whatever you choose; the setting is echoed back on each object." />
       </FormSection>
+      {e.algorithm !== "AES256" && (
+        <FormSection title="AWS KMS key" testId="kms-choice">
+          <KmsKeyChoice value={e} set={(patch) => setE({ ...e, ...patch })} titled={false} />
+        </FormSection>
+      )}
+      {e.algorithm === "aws:kms" && (
+        <FormSection title="Bucket Key" testId="bucket-key-section">
+          <BucketKeyChoice value={e} set={(patch) => setE({ ...e, ...patch })} titled={false} />
+        </FormSection>
+      )}
     </SettingForm>
   );
 }

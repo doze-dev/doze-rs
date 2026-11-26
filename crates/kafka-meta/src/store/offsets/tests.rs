@@ -112,6 +112,82 @@ fn a_commit_that_stores_nothing_writes_nothing() {
     assert_eq!(fs.count(Op::Fsync), flushes);
 }
 
+/// Java's consumer commits every position every five seconds, moved or not: within the window the caller gives, the
+/// same offset again is not written (or flushed) again and keeps its first commit time. Past the window, a move, a new
+/// epoch or new metadata, it is written. With no window (`commit_offsets`) every commit is written.
+#[test]
+fn the_same_offset_committed_again_within_the_window_is_not_written_again() {
+    const WINDOW: i64 = 60_000;
+    let (fs, store) = store();
+    let first = at("t", 0, 5);
+    store
+        .commit_offsets(&group("g"), std::slice::from_ref(&first))
+        .unwrap();
+    let stored = |store: &MetaStore| {
+        let (t, p) = (TopicName::parse("t").unwrap(), PartitionId::new(0).unwrap());
+        store.offset(&group("g"), &t, p).unwrap().unwrap()
+    };
+    let later = |base: &StoredOffset, ms: i64| {
+        let mut c = first.clone();
+        c.offset = StoredOffset {
+            committed_ms: base.committed_ms + ms,
+            ..base.clone()
+        };
+        c
+    };
+
+    let flushes = fs.count(Op::Fsync);
+    let done = store
+        .commit_offsets_unless_held(
+            &group("g"),
+            &[
+                later(&first.offset, 5_000),
+                later(&first.offset, WINDOW - 1),
+            ],
+            WINDOW,
+        )
+        .unwrap();
+    assert_eq!(done, [Committed::Stored, Committed::Stored]);
+    assert_eq!(fs.count(Op::Fsync), flushes, "unchanged: nothing written");
+    assert_eq!(stored(&store), first.offset);
+
+    for (ms, change) in [
+        (WINDOW, (|_| {}) as fn(&mut StoredOffset)),
+        (1, |o| o.offset += 1),
+        (2, |o| o.leader_epoch = 3),
+        (3, |o| o.metadata = "other".into()),
+    ] {
+        let mut c = later(&stored(&store), ms);
+        change(&mut c.offset);
+        let before = fs.count(Op::Fsync);
+        store
+            .commit_offsets_unless_held(&group("g"), std::slice::from_ref(&c), WINDOW)
+            .unwrap();
+        assert!(fs.count(Op::Fsync) > before, "after {ms} ms: written");
+        assert_eq!(stored(&store), c.offset);
+    }
+
+    // One of several moved: all are written.
+    let same = later(&stored(&store), 1);
+    let mut moved = at("t", 1, 9);
+    moved.offset.committed_ms = same.offset.committed_ms;
+    let before = fs.count(Op::Fsync);
+    store
+        .commit_offsets_unless_held(&group("g"), &[same, moved], WINDOW)
+        .unwrap();
+    assert!(fs.count(Op::Fsync) > before);
+    assert_eq!(read(&store, "g", "t", 1), Some(9));
+
+    // No window: written every time.
+    let same = later(&stored(&store), 1);
+    let before = fs.count(Op::Fsync);
+    store
+        .commit_offsets(&group("g"), std::slice::from_ref(&same))
+        .unwrap();
+    assert!(fs.count(Op::Fsync) > before);
+    assert_eq!(stored(&store), same.offset);
+}
+
 #[test]
 fn a_groups_offsets_are_its_own_even_when_another_groups_id_begins_with_it() {
     let (_fs, store) = store();

@@ -311,6 +311,9 @@ jobs:
       # Session 11: regex without its perf engines (weight.md, "Session 11"): 8,607,968 B on x86_64 Linux (cross build), 233 packages.
       # 2026-11-19, D2 (names, the front door, TLS, downloads): 9,192,984 B at "s" (zig cross build), over the line; release-doze moved
       # to opt-level "z": 8,754,344 B, 234 packages (weight.md, "D2"). The line is unchanged.
+      # 2026-11-26, headroom: main had reached 8,993,656 B here. doze-hcl, doze-config and hcl-edit at "z" too (they kept
+      # release's "s"), serde_json read from bytes only, the wall clock without jiff's strftime: 9,022,944 to 8,607,376 B in
+      # the zig cross build (-415,568 B), 234 packages (weight.md, "Headroom for doze"). The line is unchanged.
       - name: doze (the CLI) under 9 MB
         run: |
           cargo build --profile release-doze -p doze-cli

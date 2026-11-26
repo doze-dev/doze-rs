@@ -11,6 +11,7 @@ registerKind("eventbridge", "rules", {
   list: lazy(() => import("./rules-list").then((m) => ({ default: m.RulesList }))),
   detail: lazy(() => import("./rule-detail").then((m) => ({ default: m.RuleDetail }))),
 });
-registerKind("eventbridge", "archives", { list: lazy(() => import("./archives-list").then((m) => ({ default: m.ArchivesList }))) });
-registerKind("eventbridge", "replays", { list: lazy(() => import("./replays-list").then((m) => ({ default: m.ReplaysList }))) });
-registerKind("eventbridge", "api-destinations", { list: lazy(() => import("./dests-list").then((m) => ({ default: m.DestsList }))) });
+const one = lazy(() => import("./own-detail").then((m) => ({ default: m.EbOneDetail })));
+registerKind("eventbridge", "archives", { list: lazy(() => import("./archives-list").then((m) => ({ default: m.ArchivesList }))), detail: one });
+registerKind("eventbridge", "replays", { list: lazy(() => import("./replays-list").then((m) => ({ default: m.ReplaysList }))), detail: one });
+registerKind("eventbridge", "api-destinations", { list: lazy(() => import("./dests-list").then((m) => ({ default: m.DestsList }))), detail: one });

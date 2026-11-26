@@ -15,7 +15,8 @@ import { at, Loaded } from "../deep/parts";
 import { StartDialog } from "./dialogs";
 import { fieldOf } from "./details-card";
 import { STATUS } from "./history";
-import { aliasOf, expressWords, inputSkeleton, versionOf } from "./model";
+import { aliasOf, expressWords, versionOf } from "./model";
+import { inputSkeleton } from "./start-input";
 import { parseDefinition } from "./graph";
 
 export type ExecutionItem = { executionArn: string; name: string; status: string; startDate: number | string; stopDate?: number | string; redriveCount?: number; stateMachineVersionArn?: string; stateMachineAliasArn?: string };
@@ -46,7 +47,7 @@ export function MachineExecutions({ d }: { d: ResourceDetail }) {
   const q = useOpRead<{ executions?: ExecutionItem[]; nextToken?: string }>(on.machine(d.name), "ListExecutions", { maxResults: 50, ...(filter !== "ALL" ? { statusFilter: filter } : {}), ...(token ? { nextToken: token } : {}) }, !express);
   const startAt = parseDefinition(fieldOf(d, "Definition") ?? "")?.StartAt;
   const start = () => { setOpened((n) => n + 1); setStarting(true); };
-  const dialog = <StartDialog key={opened} machine={d.id} name={d.name} startAt={startAt} input={inputSkeleton(parseDefinition(fieldOf(d, "Definition") ?? ""))} open={starting} onOpenChange={setStarting} />;
+  const dialog = <StartDialog key={opened} machine={d.id} name={d.name} startAt={startAt} reuse input={inputSkeleton(parseDefinition(fieldOf(d, "Definition") ?? ""))} open={starting} onOpenChange={setStarting} />;
   const calls = <RecentCalls calls={d.calls} noun="state machine" className="mt-10" />;
   if (express) {
     return (

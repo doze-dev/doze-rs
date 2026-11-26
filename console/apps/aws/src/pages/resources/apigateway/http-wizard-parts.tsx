@@ -4,6 +4,7 @@ import { Emphasis } from "@doze/ui/components/app/emphasis";
 import { Button } from "@doze/ui/components/ui/button";
 import { Input } from "@doze/ui/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@doze/ui/components/ui/select";
+import { cn } from "@doze/ui/lib/utils";
 import { XIcon } from "lucide-react";
 import { Field, FunctionPicker } from "../../../kit";
 import { useFunctionSentence } from "./api";
@@ -17,7 +18,7 @@ export function IntegrationFields({ i, count, form, region, set, remove, tried, 
   const lambda = form.kind === "lambda";
   const sentence = useFunctionSentence(lambda ? form.fn : null);
   return (
-    <div className="grid gap-5 rounded-[var(--radius-panel)] border p-5" data-testid={tid("integration", i)}>
+    <div className={cn("grid gap-5", count > 1 && "rounded-[var(--radius-panel)] border p-5")} data-testid={tid("integration", i)}>
       {count > 1 && (
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-[15px] font-semibold text-bright">Integration {i + 1}</h3>
@@ -34,7 +35,7 @@ export function IntegrationFields({ i, count, form, region, set, remove, tried, 
       </Field>
       {lambda ? (
         <>
-          <Field label="Lambda function" error={tried && !form.fn ? "Choose the Lambda function." : undefined} hint={<>API Gateway needs permission to invoke the function, through a resource-based policy or an IAM role.{sentence && <> <Emphasis text={sentence} names={[form.fn ?? ""]} /></>}</>}>
+          <Field label="Lambda function" error={tried && !form.fn ? "Choose the Lambda function." : undefined} hint={sentence ? <Emphasis text={sentence} names={[form.fn ?? ""]} /> : undefined}>
             {(id) => (
               <div className="grid gap-3 sm:grid-cols-[11rem_minmax(0,1fr)]">
                 {/* doze-aws serves one Region, so the Region of the function is the one choice. */}

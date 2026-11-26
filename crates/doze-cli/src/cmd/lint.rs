@@ -177,7 +177,7 @@ fn module_pass(
         .rev()
         .find(|l| !l.trim().is_empty())
         .unwrap_or("");
-    serde_json::from_str(last).map_err(|_| {
+    serde_json::from_slice(last.as_bytes()).map_err(|_| {
         let said = String::from_utf8_lossy(&out.stderr);
         let last = said.lines().last().unwrap_or("it said nothing");
         format!("the module pass did not answer ({last})")

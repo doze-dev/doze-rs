@@ -21,6 +21,8 @@ import type { CallRecord } from "../../../api/types/CallRecord";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
 import type { ResourceRow } from "../../../api/types/ResourceRow";
 import { Field, FormPage, FormSection, KeyPicker, LOCAL_WORDS, RecentCalls, callKindOp, useFeeders, useServiceCrumbs } from "../../../kit";
+import { ago } from "../../../people";
+import { useNow } from "../../card";
 import { HINT } from "../index-page";
 import { Value } from "../value";
 import type { OwnProps } from "../deep/registry";
@@ -62,8 +64,11 @@ export function ActivitiesList({ service, kind, search }: OwnProps) {
   const list = useResourceList(service, kind);
   const machines = useResourceList("stepfunctions", "machines");
   const calls = useWorkerCalls();
+  const now = useNow();
   const { refetch } = list;
   const first = list.data?.pages[0];
+  // The service's crumbs come from the catalogue, which is kept: the trail does not wait for the list.
+  const serviceCrumbs = useServiceCrumbs(service);
   const all = useMemo(() => list.data?.pages.flatMap((p) => p.rows) ?? [], [list.data]);
   const mine = useMemo(() => (calls.data?.calls ?? []).filter((c) => c.service === "stepfunctions" && c.action !== null && WORKER_CALLS.includes(c.action)).reverse(), [calls.data]);
   const users = useUsers((machines.data?.pages.flatMap((p) => p.rows) ?? []).filter((r) => r.cells[0] !== "EXPRESS").map((r) => r.name), all.length > 0);
@@ -79,7 +84,9 @@ export function ActivitiesList({ service, kind, search }: OwnProps) {
     const names: string[] = [];
     if (polled && pollers[0]) {
       const use = users.used.get(polled.name)?.[0]?.split("\u0000");
-      parts.push(`${pollers[0]} polls ${polled.name}${use ? `, which ${use[0]} uses in its ${use[1]} step` : ""}.`);
+      // Read from the Live record, which keeps what happened and not what is going on: it says when the last poll was, not that someone is polling.
+      const last = mine.filter((c) => c.action === "GetActivityTask" && (c.resource ?? "").endsWith(`:activity:${polled.name}`)).reduce((m, c) => Math.max(m, c.at_ms), 0);
+      parts.push(`${pollers[0]} last polled ${polled.name} ${ago(last, now)}${use ? `, which ${use[0]} uses in its ${use[1]} step` : ""}.`);
       names.push(polled.name);
     }
     const idle = all.filter((a) => !users.used.has(a.name) && !users.pending).map((a) => a.name);
@@ -88,14 +95,14 @@ export function ActivitiesList({ service, kind, search }: OwnProps) {
       names.push(...idle);
     }
     return parts.length > 0 ? { text: parts.join(" "), names } : null;
-  }, [all, polled, pollers, users]);
+  }, [all, polled, pollers, users, mine, now]);
   const gone = search.name;
   return (
     <>
       {gone && <ResultBanner className="mb-6" title={search.mode === "existed" ? `Activity ${gone} already exists.` : `Activity ${gone} created.`} returned={search.mode === "existed" ? "CreateActivity returned the existing activity's ARN and changed nothing, so no second activity was made and its tags are as they were." : "CreateActivity returned its ARN. Use it in a Task state; workers poll for it by that ARN."} onDismiss={() => go.activities()} testId="created-banner" />}
       <PageHeader
         title="Activities"
-        crumbs={[{ label: "Resources", to: "/resources" }, ...(first ? [{ label: first.service_title, to: `/resources/${service}` }, { label: "State machines", to: "/resources/stepfunctions/machines" }] : [])]}
+        crumbs={[...serviceCrumbs, { label: "Activities", to: "" }]}
         sub="Tasks done by workers outside Step Functions. A worker polls for work, does it, and reports back."
         refresh={<RefreshControl updatedAt={list.dataUpdatedAt} fetching={list.isFetching} onRefresh={refresh} interval={false} />}
         actions={<Button onClick={() => go.activities({ do: "create" })} data-testid="create-open"><PlusIcon /> Create activity</Button>}
@@ -139,6 +146,8 @@ export function ActivityCreate() {
   const [kms, setKms] = useState(false);
   const [kmsKey, setKmsKey] = useState<string | null>(null);
   const [kmsPeriod, setKmsPeriod] = useState("300");
+  const keys = useResourceList("kms", "keys");
+  const noKeys = kms && keys.isSuccess && !keys.hasNextPage && keys.data.pages.every((p) => p.rows.length === 0);
   const enc = { kms, kmsKey, kmsPeriod };
   const problem = nameProblem(name, []) ?? encryptionProblem(enc);
   const body = { name, ...encryptionOf(enc) };
@@ -178,7 +187,7 @@ export function ActivityCreate() {
             <p className="border-l-2 pl-3 text-[13px] text-muted-foreground">doze-aws keeps the setting and returns it, and does not encrypt an activity's task input with it. <span className="text-muted-foreground/80">{LOCAL_WORDS.stored}.</span></p>
             {kms && (
               <div className="grid gap-5 sm:grid-cols-2">
-                <Field label="KMS key">{(id) => <KeyPicker id={id} value={kmsKey} onChange={setKmsKey} by="id" />}</Field>
+                <Field label="KMS key" hint={noKeys ? "There is no KMS key in this Region yet. Make one in KMS first, or turn the switch off." : undefined}>{(id) => <KeyPicker id={id} value={kmsKey} onChange={setKmsKey} by="id" />}</Field>
                 <Field label="Data key reuse period" hint="Seconds, 60 to 900.">{(id) => <Input id={id} inputMode="numeric" value={kmsPeriod} onChange={(e) => setKmsPeriod(e.target.value)} className="bg-card" data-testid="activity-kms-period" />}</Field>
               </div>
             )}

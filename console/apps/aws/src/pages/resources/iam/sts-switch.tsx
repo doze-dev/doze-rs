@@ -76,7 +76,7 @@ export function SwitchRole() {
     <FormPage
       title="Switch Role"
       sub={<>Take on a role&apos;s permissions for a while, then switch back. <span className="text-muted-foreground">The role comes from AssumeRole, which returns temporary credentials for it.</span></>}
-      crumbs={[{ label: "Resources", to: "/resources" }, { label: "Identity", to: "/resources" }, { label: "STS", to: "/resources/sts" }]}
+      crumbs={[{ label: "Access", to: "/access" }, { label: "STS", to: "" }]}
       request={{ service: "sts", operation: "AssumeRole", input }}
       callService={false}
       callNote={<>AssumeRole returns fresh credentials, an access key ID, a secret and a session token. DurationSeconds defaults to 3600 and can range from 900 to 43,200 (and no more than the role&apos;s maximum session duration, which AssumeRole enforces). <span className="mt-2 block">The session is real to SDKs; the local gateway accepts any signature, so what it can do follows the IAM mode: with soft the role&apos;s policies are checked and a refusal is only recorded, with enforce it is refused. The trust policy is evaluated only under enforce.</span></>}

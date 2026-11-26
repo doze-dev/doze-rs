@@ -103,6 +103,8 @@ pub enum ParamKind {
     Select,
     Text,
     Chips,
+    /// Not drawn: a picker on another page names it in the address (the roles a service can assume).
+    Hidden,
 }
 
 /// One choice of a select or a chip.

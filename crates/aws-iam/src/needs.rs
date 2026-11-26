@@ -52,6 +52,10 @@ impl Core {
                     .and_then(|name| self.entity(Kind::Role, name).ok())
                     .and_then(|role| role.trust.clone());
                 let mut need = Need::new("sts:AssumeRole", arn).with_policy(trust).gated();
+                // The external ID a caller names is what a trust policy's `sts:ExternalId` condition reads (the confused-deputy guard).
+                if let Some(external) = r.opt("ExternalId") {
+                    need = need.with("sts:ExternalId", vec![external.into()]);
+                }
                 // A good MFA code is what a trust policy's `aws:MultiFactorAuthPresent` asks about (the call spends it).
                 if let Some(serial) = r.opt("SerialNumber") {
                     let user = self.identify(r).arn;

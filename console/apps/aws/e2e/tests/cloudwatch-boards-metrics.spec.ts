@@ -184,6 +184,9 @@ test("cloudwatch__dashboard-view, dashboard-source and dashboard-add-widget: the
   await expect(page.getByTestId("widget-count")).toContainText("This dashboard has 5 widgets;");
   await expect(page.getByTestId("dashboard-local")).toContainText("Stored, not applied locally.");
   await expect(page.getByTestId("save-dashboard")).toBeDisabled();
+  // The dashboard's page lists the calls that touched it (PutDashboard by name), not "No call in the Live record acted on this dashboard yet".
+  await expect(page.getByText(/No call in the Live record acted on/)).toHaveCount(0);
+  await expect(page.getByRole("table", { name: /calls/i }).first()).toContainText("PutDashboard");
   await shot(page, "cloudwatch__dashboard-view");
   await page.getByTestId("source-open").click();
   const source = page.getByTestId("source-dialog");

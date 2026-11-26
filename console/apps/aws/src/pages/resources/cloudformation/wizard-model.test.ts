@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { newRow } from "@doze/ui/components/app/key-values";
-import { type Summary, type Wizard, BODY_MAX, changeSetInput, changeSetNameProblem, emptyWizard, firstFree, nameProblem, tagsLine, optionsInput, optionsProblem, parameterList, parameterProblem, stackInput, summaryInput, templateProblem, templateRef, validateInput } from "./wizard-model";
+import { type Summary, type Wizard, BODY_MAX, changeSetInput, changeSetNameProblem, emptyWizard, firstFree, nameProblem, noEchoLine, tagsLine, optionsInput, optionsProblem, parameterList, parameterProblem, stackInput, summaryInput, templateProblem, templateRef, validateInput } from "./wizard-model";
 
 const summary: Summary = { Description: "d", Parameters: [{ ParameterKey: "Stage", ParameterType: "String", DefaultValue: "prod" }, { ParameterKey: "Table", ParameterType: "String" }, { ParameterKey: "Secret", NoEcho: true }, { ParameterKey: "Mode", ParameterConstraints: { AllowedValues: ["a", "b"] }, DefaultValue: "a" }] };
 const create = (p: Partial<Wizard> = {}): Wizard => ({ ...emptyWizard("create"), url: "https://b.s3.us-east-1.amazonaws.com/t.yaml", name: "search", values: { Table: "search-index", Secret: "s" }, ...p });
@@ -110,5 +110,16 @@ describe("step 4", () => {
     expect(firstFree("update-review", [])).toBe("update-review");
     expect(firstFree("update-review", ["update-review"])).toBe("update-review-2");
     expect(firstFree("update-review", ["update-review", "update-review-2", "x"])).toBe("update-review-3");
+  });
+});
+
+describe("what an update says of a NoEcho parameter", () => {
+  test("says when it was set, in the board's words, for a stack never updated", () => {
+    expect(noEchoLine("larder-core", "2026-11-06 09:00:00 UTC", false)).toBe("A NoEcho value is never shown again, so the field starts empty. Ticking Use existing value keeps the one the stack has. It was set once, when larder-core was created on 2026-11-06 09:00:00 UTC.");
+  });
+
+  test("does not say once of a stack that an update may have changed it in", () => {
+    expect(noEchoLine("larder-core", "2026-11-06 09:00:00 UTC", true)).toContain("or by an update since");
+    expect(noEchoLine("larder-core", undefined, false)).toBe("A NoEcho value is never shown again, so the field starts empty. Ticking Use existing value keeps the one the stack has.");
   });
 });

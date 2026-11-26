@@ -8,5 +8,5 @@ export function KeyAliasPicker({ value, onChange, defaultLabel, id }: { value: s
   const served = useAbout().data?.services.some((s) => s.name === "kms" && s.served) ?? false;
   const aliases = useAllRows("kms", "aliases", { enabled: served });
   const options: Option[] = [{ value: "", label: `${defaultLabel} (default)` }, ...aliases.rows.filter((r) => !r.name.startsWith("alias/aws/")).map((r) => ({ value: r.name, label: r.name })).sort((a, b) => a.label.localeCompare(b.label))];
-  return <Combobox options={options} value={value ?? ""} onChange={(v) => onChange(v ? v : null)} placeholder="Choose a key" search="Search keys…" empty="No key matches." id={id} aria-label="Encryption key" className="w-full max-w-xl bg-card font-mono" />;
+  return <Combobox options={options} value={value ?? ""} onChange={(v) => onChange(v ? v : null)} placeholder="Choose a key" search="Search keys, or type a key ID or ARN…" empty="No key matches." pattern id={id} aria-label="Encryption key" className="w-full max-w-xl bg-card font-mono" />;
 }

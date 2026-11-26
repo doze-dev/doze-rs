@@ -2,14 +2,15 @@
 // authorizer that checks a token against its issuer. Attaching it to a route is the Authorization page's second step.
 import { useMemo, useState } from "react";
 import { Alert } from "@doze/ui/components/app/alert";
+import { Emphasis } from "@doze/ui/components/app/emphasis";
 import { Input } from "@doze/ui/components/ui/input";
 import { Label } from "@doze/ui/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@doze/ui/components/ui/select";
 import { Switch } from "@doze/ui/components/ui/switch";
 import { ApiFailure } from "@doze/ui/lib/api";
 import { Field, FormPage, FormSection, FunctionPicker, RadioCards, RuleHelp } from "../../../kit";
-import { HTTP, useHttpAuthorizers, useWrite } from "./api";
-import { type HttpAuthorizerForm, emptyHttp, httpAuthorizerInput, httpAuthorizerProblem } from "./authorizer-model";
+import { HTTP, useHttpAuthorizers, useRoutes, useWrite } from "./api";
+import { type HttpAuthorizerForm, emptyHttp, existingAuthorizerWords, httpAuthorizerInput, httpAuthorizerProblem } from "./authorizer-model";
 import { ListEditor } from "./list-editor";
 import { useWhere } from "./parts";
 import type { HttpAuthorizer } from "./types";
@@ -22,6 +23,7 @@ export function HttpAuthorizerCreate({ api, apiName, crumbs, onClose }: { api: s
   const [tried, setTried] = useState(false);
   const make = useWrite<HttpAuthorizer>(HTTP, "CreateAuthorizer");
   const others = useHttpAuthorizers(api).data?.items ?? [];
+  const used = existingAuthorizerWords(others, useRoutes(api).data?.items ?? []);
   const set = (patch: Partial<HttpAuthorizerForm>) => { setF((x) => ({ ...x, ...patch })); make.reset(); };
   const problem = httpAuthorizerProblem(f);
   const input = useMemo(() => httpAuthorizerInput(f, { api, region: where.region, account: where.account }), [f, api, where.region, where.account]);
@@ -60,7 +62,7 @@ export function HttpAuthorizerCreate({ api, apiName, crumbs, onClose }: { api: s
         </Field>
         {lambda ? (
           <>
-            <Field label="Lambda function" error={tried && !f.fn ? "Choose the Lambda function." : undefined} hint={<>API Gateway must be allowed to invoke the function, through its resource policy or an IAM role.</>}>
+            <Field label="Lambda function" error={tried && !f.fn ? "Choose the Lambda function." : undefined} hint={<>{used ? <Emphasis text={used} names={others.map((a) => a.name)} /> : null}{used ? " " : ""}On AWS, API Gateway must be allowed to invoke the function. doze-aws does not check that permission.</>}>
               {(id) => <FunctionPicker id={id} by="name" value={f.fn} onChange={(fn) => set({ fn })} />}
             </Field>
             <div className="grid gap-2"><span className="text-[14px] leading-none font-medium text-bright">Payload format version</span><Select value={f.version} onValueChange={(version) => set({ version: version as "2.0" | "1.0", simple: version === "2.0" ? f.simple : false })}><SelectTrigger className="w-64 bg-card" aria-label="Payload format version" data-testid="payload-version"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="2.0">2.0</SelectItem><SelectItem value="1.0">1.0</SelectItem></SelectContent></Select><p className="text-[13px] leading-5 text-muted-foreground">The shape of the event the function receives. The console uses the latest, 2.0, when you do not choose; use 1.0 for compatibility with REST APIs.</p></div>

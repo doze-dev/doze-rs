@@ -3,6 +3,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { Soft } from "../../../kit/soft";
 import { Alert, errorWords } from "@doze/ui/components/app/alert";
 import { Checkbox } from "@doze/ui/components/ui/checkbox";
 import { Input } from "@doze/ui/components/ui/input";
@@ -90,7 +91,7 @@ export function MetricFilterCreate({ group }: { group: string }) {
               {results.length === 0 ? <p className="text-[13.5px] text-muted-foreground" data-testid="mf-no-match">No message matched. Nothing would be counted.</p> : (
                 <table className="w-full table-fixed border-collapse text-left text-[13px]">
                   <thead className="bg-well"><tr className="text-[11.5px] tracking-[0.07em] text-muted-foreground uppercase"><th className="w-32 rounded-l-lg px-3 py-2.5 font-medium">Event number</th><th className="rounded-r-lg px-3 py-2.5 font-medium">Event message</th></tr></thead>
-                  <tbody>{results.map((m) => <tr key={m.eventNumber} className="border-b last:border-b-0"><td className="px-3 py-3 text-center font-mono tabular-nums">{m.eventNumber}</td><td className="px-3 py-3 font-mono break-all">{m.eventMessage}</td></tr>)}</tbody>
+                  <tbody>{results.map((m) => <tr key={m.eventNumber} className="border-b last:border-b-0"><td className="px-3 py-3 text-center font-mono tabular-nums">{m.eventNumber}</td><td className="px-3 py-3 font-mono break-words"><Soft text={m.eventMessage} /></td></tr>)}</tbody>
                 </table>
               )}
             </FormSection>

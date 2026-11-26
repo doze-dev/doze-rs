@@ -28,59 +28,14 @@ use tokio::sync::watch;
 
 use call::cut;
 pub use call::{Call, Extra, Lab, LabDid, Via};
+pub use fan::Publishing;
 pub use flows::{FLOWS, Flow};
+pub use limits::*;
 
 mod call;
 mod fan;
 mod flows;
-
-/// The most calls held.
-pub const CAPACITY: usize = 1024;
-/// The part of a full ring the console's own calls may hold before they, not an app's, are let go: a quarter.
-pub const CONSOLE_SHARE: usize = 4;
-/// The most bytes of each text of a record that are kept.
-pub const MOST_REQUEST_ID: usize = 64;
-/// See [`MOST_REQUEST_ID`].
-pub const MOST_CALLER: usize = 128;
-/// See [`MOST_REQUEST_ID`].
-pub const MOST_REGION: usize = 32;
-/// See [`MOST_REQUEST_ID`].
-pub const MOST_CODE: usize = 96;
-/// See [`MOST_REQUEST_ID`]: the words of an error answer.
-pub const MOST_MESSAGE: usize = 120;
-/// See [`MOST_REQUEST_ID`]: `Unhandled`, `Handled`.
-pub const MOST_FUNCTION_ERROR: usize = 16;
-/// See [`MOST_REQUEST_ID`]. An S3 key can be 1024 bytes; the head of it says which object.
-pub const MOST_RESOURCE: usize = 256;
-/// See [`MOST_REQUEST_ID`]: each of the three texts of a call between services ([`Via`]).
-pub const MOST_VIA: usize = 64;
-/// The most text a request from the wire holds.
-pub const MOST_WIRE_TEXT: usize = MOST_REQUEST_ID
-    + MOST_CALLER
-    + MOST_REGION
-    + MOST_CODE
-    + MOST_RESOURCE
-    + crate::agent::MOST
-    + MOST_MESSAGE
-    + MOST_FUNCTION_ERROR
-    + std::mem::size_of::<Extra>();
-/// The most a call between services holds beside its slot: it has no request id of its own, and a [`Via`].
-pub const MOST_BUS_TEXT: usize = MOST_CALLER
-    + MOST_REGION
-    + MOST_CODE
-    + MOST_RESOURCE
-    + std::mem::size_of::<Via>()
-    + 3 * MOST_VIA;
-/// The most one record holds beside its slot: the larger of the two.
-pub const MOST_TEXT: usize = if MOST_WIRE_TEXT > MOST_BUS_TEXT {
-    MOST_WIRE_TEXT
-} else {
-    MOST_BUS_TEXT
-};
-/// One record in the ring, without its text.
-pub const RECORD_BYTES: usize = std::mem::size_of::<Call>();
-/// The most the ring can hold, in bytes, when every text of every record is as long as it may be.
-pub const MOST_BYTES: usize = CAPACITY * (RECORD_BYTES + MOST_TEXT);
+mod limits;
 
 /// What a reader that has everything up to `after` is given.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -125,6 +80,8 @@ pub struct Recorder {
     ring: Mutex<Ring>,
     /// Who asks the gateway which request a caller has in flight ([`Recorder::find_causes_with`]).
     causes: std::sync::OnceLock<FindCause>,
+    /// The publishes the console is making now ([`Recorder::publishing`]).
+    publishing: Mutex<Vec<Box<str>>>,
     capacity: usize,
     newest: watch::Sender<u64>,
 }
@@ -157,6 +114,7 @@ impl Recorder {
         Self {
             ring: Mutex::new(Ring::default()),
             causes: std::sync::OnceLock::new(),
+            publishing: Mutex::new(Vec::new()),
             capacity: capacity.max(1),
             newest: watch::Sender::new(0),
         }
@@ -239,9 +197,11 @@ impl Recorder {
         // A call made on a task the request's own does not reach (a service's actor) carries no cause: the request in flight for
         // its caller is. One a rule, mapping or schedule made is that thing's, whatever its caller has in flight.
         let found = if cause.is_none_or(|c| c.request.is_none() && c.name.is_none()) {
-            self.causes
-                .get()
-                .and_then(|find| find(call.access_key_id, call.region))
+            self.console_publish_of(call).or_else(|| {
+                self.causes
+                    .get()
+                    .and_then(|find| find(call.access_key_id, call.region))
+            })
         } else {
             None
         };

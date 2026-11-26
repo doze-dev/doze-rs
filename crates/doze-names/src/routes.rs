@@ -49,7 +49,7 @@ impl Routes {
     /// in a privileged script.
     fn read(&self) -> Record {
         let text = std::fs::read_to_string(self.path()).unwrap_or_default();
-        let mut rs: Record = serde_json::from_str(&text).unwrap_or_default();
+        let mut rs: Record = serde_json::from_slice(text.as_bytes()).unwrap_or_default();
         rs.retain(|d, _| valid_domain(d).is_ok() && !wildcard(d));
         rs
     }

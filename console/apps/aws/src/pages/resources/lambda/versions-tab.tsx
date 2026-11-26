@@ -13,6 +13,7 @@ import type { ResourceDetail } from "../../../api/types/ResourceDetail";
 import { on, useOp, useOpRead } from "../deep/api";
 import { Card, Loaded, Refused } from "../deep/parts";
 import { timeMs } from "../model";
+import { unchangedKey } from "./done-words";
 import { nextVersion } from "./forms";
 import type { Go } from "./hooks";
 import type { Fn } from "./model";
@@ -37,14 +38,14 @@ const VERSION_COLUMNS: DataColumn<Version>[] = [
   { id: "v", header: "Version", size: 120, accessorKey: "Version", meta: { mono: true }, cell: (c) => <span className="font-mono text-[13px] font-medium text-bright" data-testid="version-cell">{c.row.original.Version}</span> },
   { id: "d", header: "Description", size: 260, accessorFn: (r) => r.Description ?? "", cell: (c) => c.row.original.Description || (c.row.original.Version === "$LATEST" ? "The unpublished version" : <span className="text-muted-foreground">–</span>) },
   { id: "m", header: "Last modified", size: 210, accessorFn: (r) => r.LastModified ?? "", cell: (c) => when(c.row.original.LastModified) },
-  { id: "a", header: "Function ARN", min: 540, accessorFn: (r) => r.FunctionArn ?? "", meta: { mono: true }, cell: (c) => mono(c.row.original.FunctionArn) },
+  { id: "a", header: "Function ARN", min: 300, accessorFn: (r) => r.FunctionArn ?? "", meta: { mono: true, wrap: true }, cell: (c) => mono(c.row.original.FunctionArn) },
 ];
 
 const ALIAS_COLUMNS: DataColumn<Alias>[] = [
   { id: "n", header: "Name", size: 160, accessorKey: "Name", meta: { mono: true }, cell: (c) => <span className="font-mono text-[13px] font-medium text-bright">{c.row.original.Name}</span> },
   { id: "d", header: "Description", size: 260, accessorFn: (r) => r.Description ?? "", cell: (c) => c.row.original.Description || <span className="text-muted-foreground">–</span> },
   { id: "v", header: "Version", size: 100, accessorFn: (r) => r.FunctionVersion ?? "", meta: { mono: true }, cell: (c) => mono(c.row.original.FunctionVersion) },
-  { id: "a", header: "Alias ARN", min: 300, accessorFn: (r) => r.AliasArn ?? "", meta: { mono: true }, cell: (c) => mono(c.row.original.AliasArn) },
+  { id: "a", header: "Alias ARN", min: 300, accessorFn: (r) => r.AliasArn ?? "", meta: { mono: true, wrap: true }, cell: (c) => mono(c.row.original.AliasArn) },
 ];
 
 export function VersionsTab({ d, f, go }: { d: ResourceDetail; f: Fn; go: (to: Go) => void }) {
@@ -63,12 +64,13 @@ export function VersionsTab({ d, f, go }: { d: ResourceDetail; f: Fn; go: (to: G
           )}
         </Loaded>
       </Card>
-      <Publish d={d} f={f} versions={list} open={open} onOpenChange={setOpen} done={() => { setOpen(false); go({ tab: "versions", done: "published" }); }} />
+      <Publish d={d} f={f} versions={list} open={open} onOpenChange={setOpen} done={(version, made) => { setOpen(false); go({ tab: "versions", done: made || !version ? "published" : unchangedKey(version) }); }} />
     </>
   );
 }
 
-function Publish({ d, versions, open, onOpenChange, done }: { d: ResourceDetail; f: Fn; versions: Version[]; open: boolean; onOpenChange: (o: boolean) => void; done: () => void }) {
+/** `done(version, made)`: the version PublishVersion answered with, and whether it is a new one (an answer that is one the list already had made none). */
+function Publish({ d, versions, open, onOpenChange, done }: { d: ResourceDetail; f: Fn; versions: Version[]; open: boolean; onOpenChange: (o: boolean) => void; done: (version: string | undefined, made: boolean) => void }) {
   const [text, setText] = useState("");
   const publish = useOp<{ Version?: string }>(on.fn(d.name), "PublishVersion");
   const latest = versions.find((v) => v.Version === "$LATEST");
@@ -88,7 +90,7 @@ function Publish({ d, versions, open, onOpenChange, done }: { d: ResourceDetail;
             Once published, the code and most settings cannot be changed.
           </DialogDescription>
         </DialogHeader>
-        <form className="grid gap-4" onSubmit={(e) => { e.preventDefault(); publish.mutate(text ? { Description: text } : {}, { onSuccess: done }); }}>
+        <form className="grid gap-4" onSubmit={(e) => { e.preventDefault(); publish.mutate(text ? { Description: text } : {}, { onSuccess: (r) => done(r.Version, !versions.some((v) => v.Version === r.Version)) }); }}>
           <div className="grid gap-1.5">
             <Label htmlFor="version-description">Version description <span className="font-normal text-muted-foreground">Optional</span></Label>
             <Input id="version-description" value={text} onChange={(e) => setText(e.target.value)} autoComplete="off" maxLength={256} data-testid="version-description" />
@@ -116,7 +118,7 @@ export function AliasesTab({ d, go }: { d: ResourceDetail; go: (to: Go) => void 
           <EmptyTab icon={TagIcon} title="No aliases" action={<Button type="button" variant="outline" className="bg-card" onClick={make}>Create alias</Button>} testId="aliases-none">{d.name} has no aliases. An alias is a pointer to a version that you can move without changing callers.</EmptyTab>
         ) : (
           <Card title="Aliases" lede={<span className="block max-w-[44rem]">An alias is a pointer to a function version that you can update. Callers use the alias ARN and never change.</span>} actions={create} testId="lambda-aliases">
-            <DataTable aria-label="Aliases" data={a.Aliases ?? []} columns={[...ALIAS_COLUMNS, { id: "delete", header: "", size: 60, enableSorting: false, cell: (c) => <Button type="button" variant="ghost" size="icon-sm" aria-label={`Delete alias ${c.row.original.Name}`} onClick={() => rm.ask({ title: "Delete alias", input: { Name: c.row.original.Name }, text: <>Delete the alias <b className="font-mono font-semibold text-bright">{c.row.original.Name}</b> of {d.name}? Callers that use its ARN stop reaching version {c.row.original.FunctionVersion}; the version itself stays.</> })} data-testid="alias-delete"><Trash2Icon /></Button> }]} rowId={(r) => r.Name} maxHeight={420} />
+            <DataTable aria-label="Aliases" data={a.Aliases ?? []} columns={[...ALIAS_COLUMNS, { id: "delete", header: "", size: 60, enableSorting: false, cell: (c) => <Button type="button" variant="ghost" size="icon-sm" aria-label={`Delete alias ${c.row.original.Name}`} onClick={() => rm.ask({ title: "Delete alias", input: { Name: c.row.original.Name }, text: <>Delete the alias <b className="font-mono font-semibold text-bright">{c.row.original.Name}</b> of {d.name}? Callers that use its ARN stop reaching version {c.row.original.FunctionVersion}; the version itself stays.</>, then: () => go({ tab: "aliases", done: "alias-deleted" }) })} data-testid="alias-delete"><Trash2Icon /></Button> }]} rowId={(r) => r.Name} maxHeight={420} />
             {rm.dialog}
             <p className="mt-3 text-[13px] text-muted-foreground">The columns are fields of ListAliases: Name, Description, FunctionVersion and AliasArn.</p>
           </Card>

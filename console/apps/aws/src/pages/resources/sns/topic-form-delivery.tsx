@@ -1,4 +1,5 @@
 // The later sections of Create topic and Edit topic: the delivery retry policy, delivery status logging, active tracing and tags.
+import { useEffect } from "react";
 import { Combobox } from "@doze/ui/components/app/combobox";
 import { KeyValueEditor } from "@doze/ui/components/app/key-value-editor";
 import { filled } from "@doze/ui/components/app/key-values";
@@ -10,6 +11,7 @@ import { Switch } from "@doze/ui/components/ui/switch";
 import { Badge } from "@doze/ui/components/ui/badge";
 import { useResourceList } from "../../../api/resources";
 import { Field, FormSection, LocalStatus, RuleHelp, TAG_RULES } from "../../../kit";
+import { PAGES } from "../../../kit/pickers";
 import type { FieldProps } from "./topic-form-fields";
 import { LOGGED, type Logged } from "./topic-model";
 import type { Retry } from "./topic-form-model";
@@ -72,11 +74,27 @@ const OFF: Record<string, string> = {
 };
 const NAMES: Record<Logged, string> = { HTTP: "HTTP", Lambda: "AWS Lambda", SQS: "Amazon SQS" };
 
-/** The role a protocol's delivery logging is written with: chosen from the account's roles, or its ARN typed. */
+/** The service a delivery logging role must be assumable by. */
+export const SNS_PRINCIPAL = "sns.amazonaws.com";
+
+/** The role a protocol's delivery logging is written with: chosen from the roles whose trust policy lets SNS assume them (the server
+ * narrows the list), or its ARN typed (a role of another account, or one the console cannot see the trust of). */
 function RolePick({ id, value, onChange, label, account }: { id: string; value: string; onChange: (v: string) => void; label: string; account: string }) {
-  const roles = useResourceList("iam", "roles");
+  const roles = useResourceList("iam", "roles", false, { trusts: SNS_PRINCIPAL });
+  const { hasNextPage, isFetchingNextPage, fetchNextPage } = roles;
+  const pages = roles.data?.pages.length ?? 0;
+  useEffect(() => {
+    if (hasNextPage && !isFetchingNextPage && pages < PAGES) void fetchNextPage();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage, pages]);
   const names = roles.data?.pages.flatMap((pg) => pg.rows).map((r) => r.name).sort() ?? [];
-  return <Combobox id={id} options={names.map((n) => ({ value: `arn:aws:iam::${account}:role/${n}`, label: n }))} value={value || null} onChange={(v) => onChange(v ?? "")} placeholder={roles.isPending ? "Reading roles…" : "Choose an IAM role"} search="Search roles, or enter an ARN…" empty="No role matches." className="w-full font-mono" pattern aria-label={label} />;
+  return (
+    <div className="grid gap-1">
+      <Combobox id={id} options={names.map((n) => ({ value: `arn:aws:iam::${account}:role/${n}`, label: n }))} value={value || null} onChange={(v) => onChange(v ?? "")} placeholder={roles.isPending ? "Reading roles…" : "Choose an IAM role"} search="Search roles, or enter an ARN…" empty="No role matches." className="w-full font-mono" pattern aria-label={label} />
+      <p className="text-[12.5px] text-muted-foreground" data-testid="role-trust-note">
+        {roles.isPending ? "Reading roles…" : names.length === 0 ? <>No role trusts <span className="font-mono">{SNS_PRINCIPAL}</span> yet, so SNS could not assume one. Make a role with that trust policy, or enter an ARN.</> : <>Only roles whose trust policy lets <span className="font-mono">{SNS_PRINCIPAL}</span> assume them are listed. To use another role, enter its ARN.</>}
+      </p>
+    </div>
+  );
 }
 
 /** Per protocol: log its deliveries, at what sample rate, with which roles. Stored, not applied: doze-aws writes no delivery logs. */

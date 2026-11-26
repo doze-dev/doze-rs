@@ -397,6 +397,18 @@ lto = "fat"
 # at "z" is 8,754,344 B on Linux and 6,031,248 B on darwin/arm64 (7,171,888 B at "s"); a warm `doze status` moved by about
 # 0.4 ms (within noise). Per-package "z" on doze's own crates shrank Linux to 8,729,016 B but grew darwin to 9,009,552 B (fat
 # LTO with mixed levels, as C2b found), so the whole build moves (docs/port/weight.md, "D2").
+#
+# 2026-11-26 (headroom for doze): a custom profile inherits its parent's package overrides, so doze-hcl, doze-config and
+# hcl-edit were still at the "s" `release` gives them. At "z" like the rest: 9,022,944 to 8,822,832 B on x86_64 Linux (zig
+# cross build), 6,181,536 to 5,853,712 B on darwin/arm64. doze-config at "z" made the public suffix list's decode 2 ms
+# slower on a warm `doze status`; the list is now decoded one top-level label at a time, which is faster than before at
+# either level (docs/port/weight.md, "Headroom for doze").
 [profile.release-doze]
 inherits = "release"
+opt-level = "z"
+[profile.release-doze.package.doze-hcl]
+opt-level = "z"
+[profile.release-doze.package.doze-config]
+opt-level = "z"
+[profile.release-doze.package.hcl-edit]
 opt-level = "z"

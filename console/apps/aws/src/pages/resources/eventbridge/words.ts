@@ -38,6 +38,23 @@ export function targetParts(arn: string): { kind: string; name: string } {
   }
 }
 
+/** What a rule's delete leaves alone, in the board's words: `The orders-created topic and its subscriptions are not touched.` (a topic has subscriptions; the other
+ * targets are named by what they are). `null` when the rules have no target. */
+export function untouchedWords(arns: readonly string[]): string | null {
+  const seen = new Set<string>();
+  const parts: string[] = [];
+  for (const arn of arns) {
+    if (seen.has(arn)) continue;
+    seen.add(arn);
+    const { kind, name } = targetParts(arn);
+    const noun = kind.replace(/^(SNS|SQS|Lambda) /, "").toLowerCase();
+    parts.push(`the ${name} ${noun}${kind === "SNS topic" ? " and its subscriptions" : ""}`);
+  }
+  if (parts.length === 0) return null;
+  const text = parts.length === 1 ? parts[0]! : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+  return `${text.charAt(0).toUpperCase()}${text.slice(1)} ${parts.length === 1 && !parts[0]!.includes(" and its ") ? "is" : "are"} not touched.`;
+}
+
 /** A target ARN as a person says it: `SNS topic orders-created`, `SQS queue pick-lists`, `Lambda function notify`. */
 export const targetWords = (arn: string): string => {
   const p = targetParts(arn);

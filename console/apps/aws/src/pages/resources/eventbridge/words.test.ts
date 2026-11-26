@@ -89,3 +89,13 @@ describe("a pattern as the boards print it", () => {
     expect(prettyPattern("nope")).toBe("nope");
   });
 });
+
+describe("what a rule's delete leaves alone", () => {
+  test("names a topic with its subscriptions, as the board does", async () => {
+    const { untouchedWords } = await import("./words");
+    expect(untouchedWords(["arn:aws:sns:us-east-1:123456789012:orders-created"])).toBe("The orders-created topic and its subscriptions are not touched.");
+    expect(untouchedWords(["arn:aws:sqs:us-east-1:123456789012:pick-lists"])).toBe("The pick-lists queue is not touched.");
+    expect(untouchedWords(["arn:aws:sqs:us-east-1:123456789012:pick-lists", "arn:aws:lambda:us-east-1:123456789012:function:send-email"])).toBe("The pick-lists queue and the send-email function are not touched.");
+    expect(untouchedWords([])).toBeNull();
+  });
+});

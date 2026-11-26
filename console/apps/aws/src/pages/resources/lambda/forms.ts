@@ -191,7 +191,8 @@ export function layerProblems(l: LayerForm, hasFile: boolean): Problems {
 }
 
 export function layerInput(l: LayerForm, zipBase64: string) {
-  return { LayerName: l.name, Content: { ZipFile: zipBase64 }, ...(l.description ? { Description: l.description } : {}), ...(l.archs.length ? { CompatibleArchitectures: l.archs } : {}), ...(l.runtimes.length ? { CompatibleRuntimes: l.runtimes } : {}), ...(l.license ? { LicenseInfo: l.license } : {}) };
+  // The members in the board's order: the name and the description, then the code, then what it is compatible with.
+  return { LayerName: l.name, ...(l.description ? { Description: l.description } : {}), Content: { ZipFile: zipBase64 }, ...(l.archs.length ? { CompatibleArchitectures: l.archs } : {}), ...(l.runtimes.length ? { CompatibleRuntimes: l.runtimes } : {}), ...(l.license ? { LicenseInfo: l.license } : {}) };
 }
 
 /** A function takes at most five layers. */

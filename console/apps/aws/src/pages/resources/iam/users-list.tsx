@@ -17,7 +17,7 @@ import { useRefresh } from "./api";
 import { DeleteEntity } from "./delete-entity";
 import { CreatedBanner, GoneBanner, ListError, ListLoading, PageLine, SearchBox, useToList } from "./list-parts";
 import { daysSince, sameDay } from "./model";
-import { crumbs, Say, To } from "./parts";
+import { KINDS, listCrumbs, Say, To } from "./parts";
 import { usersSentence } from "./sentences";
 import { UserCreate } from "./user-create";
 import { type UserKeys, useUserKeys } from "./user-data";
@@ -66,7 +66,7 @@ function Users({ gone, created }: { gone?: string; created?: string }) {
     <>
       <PageHeader
         title="Users"
-        crumbs={crumbs()}
+        crumbs={listCrumbs(KINDS.users)}
         sub="An IAM user is an identity within your account that has specific permissions for a single person or application."
         refresh={<RefreshControl updatedAt={list.dataUpdatedAt} fetching={list.isFetching} onRefresh={refresh} interval={false} />}
         actions={

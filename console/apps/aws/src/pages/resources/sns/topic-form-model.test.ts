@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { newRow } from "@doze/ui/components/app/key-values";
 import type { ResourceDetail } from "../../../api/types/ResourceDetail";
-import { changePhrases, changes, createInput, defaultPolicy, deliveryPolicy, DEFAULT_RETRY, emptyTopicForm, formOfTopic, problems, retryOf } from "./topic-form-model";
+import { changePhrases, changes, createInput, defaultPolicy, deliveryPolicy, DEFAULT_RETRY, emptyTopicForm, formOfTopic, problems, retryOf, NOT_JSON } from "./topic-form-model";
 import { topicOf } from "./topic-model";
 
 const R = "us-east-1";
@@ -46,4 +46,10 @@ test("the form sees a missing name, a bad size, encryption without a key, and a 
 
 test("an edit says what each change does", () => {
   expect(changePhrases([{ name: "MaximumMessageSize", value: "524288" }, { name: "SQSSuccessFeedbackRoleArn", value: "" }, { name: "SQSFailureFeedbackRoleArn", value: "" }, { name: "KmsMasterKeyId", value: "" }])).toEqual(["the maximum message size goes to 512 KiB", "delivery status logging changes", "encryption is turned off"]);
+});
+
+test("a policy that is not JSON is a problem of the form and is not in the call", () => {
+  const f = { ...emptyTopicForm(), name: "orders", policy: "{ not json" };
+  expect(problems(f, true).policy?.startsWith(NOT_JSON)).toBe(true);
+  expect(createInput(f, "us-east-1", "000000000000")).toEqual({ Name: "orders" });
 });

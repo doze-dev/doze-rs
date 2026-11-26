@@ -201,14 +201,14 @@ export function DestinationAdd(p: FormProps) {
   const submit = () => {
     setTried(true);
     if (Object.keys(problems).length > 0) return;
-    (exists ? update : put).mutate({ ...input }, { onSuccess: () => p.go({ tab: "configuration", p: "triggers", done: "destination-saved" }) });
+    (exists ? update : put).mutate({ ...input }, { onSuccess: () => p.go({ tab: p.tab, p: p.p, done: "destination-saved" }) });
   };
   // The board always names the FIFO queues the account has: they cannot be a destination, picked or not.
   const queues = useResourceList("sqs", "queues");
   const fifoQueues = (queues.data?.pages.flatMap((pg) => pg.rows) ?? []).map((r) => r.name).filter((n) => n.endsWith(".fifo"));
   const fifoWord = target && (target.endsWith(".fifo") || target.includes(".fifo")) ? target : null;
   return (
-    <FnFormPage p={{ ...p, tab: p.tab ?? "configuration", p: "triggers" }} title="Add destination" label="Add destination" sub={<><b className="font-medium text-foreground">Keep a record of asynchronous invocations.</b> A destination receives a JSON record when an event succeeds or fails every attempt.</>}
+    <FnFormPage p={p} title="Add destination" label="Add destination" sub={<><b className="font-medium text-foreground">Keep a record of asynchronous invocations.</b> A destination receives a JSON record when an event succeeds or fails every attempt.</>}
       request={target ? { service: "lambda", operation: op, input } : null} refusal={update.error ?? put.error} callNote={exists ? "Update changes only the member you send. Put would replace the whole async configuration." : `${d.name} has no asynchronous configuration yet, so the first one is made with Put; Update would refuse it.`}
       submitLabel="Save" pending={update.isPending || put.isPending} disabled={tried && Object.keys(problems).length > 0} disabledWhy={Object.values(problems)[0]} onSubmit={submit} testId="destination-form">
       <FormSection title="Destination configuration" testId="section-destination">

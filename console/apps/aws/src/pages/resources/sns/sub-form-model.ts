@@ -62,6 +62,17 @@ export function formOfSubscription(s: Subscription): SubForm {
   return { topic: s.topicArn, protocol: (protocolOf(s.protocol)?.id ?? "sqs") as Protocol, endpoint: s.endpoint, raw: s.raw, filter: s.filter ? inlineJson(s.filter) : "", scope: s.scope, redriveOn: redriveTarget(s.redrive) !== null, dlq: redriveTarget(s.redrive) ?? "" };
 }
 
+/** Whether the filter policy typed is not a JSON object yet: none of it is put in a call, and the form cannot be saved until it is. */
+export function filterBroken(f: Pick<SubForm, "filter">): boolean {
+  if (f.filter.trim() === "") return false;
+  try {
+    const doc: unknown = JSON.parse(f.filter);
+    return typeof doc !== "object" || doc === null || Array.isArray(doc);
+  } catch {
+    return true;
+  }
+}
+
 export type Problems = Partial<Record<"topic" | "endpoint" | "filter" | "dlq", string>>;
 
 const ENDPOINT: Partial<Record<Protocol, [RegExp, string]>> = {
@@ -95,7 +106,7 @@ export function problems(f: SubForm, create: boolean): Problems {
  * with a filter policy also says its scope and whether raw delivery is on, as the board's call does, so the filter is read whole. */
 export function subscribeInput(f: SubForm): Record<string, unknown> {
   const attrs: Record<string, string> = {};
-  const filtered = f.filter.trim() !== "";
+  const filtered = f.filter.trim() !== "" && !filterBroken(f);
   const rawable = protocolOf(f.protocol)?.raw === true;
   if (rawable && (f.raw || filtered)) attrs.RawMessageDelivery = String(f.raw);
   if (filtered) {
@@ -113,8 +124,10 @@ export function changes(f: SubForm, s: Subscription): Change[] {
   const out: Change[] = [];
   if (f.raw !== s.raw) out.push({ name: "RawMessageDelivery", value: String(f.raw) });
   const was = s.filter ? norm(s.filter) : "";
-  const now = f.filter.trim() !== "" ? norm(f.filter) : "";
-  if (now !== was) out.push({ name: "FilterPolicy", value: now });
+  const typed = f.filter.trim() !== "" && !filterBroken(f);
+  // A filter policy that is not JSON yet is no member of the call (an empty one would remove the subscription's).
+  const now = typed ? norm(f.filter) : "";
+  if (!filterBroken(f) && now !== was) out.push({ name: "FilterPolicy", value: now });
   if (now !== "" && f.scope !== s.scope) out.push({ name: "FilterPolicyScope", value: f.scope });
   const dlq = f.redriveOn ? f.dlq.trim() : "";
   if (dlq !== (redriveTarget(s.redrive) ?? "")) out.push({ name: "RedrivePolicy", value: dlq ? redrivePolicy(dlq) : "" });
