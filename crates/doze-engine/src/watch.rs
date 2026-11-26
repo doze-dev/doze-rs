@@ -5,7 +5,8 @@
 //! awake. After a minute with nothing changed it looks a third as often, and back at once on a change: nobody is
 //! editing then, and the first save of a new session is noticed within a few seconds. A change is reported once the
 //! files have been quiet for an interval, so a save that writes twice, or a checkout that touches a hundred files, is
-//! one change.
+//! one change. An engine looks at all its instances' files in one `Hub`: ten watched apps cost one wakeup and one
+//! look a gap, and a folder they share is listed once.
 
 use crate::tasks::inputs;
 use std::collections::BTreeMap;
@@ -66,6 +67,63 @@ fn changed(prev: &Snapshot, cur: &Snapshot) -> Vec<PathBuf> {
     out
 }
 
+/// One watcher's memory between looks: what it saw last, the first path of a change still settling, when the files
+/// last moved.
+#[derive(Debug)]
+struct Tracker {
+    prev: Option<Snapshot>,
+    pending: Option<PathBuf>,
+    last_change: tokio::time::Instant,
+}
+
+impl Tracker {
+    fn new(now: tokio::time::Instant) -> Tracker {
+        Tracker {
+            prev: None,
+            pending: None,
+            last_change: now,
+        }
+    }
+
+    /// Takes in a look: the first is the baseline; a difference starts (or extends) a change; a look with no
+    /// difference after one gives the change's first path, to report.
+    fn look(&mut self, cur: Snapshot, now: tokio::time::Instant) -> Option<PathBuf> {
+        let first = self
+            .prev
+            .as_ref()
+            .map(|prev| changed(prev, &cur).into_iter().next());
+        self.prev = Some(cur);
+        match first {
+            None => None,
+            Some(Some(path)) => {
+                // Still changing: wait for quiet, keeping the first path seen.
+                self.pending.get_or_insert(path);
+                self.last_change = now;
+                None
+            }
+            Some(None) => self.pending.take(),
+        }
+    }
+
+    /// The wait before its next look.
+    fn gap(&self, interval: Duration, now: tokio::time::Instant) -> Duration {
+        next_gap(
+            interval,
+            now.saturating_duration_since(self.last_change),
+            self.pending.is_some(),
+        )
+    }
+}
+
+async fn look_at(sets: Vec<Set>) -> Option<(Vec<Set>, Snapshot)> {
+    tokio::task::spawn_blocking(move || {
+        let s = snapshot(&sets);
+        (sets, s)
+    })
+    .await
+    .ok()
+}
+
 /// Calls `on_change` with the first changed path each time the files have changed and then been quiet for an interval,
 /// until the future is dropped. `on_change` is awaited before the next look, and what it wrote is not a change.
 pub async fn poll<F, Fut>(sets: Vec<Set>, interval: Duration, mut on_change: F)
@@ -78,80 +136,59 @@ where
     } else {
         interval
     };
-    let look = |sets: Vec<Set>| async move {
-        tokio::task::spawn_blocking(move || {
-            let s = snapshot(&sets);
-            (sets, s)
-        })
-        .await
-        .ok()
-    };
-    let Some((mut sets, mut prev)) = look(sets).await else {
+    let mut track = Tracker::new(tokio::time::Instant::now());
+    let Some((mut sets, first)) = look_at(sets).await else {
         return;
     };
-    let mut pending: Option<PathBuf> = None;
-    let mut last_change = tokio::time::Instant::now();
-    let mut next = last_change + interval;
+    track.look(first, tokio::time::Instant::now());
+    let mut next = tokio::time::Instant::now() + interval;
     loop {
         tokio::time::sleep_until(next).await;
-        let Some((s, cur)) = look(sets).await else {
+        let Some((s, cur)) = look_at(sets).await else {
             return;
         };
         sets = s;
-        let diff = changed(&prev, &cur);
-        prev = cur;
-        if let Some(first) = diff.into_iter().next() {
-            // Still changing: wait for quiet, keeping the first path seen.
-            pending.get_or_insert(first);
-            last_change = tokio::time::Instant::now();
-        } else if let Some(path) = pending.take() {
+        if let Some(path) = track.look(cur, tokio::time::Instant::now()) {
             on_change(path).await;
-            let Some((s, after)) = look(sets).await else {
+            let Some((s, after)) = look_at(sets).await else {
                 return;
             };
             sets = s;
-            prev = after;
+            track.prev = Some(after);
         }
         // Each look a gap after the last one was due, or after now if that has passed (a slow look delays the rest).
         let now = tokio::time::Instant::now();
-        next = (next
-            + next_gap(
-                interval,
-                now.saturating_duration_since(last_change),
-                pending.is_some(),
-            ))
-        .max(now);
+        next = (next + track.gap(interval, now)).max(now);
     }
 }
 
-/// Polls `sets` for a running instance; each change restarts it: a stop, then a wake, both caused by `watch` naming
-/// the path (Go's `startWatch`). The restart runs as a task of its own, since the stop ends this poller.
-pub(crate) fn restarter(
-    e: &crate::Engine,
-    name: &str,
-    sets: &[Set],
-) -> Option<tokio::task::AbortHandle> {
+#[path = "watch_hub.rs"]
+mod hub;
+use hub::React;
+pub(crate) use hub::{Hub, Watching};
+
+/// Watches `sets` for a running instance; each change restarts it: a stop, then a wake, both caused by `watch` naming
+/// the path (Go's `startWatch`). The restart runs as a task of its own, since the stop ends this watching.
+pub(crate) fn restarter(e: &crate::Engine, name: &str, sets: &[Set]) -> Option<Watching> {
     if sets.is_empty() {
         return None;
     }
-    let (e, name) = (e.clone(), name.to_string());
-    let task = tokio::spawn(poll(sets.to_vec(), DEFAULT_INTERVAL, move |path| {
-        let (e, name) = (e.clone(), name.clone());
-        async move {
-            let cause = crate::Cause::Watch(path.to_string_lossy().into_owned());
-            tracing::info!("\"{name}\": {} changed, restarting", path.display());
-            tokio::spawn(async move {
-                if let Err(err) = e.stop(&name, cause.clone()).await {
-                    tracing::warn!("restarting \"{name}\": {err}");
-                    return;
-                }
-                if let Err(err) = e.wake(&name, cause).await {
-                    tracing::warn!("restarting \"{name}\": {err}");
-                }
-            });
-        }
-    }));
-    Some(task.abort_handle())
+    let (eng, name) = (e.clone(), name.to_string());
+    let react: React = Box::new(move |path: PathBuf| {
+        let (e, name) = (eng.clone(), name.clone());
+        let cause = crate::Cause::Watch(path.to_string_lossy().into_owned());
+        tracing::info!("\"{name}\": {} changed, restarting", path.display());
+        tokio::spawn(async move {
+            if let Err(err) = e.stop(&name, cause.clone()).await {
+                tracing::warn!("restarting \"{name}\": {err}");
+                return;
+            }
+            if let Err(err) = e.wake(&name, cause).await {
+                tracing::warn!("restarting \"{name}\": {err}");
+            }
+        });
+    });
+    Some(e.watch_hub().watch(sets.to_vec(), react))
 }
 
 #[cfg(test)]

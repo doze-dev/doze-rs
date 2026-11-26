@@ -13,6 +13,24 @@ use std::collections::BTreeMap;
 
 const PLATFORMS: [&str; 4] = ["mac", "mac_intel", "linux", "linux_arm"];
 
+/// Why an `outputs` entry cannot work, if it cannot: it is checked for being there as written, so a glob or a `~`
+/// would never be there and the task would run on every start.
+fn bad_output(o: &str) -> Option<String> {
+    if o.is_empty() {
+        Some("outputs: an empty path; name a file the task makes".into())
+    } else if o.contains(['*', '?', '[']) {
+        Some(format!(
+            "outputs: {o:?} is a pattern; outputs are paths (relative to the task's dir) the run makes, not globs"
+        ))
+    } else if o.starts_with('~') {
+        Some(format!(
+            "outputs: {o:?} starts with ~, which is not expanded; write a path relative to the task's dir"
+        ))
+    } else {
+        None
+    }
+}
+
 pub(crate) fn task(
     cfg: &mut Config,
     raw: &Decoded<'_>,
@@ -21,6 +39,9 @@ pub(crate) fn task(
     (after, refs): (&[Ref], &[Ref]),
 ) -> std::result::Result<Instance, String> {
     let env_file = raw.str("env_file");
+    if let Some(bad) = raw.list("outputs").iter().find_map(|o| bad_output(o)) {
+        return Err(bad);
+    }
     let decl = TaskDecl {
         name: name.to_owned(),
         run: raw.str("run"),
@@ -32,6 +53,7 @@ pub(crate) fn task(
             resolve_dir(base, &env_file)
         },
         inputs: raw.list("inputs"),
+        outputs: raw.list("outputs"),
         manual: raw.bool("manual"),
         after: after.to_vec(),
         refs: refs.to_vec(),
@@ -43,6 +65,7 @@ pub(crate) fn task(
         env_file: decl.env_file.clone(),
         task: true,
         inputs: decl.inputs.clone(),
+        outputs: decl.outputs.clone(),
         manual: decl.manual,
         ..Command::default()
     };

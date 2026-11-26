@@ -151,6 +151,8 @@ pub struct Command {
     pub service: bool,
     pub task: bool,
     pub inputs: Vec<String>,
+    /// A task's `outputs`: paths it makes; one missing makes it run again.
+    pub outputs: Vec<String>,
     pub manual: bool,
     /// The block's `port`: doze holds it and gives the command a private `$PORT`, unless `direct`.
     pub declared_port: u16,
@@ -276,6 +278,7 @@ pub struct TaskDecl {
     pub env: BTreeMap<String, String>,
     pub env_file: String,
     pub inputs: Vec<String>,
+    pub outputs: Vec<String>,
     pub manual: bool,
     pub after: Vec<Ref>,
     pub refs: Vec<Ref>,

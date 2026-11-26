@@ -303,31 +303,64 @@ fn walk(at: &Path, rel: &[u8], pat: &str, found: &mut BTreeMap<Vec<u8>, PathBuf>
 /// A digest of the paths and contents of the files the patterns match, and how many there are; Go's: sha256 over each
 /// file's path, a zero byte and its content's sha256, in path order. No match is a valid, stable hash.
 pub fn hash(dir: &Path, patterns: &[String]) -> (String, usize) {
+    hash_unless(dir, patterns, &std::sync::atomic::AtomicBool::new(false)).unwrap_or_default()
+}
+
+/// [`hash`], given up (`None`) as soon as `abandon` is set: a task stopped while it decides does not leave a thread
+/// reading a large input to the end, holding one of the daemon's few blocking threads and its shutdown.
+pub fn hash_unless(
+    dir: &Path,
+    patterns: &[String],
+    abandon: &std::sync::atomic::AtomicBool,
+) -> Option<(String, usize)> {
     let files = found(dir, patterns);
     let mut h = Sha256::new();
     for (rel, path) in &files {
         // Streamed, as Go's `io.Copy`: a large input costs a buffer, not its size (E2 audit 1, M4).
-        let Some(digest) = file_digest(path) else {
-            continue; // gone between the walk and the read
+        let digest = match file_digest(path, abandon) {
+            Part::Abandoned => return None,
+            Part::Gone => continue, // gone between the walk and the read, or not a regular file
+            Part::Of(d) => d,
         };
         h.update(rel);
         h.update([0]);
         h.update(digest);
     }
-    (hex::encode(h.finalize()), files.len())
+    Some((hex::encode(h.finalize()), files.len()))
 }
 
-fn file_digest(path: &Path) -> Option<Vec<u8>> {
+/// One input's part of the hash.
+enum Part {
+    Of(Vec<u8>),
+    Gone,
+    Abandoned,
+}
+
+fn file_digest(path: &Path, abandon: &std::sync::atomic::AtomicBool) -> Part {
     use std::io::Read;
-    let mut f = std::fs::File::open(path).ok()?;
+    use std::sync::atomic::Ordering;
+    // Only a regular file is read, checked before the open: opening a FIFO for reading is itself what waits, for a
+    // writer that may never come (Go's hash hung there, and with it the task's stop and the daemon's exit), and a
+    // device may never end. Anything else is skipped as an unreadable file is (a folder always was: its read fails).
+    match std::fs::metadata(path) {
+        Err(_) => return Part::Gone,
+        Ok(m) if !m.is_file() => return Part::Gone,
+        Ok(_) => {}
+    }
+    let Ok(mut f) = std::fs::File::open(path) else {
+        return Part::Gone;
+    };
     let mut fh = Sha256::new();
     let mut buf = vec![0u8; 64 * 1024];
     loop {
+        if abandon.load(Ordering::Relaxed) {
+            return Part::Abandoned;
+        }
         match f.read(&mut buf) {
-            Ok(0) => return Some(fh.finalize().to_vec()),
+            Ok(0) => return Part::Of(fh.finalize().to_vec()),
             Ok(n) => fh.update(buf.get(..n).unwrap_or_default()),
             Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
-            Err(_) => return None,
+            Err(_) => return Part::Gone,
         }
     }
 }

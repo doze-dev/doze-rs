@@ -54,9 +54,18 @@ async fn a_crash_loop_restarts_then_gives_up_and_leaves_nothing() {
         w.last_error,
         "exited with status 3; gave up after 2 restarts"
     );
+    // The state can read failed before the last events are sent: wait for them (three crashes and the give-up) rather
+    // than draining what has arrived, which once saw 2 crashes on macOS CI.
     let mut kinds = Vec::new();
-    while let Ok(ev) = events.try_recv() {
-        kinds.push((ev.kind, ev.cause, ev.detail));
+    let all_in = |kinds: &[(Kind, Cause, String)]| {
+        kinds.iter().filter(|(k, ..)| *k == Kind::Crash).count() >= 3
+            && kinds.iter().any(|(k, ..)| *k == Kind::GiveUp)
+    };
+    while !all_in(&kinds) {
+        match tokio::time::timeout(Duration::from_secs(10), events.recv()).await {
+            Ok(Ok(ev)) => kinds.push((ev.kind, ev.cause, ev.detail)),
+            _ => break,
+        }
     }
     let crashes = kinds.iter().filter(|(k, ..)| *k == Kind::Crash).count();
     assert_eq!(crashes, 3);

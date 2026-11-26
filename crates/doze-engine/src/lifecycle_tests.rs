@@ -43,6 +43,47 @@ fn reapable_only_after_the_idle_time_and_never_when_held_or_pinned() {
 }
 
 #[test]
+fn the_next_reap_is_the_first_idle_deadline_and_none_when_nothing_can_sleep() {
+    let (mut t, now) = (Table::new(), t0());
+    // Nothing running: no deadline, so the reaper sets no timer.
+    assert_eq!(t.next_reap(Some(secs(10))), None);
+    t.set_idle_policy("quick", false, Some(secs(5)));
+    t.mark_running("quick", "", 1, now);
+    t.mark_running("dflt", "", 2, now);
+    t.mark_running("held", "", 3, now);
+    t.acquire("held");
+    t.mark_running("pinned", "", 4, now);
+    assert!(t.toggle_pin("pinned"));
+    assert_eq!(t.next_reap(Some(secs(10))), Some(now.mono + secs(5)));
+    // The deadline is exactly where `reapable` starts naming it.
+    assert!(t.reapable(Some(secs(10)), now.after(secs(4))).is_empty());
+    assert_eq!(
+        t.reapable(Some(secs(10)), now.after(secs(5))),
+        vec!["quick"]
+    );
+    // Without a default, only an instance with its own time has a deadline.
+    t.acquire("quick");
+    assert_eq!(t.next_reap(None), None);
+    assert_eq!(t.next_reap(Some(secs(10))), Some(now.mono + secs(10)));
+}
+
+#[test]
+fn the_same_health_answer_again_moves_nothing() {
+    let (mut t, now) = (Table::new(), t0());
+    t.mark_running("api", "", 1, now);
+    t.set_healthy("api", true);
+    let v = t.version();
+    t.set_healthy("api", true);
+    assert_eq!(
+        t.version(),
+        v,
+        "a repeat would wake every watcher of the version"
+    );
+    t.set_healthy("api", false);
+    assert_ne!(t.version(), v);
+}
+
+#[test]
 fn idle_time_is_per_instance() {
     let (mut t, now) = (Table::new(), t0());
     t.set_idle_policy("quick", false, Some(secs(1)));
