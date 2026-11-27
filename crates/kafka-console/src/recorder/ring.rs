@@ -93,26 +93,44 @@ impl Ring {
     }
 
     /// Adds `row`, folded into a recent one if its kind allows. Returns the id of the row it became part of.
-    pub fn record(&mut self, mut row: Row, fold: Fold) -> u64 {
+    pub fn record(&mut self, row: Row, fold: Fold) -> u64 {
+        if let Some(id) = self.fold_in(row.fold, fold, &Repeat::of(&row)) {
+            return id;
+        }
+        self.push(row, fold)
+    }
+
+    /// Folds a repeat into the recent row that has fold key `key`, if its kind allows and that row is recent enough. Returns
+    /// the id of the row it became part of, or `None` (and nothing changed) when it must be a row of its own: the recorder
+    /// asks this before it builds a row, so a repeat costs no row at all.
+    pub fn fold_in(&mut self, key: u64, fold: Fold, repeat: &Repeat<'_>) -> Option<u64> {
+        if fold == Fold::Never || key == 0 {
+            return None;
+        }
+        let window = if fold == Fold::Poll {
+            FOLD_POLL_MS
+        } else {
+            FOLD_STREAM_MS
+        };
+        let id = self.fold.get(&key).copied()?;
+        let version = self.version.wrapping_add(1);
+        let prev = self.get_mut(id)?;
+        if repeat.at_ms.saturating_sub(prev.last_ms) > window {
+            return None;
+        }
+        let (before, after) = (prev.weight(), merge(prev, repeat, version));
+        self.requests = self.requests.saturating_add(1);
+        self.version = version;
+        self.bytes = self.bytes.saturating_sub(before).saturating_add(after);
+        self.high_water = self.high_water.max(self.bytes);
+        Some(id)
+    }
+
+    /// Adds `row` as a row of its own (after [`Ring::fold_in`] said it does not fold). Returns its id.
+    pub fn push(&mut self, mut row: Row, fold: Fold) -> u64 {
         self.requests = self.requests.saturating_add(1);
         self.version = self.version.wrapping_add(1);
         let version = self.version;
-        if fold != Fold::Never && row.fold != 0 {
-            let window = if fold == Fold::Poll {
-                FOLD_POLL_MS
-            } else {
-                FOLD_STREAM_MS
-            };
-            if let Some(id) = self.fold.get(&row.fold).copied()
-                && let Some(prev) = self.get_mut(id)
-                && row.first_ms.saturating_sub(prev.last_ms) <= window
-            {
-                let (before, after) = (prev.weight(), merge(prev, &row, version));
-                self.bytes = self.bytes.saturating_sub(before).saturating_add(after);
-                self.high_water = self.high_water.max(self.bytes);
-                return id;
-            }
-        }
         // The tape's order is the order of its times: a clock that stepped back never puts a row below an older one.
         if let Some(newest) = self.rows.back() {
             row.first_ms = row.first_ms.max(newest.first_ms);
@@ -151,19 +169,58 @@ impl Ring {
     }
 }
 
+/// What a repeat adds to the row it folds into: its counts and times, and nothing it would need a row of its own to hold.
+#[derive(Debug, Clone, Copy)]
+pub struct Repeat<'a> {
+    /// When it was answered (it folds only if the row's newest request was close enough before).
+    pub at_ms: i64,
+    /// When its newest request was answered: the same as `at_ms` for one request.
+    pub last_ms: i64,
+    pub count: u32,
+    pub correlation: i32,
+    pub request_bytes: u32,
+    pub response_bytes: u32,
+    pub records: u32,
+    pub batches: u32,
+    pub bytes: u64,
+    pub from_offset: Option<i64>,
+    /// How long it took, in microseconds; the newest last.
+    pub tooks: &'a [u32],
+}
+
+impl<'a> Repeat<'a> {
+    /// What `row` would add, were it folded.
+    #[must_use]
+    pub fn of(row: &'a Row) -> Self {
+        Self {
+            at_ms: row.first_ms,
+            last_ms: row.last_ms,
+            count: row.count,
+            correlation: row.correlation,
+            request_bytes: row.request_bytes,
+            response_bytes: row.response_bytes,
+            records: row.facts.records,
+            batches: row.facts.batches,
+            bytes: row.facts.bytes,
+            from_offset: row.facts.from_offset,
+            tooks: &row.tooks,
+        }
+    }
+}
+
 /// Folds `new` into `prev`; returns the weight of `prev` after.
-fn merge(prev: &mut Row, new: &Row, version: u64) -> usize {
+fn merge(prev: &mut Row, new: &Repeat<'_>, version: u64) -> usize {
     prev.count = prev.count.saturating_add(new.count);
     prev.last_ms = new.last_ms.max(prev.last_ms);
     prev.touched = version;
     prev.correlation = new.correlation;
     prev.request_bytes = prev.request_bytes.saturating_add(new.request_bytes);
     prev.response_bytes = prev.response_bytes.saturating_add(new.response_bytes);
-    prev.facts.records = prev.facts.records.saturating_add(new.facts.records);
-    prev.facts.batches = prev.facts.batches.saturating_add(new.facts.batches);
-    prev.facts.bytes = prev.facts.bytes.saturating_add(new.facts.bytes);
-    prev.facts.from_offset = new.facts.from_offset.or(prev.facts.from_offset);
-    for t in &new.tooks {
+    prev.facts.records = prev.facts.records.saturating_add(new.records);
+    prev.facts.batches = prev.facts.batches.saturating_add(new.batches);
+    prev.facts.bytes = prev.facts.bytes.saturating_add(new.bytes);
+    prev.facts.from_offset = new.from_offset.or(prev.facts.from_offset);
+    for t in new.tooks {
         if prev.tooks.len() >= SAMPLES {
             prev.tooks.remove(0);
         }

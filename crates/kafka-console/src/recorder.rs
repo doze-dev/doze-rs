@@ -34,7 +34,7 @@ mod view;
 
 use clients::Conns;
 use facts::Facts;
-use ring::{Fold, Ring};
+use ring::{Fold, Repeat, Ring};
 use row::{Begun, Row};
 
 /// The most topic ids the recorder remembers names for.
@@ -46,7 +46,7 @@ struct Inner {
     conns: Conns,
     /// Topic id (as text) to topic name, learned from the Metadata and CreateTopics answers that pass: Fetch names its topics by
     /// id from version 13.
-    ids: HashMap<Box<str>, Box<str>>,
+    ids: HashMap<Box<str>, Arc<str>>,
 }
 
 /// The recorder.
@@ -138,21 +138,50 @@ impl Observer for Recorder {
         let Some(begun) = pending.into_payload::<Begun>() else {
             return;
         };
-        let took = u32::try_from(seen.took.as_micros()).unwrap_or(u32::MAX);
+        // The answer is read before the lock is taken: only what needs the shared tables (the topic names, the connection,
+        // the ring) is done under it.
+        let mut a = answered(begun, seen);
         let mut inner = self.lock();
         // Stamped when it is answered, under the lock that adds it: a row's time is the time it joins the tape, so a slow
         // Fetch that began earlier is never shown below rows it was added above.
         let now = now_ms();
-        let row = finish(&mut inner, begun, seen, took, now);
-        let (errored, who_conn) = (
-            row.class != errors::Class::Ok || row.closed.is_some(),
-            row.conn,
-        );
-        let fold = fold_of(&row);
-        let (api, version) = (row.api, row.version);
-        inner.conns.note(who_conn, api, version, errored, now);
-        inner.ring.record(row, fold);
+        if let Answer::Response(r) = &seen.answer {
+            learn(&mut inner.ids, r);
+        }
+        resolve(&inner.ids, &mut a.facts);
+        let b = &a.begun;
+        let key = fold_key(b.conn, b.api, b.version, &a.facts);
+        let fold = if a.closed.is_some() || a.lab.is_some() || a.class != errors::Class::Ok {
+            Fold::Never
+        } else {
+            fold_of(b.api, a.idle, key)
+        };
+        let errored = a.class != errors::Class::Ok || a.closed.is_some();
+        inner.conns.note(b.conn, b.api, b.version, errored, now);
+        // A repeat folds into the row it repeats before a row is built for it: it costs no row, no boxed facts and no list
+        // of tooks, only the counts it adds.
+        let repeat = Repeat {
+            at_ms: now,
+            last_ms: now,
+            count: 1,
+            correlation: b.correlation,
+            request_bytes: a.request_bytes,
+            response_bytes: a.response_bytes,
+            records: a.facts.records,
+            batches: a.facts.batches,
+            bytes: a.facts.bytes,
+            from_offset: a.facts.from_offset,
+            tooks: &[a.took],
+        };
+        let spare = if inner.ring.fold_in(key, fold, &repeat).is_some() {
+            Some(a)
+        } else {
+            inner.ring.push(a.row(now, key), fold);
+            None
+        };
         drop(inner);
+        // What a repeat carried is freed after the lock is given back.
+        drop(spare);
     }
 
     fn closed(&self, conn: ConnId, _why: &str) {
@@ -160,30 +189,33 @@ impl Observer for Recorder {
     }
 }
 
-/// Builds the row of a request that was answered at `answered_ms`, and learns what the answer teaches.
-fn finish(
-    inner: &mut Inner,
+/// A request and what its answer says, before it is a row (or a repeat folded into one).
+struct Answered {
     begun: Begun,
-    seen: &Observed<'_>,
+    /// The request's facts and the answer's (taken out of `begun`).
+    facts: Facts,
+    closed: Option<Box<str>>,
+    lab: Option<Box<row::LabTag>>,
+    class: errors::Class,
+    idle: bool,
+    request_bytes: u32,
+    response_bytes: u32,
     took: u32,
-    answered_ms: i64,
-) -> Row {
-    let mut facts = begun.facts;
+}
+
+/// Reads what the answer says: no shared table is needed for it, so it is done before the lock is taken.
+fn answered(mut begun: Begun, seen: &Observed<'_>) -> Answered {
+    let mut facts = std::mem::take(&mut begun.facts);
     let mut closed = None;
     match &seen.answer {
-        Answer::Response(r) => {
-            summary::of_response(r, &mut facts);
-            learn(&mut inner.ids, r);
-        }
+        Answer::Response(r) => summary::of_response(r, &mut facts),
         Answer::Nothing => {}
         Answer::Closed(why) => closed = Some(clip::clip(why, clip::TEXT)),
     }
-    resolve(&inner.ids, &mut facts);
-    let code = facts.code;
     let class = if closed.is_some() {
         errors::Class::Bad
     } else {
-        errors::class(code)
+        errors::class(facts.code)
     };
     let idle = closed.is_none()
         && class == errors::Class::Ok
@@ -192,26 +224,9 @@ fn finish(
             ApiKey::Fetch => facts.records == 0 && facts.batches == 0,
             _ => false,
         };
-    let mut row = Row {
-        id: 0,
-        touched: 0,
-        first_ms: answered_ms,
-        last_ms: answered_ms,
-        count: 1,
-        conn: begun.conn,
-        who: begun.who,
-        api: begun.api,
-        version: begun.version,
-        correlation: begun.correlation,
-        facts: Box::new(facts),
-        class,
+    Answered {
+        facts,
         closed,
-        code,
-        request_bytes: u32::try_from(begun.request_bytes).unwrap_or(u32::MAX),
-        response_bytes: u32::try_from(seen.response_bytes).unwrap_or(u32::MAX),
-        tooks: vec![took],
-        idle,
-        fold: 0,
         lab: seen.fault.map(|n| {
             Box::new(row::LabTag {
                 rule: n.rule,
@@ -219,37 +234,78 @@ fn finish(
                 applied: n.applied,
             })
         }),
-    };
-    row.fold = fold_key(&row);
-    row
+        class,
+        idle,
+        request_bytes: u32::try_from(begun.request_bytes).unwrap_or(u32::MAX),
+        response_bytes: u32::try_from(seen.response_bytes).unwrap_or(u32::MAX),
+        took: u32::try_from(seen.took.as_micros()).unwrap_or(u32::MAX),
+        begun,
+    }
 }
 
-/// What an answer teaches: the names behind topic ids.
-fn learn(ids: &mut HashMap<Box<str>, Box<str>>, r: &Response) {
-    let mut put = |id: String, name: &str| {
-        if ids.len() < MOST_IDS || ids.contains_key(id.as_str()) {
-            ids.insert(id.into_boxed_str(), clip::name(name));
+impl Answered {
+    /// The row of a request that does not fold, answered at `answered_ms`.
+    fn row(self, answered_ms: i64, fold: u64) -> Row {
+        let b = self.begun;
+        Row {
+            id: 0,
+            touched: 0,
+            first_ms: answered_ms,
+            last_ms: answered_ms,
+            count: 1,
+            conn: b.conn,
+            who: b.who,
+            api: b.api,
+            version: b.version,
+            correlation: b.correlation,
+            code: self.facts.code,
+            facts: Box::new(self.facts),
+            class: self.class,
+            closed: self.closed,
+            request_bytes: self.request_bytes,
+            response_bytes: self.response_bytes,
+            tooks: vec![self.took],
+            idle: self.idle,
+            fold,
+            lab: self.lab,
+        }
+    }
+}
+
+/// What an answer teaches: the names behind topic ids. A Metadata answer names every topic each time a client refreshes, so
+/// an id already known with the same name costs nothing: the id is written out on the stack and looked up before anything
+/// is copied.
+fn learn(ids: &mut HashMap<Box<str>, Arc<str>>, r: &Response) {
+    let mut put = |topic_id: kafka_wire::Uuid, name: &str| {
+        let mut text = [0u8; 36];
+        let id: &str = topic_id.hyphenated().encode_lower(&mut text);
+        if let Some(known) = ids.get_mut(id) {
+            if !clip::is(known, name) {
+                *known = clip::name(name).into();
+            }
+        } else if ids.len() < MOST_IDS {
+            ids.insert(id.into(), clip::name(name).into());
         }
     };
     match r {
         Response::Metadata(m) => {
             for t in &m.topics {
                 if let Some(n) = &t.name {
-                    put(t.topic_id.to_string(), &n.0);
+                    put(t.topic_id, &n.0);
                 }
             }
         }
         Response::CreateTopics(c) => {
             for t in &c.topics {
-                put(t.topic_id.to_string(), &t.name.0);
+                put(t.topic_id, &t.name.0);
             }
         }
         _ => {}
     }
 }
 
-/// Puts the name of a topic in place of the id Fetch used, where it is known.
-fn resolve(ids: &HashMap<Box<str>, Box<str>>, f: &mut Facts) {
+/// Puts the name of a topic in place of the id Fetch used, where it is known (shared with the table: no copy).
+fn resolve(ids: &HashMap<Box<str>, Arc<str>>, f: &mut Facts) {
     let name_of = |n: &str| (n.len() == 36).then(|| ids.get(n)).flatten().cloned();
     for t in &mut f.topics {
         if let Some(n) = name_of(&t.name) {
@@ -263,15 +319,14 @@ fn resolve(ids: &HashMap<Box<str>, Box<str>>, f: &mut Facts) {
     }
 }
 
-/// How a row may fold.
-fn fold_of(row: &Row) -> Fold {
-    if row.closed.is_some() || row.lab.is_some() || row.class != errors::Class::Ok || row.fold == 0
-    {
+/// How a request that succeeded and that no Lab rule touched may fold.
+fn fold_of(api: ApiKey, idle: bool, key: u64) -> Fold {
+    if key == 0 {
         return Fold::Never;
     }
-    match row.api {
+    match api {
         ApiKey::Heartbeat | ApiKey::ConsumerGroupHeartbeat => Fold::Poll,
-        ApiKey::Fetch if row.idle => Fold::Poll,
+        ApiKey::Fetch if idle => Fold::Poll,
         ApiKey::Produce
         | ApiKey::Fetch
         | ApiKey::OffsetCommit
@@ -287,17 +342,9 @@ fn fold_of(row: &Row) -> Fold {
 }
 
 /// The key two rows share when they are the same kind of request: connection, API, version, target, result.
-fn fold_key(row: &Row) -> u64 {
+fn fold_key(conn: u64, api: ApiKey, version: i16, f: &Facts) -> u64 {
     let mut h = std::collections::hash_map::DefaultHasher::new();
-    (
-        row.conn,
-        row.api as i16,
-        row.version,
-        row.code,
-        row.facts.transactional,
-    )
-        .hash(&mut h);
-    let f = &*row.facts;
+    (conn, api as i16, version, f.code, f.transactional).hash(&mut h);
     for t in &f.topics {
         (&t.name, &t.partitions).hash(&mut h);
     }
@@ -309,5 +356,7 @@ fn fold_key(row: &Row) -> u64 {
 mod tests;
 #[cfg(test)]
 mod tests_facets;
+#[cfg(test)]
+mod tests_fold;
 #[cfg(test)]
 mod tests_topics;

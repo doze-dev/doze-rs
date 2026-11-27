@@ -4,6 +4,8 @@
 //! Never in here: record keys, values or headers, SASL tokens, SCRAM nonces, proofs, salts or salted passwords, config
 //! values, ACL principals' credentials. A field exists only if a page shows it.
 
+use std::sync::Arc;
+
 use super::clip;
 
 /// The most topics one request keeps by name; the rest are counted.
@@ -16,7 +18,8 @@ pub const RESULTS: usize = 16;
 /// A topic a request named, and some of its partitions.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TopicFact {
-    pub name: Box<str>,
+    /// Clipped, and shared with the results that name the same topic.
+    pub name: Arc<str>,
     pub partitions: Vec<i32>,
     /// More partitions than were kept.
     pub more: u32,
@@ -25,7 +28,8 @@ pub struct TopicFact {
 /// One per-partition result of an answer.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PartResult {
-    pub topic: Box<str>,
+    /// Clipped, and shared with the topic of the request and the other results that name it.
+    pub topic: Arc<str>,
     pub partition: i32,
     pub code: i16,
     /// The base offset of a Produce, the committed or returned offset of the APIs that have one.
@@ -88,7 +92,8 @@ impl Facts {
             self.topics_more = self.topics_more.saturating_add(1);
             return;
         }
-        let mut kept = Vec::new();
+        let partitions = partitions.into_iter();
+        let mut kept = Vec::with_capacity(partitions.size_hint().0.min(PARTITIONS));
         let mut more = 0u32;
         for p in partitions {
             if kept.len() < PARTITIONS {
@@ -98,10 +103,31 @@ impl Facts {
             }
         }
         self.topics.push(TopicFact {
-            name: clip::name(name),
+            name: clip::name(name).into(),
             partitions: kept,
             more,
         });
+    }
+
+    /// Makes room, once, for the topics and results a request or answer is about to name (up to the bounds), so the lists are
+    /// not grown one step at a time.
+    pub fn expect(&mut self, topics: usize, results: usize) {
+        self.topics
+            .reserve(topics.min(TOPICS.saturating_sub(self.topics.len())));
+        self.results
+            .reserve(results.min(RESULTS.saturating_sub(self.results.len())));
+    }
+
+    /// The clipped name of `topic`, shared with the topic the request named when it is the same one: a result costs no copy
+    /// of a name the row already holds.
+    #[must_use]
+    pub fn shared(&self, topic: &str) -> Arc<str> {
+        self.topics
+            .iter()
+            .map(|t| &t.name)
+            .chain(self.results.last().map(|r| &r.topic))
+            .find(|t| clip::is(t, topic))
+            .map_or_else(|| clip::name(topic).into(), Arc::clone)
     }
 
     /// Sets the group, clipped.
@@ -139,8 +165,8 @@ impl Facts {
 
     /// Notes one result: the first non-zero code is the row's, and every failure is counted.
     pub fn result(&mut self, topic: &str, partition: i32, code: i16, offset: Option<i64>) {
-        self.part(PartResult {
-            topic: clip::name(topic),
+        self.part(code, |f| PartResult {
+            topic: f.shared(topic),
             partition,
             code,
             offset,
@@ -149,10 +175,12 @@ impl Facts {
         });
     }
 
-    /// Notes one fully described result.
-    pub fn part(&mut self, r: PartResult) {
-        self.error(r.code);
+    /// Notes one fully described result. `make` is called only when the result is kept, so a result past [`RESULTS`] is
+    /// counted without its topic name being looked up or copied.
+    pub fn part(&mut self, code: i16, make: impl FnOnce(&Self) -> PartResult) {
+        self.error(code);
         if self.results.len() < RESULTS {
+            let r = make(self);
             self.results.push(r);
         } else {
             self.results_more = self.results_more.saturating_add(1);

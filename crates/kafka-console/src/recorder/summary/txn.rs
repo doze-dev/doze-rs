@@ -9,6 +9,7 @@ use kafka_wire::messages::{
 };
 
 use super::n;
+use super::produce::{IdText, named};
 use crate::recorder::facts::Facts;
 
 pub(super) fn init_request(r: &InitProducerIdRequest, f: &mut Facts) {
@@ -86,8 +87,9 @@ pub(super) fn commit_request(r: &TxnOffsetCommitRequest, f: &mut Facts) {
     f.group(&r.group_id.0);
     f.producer = Some((r.producer_id.0, r.producer_epoch));
     for t in &r.topics {
+        let mut id: IdText = [0; 36];
         f.topic(
-            &super::produce::named(&t.name.0, t.topic_id),
+            named(&t.name.0, t.topic_id, &mut id),
             t.partitions.iter().map(|p| p.partition_index),
         );
     }
@@ -95,13 +97,10 @@ pub(super) fn commit_request(r: &TxnOffsetCommitRequest, f: &mut Facts) {
 
 pub(super) fn commit_response(r: &TxnOffsetCommitResponse, f: &mut Facts) {
     for t in &r.topics {
+        let mut id: IdText = [0; 36];
+        let name = named(&t.name.0, t.topic_id, &mut id);
         for p in &t.partitions {
-            f.result(
-                &super::produce::named(&t.name.0, t.topic_id),
-                p.partition_index,
-                p.error_code,
-                None,
-            );
+            f.result(name, p.partition_index, p.error_code, None);
         }
     }
 }

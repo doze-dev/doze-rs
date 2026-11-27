@@ -27,6 +27,17 @@ pub fn name(s: &str) -> Box<str> {
     clip(s, NAME)
 }
 
+/// Whether `kept` is what [`name`] keeps of `s`, without making a copy unless `s` is past the bound (rare: a name that long is
+/// never equal to its clipped self).
+#[must_use]
+pub fn is(kept: &str, s: &str) -> bool {
+    if s.len() <= NAME {
+        kept == s
+    } else {
+        *name(s) == *kept
+    }
+}
+
 /// [`clip`] of free text, and `None` for text that is empty.
 #[must_use]
 pub fn text(s: &str) -> Option<Box<str>> {
