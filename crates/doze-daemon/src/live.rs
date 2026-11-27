@@ -309,23 +309,35 @@ pub(crate) async fn remove(d: &Daemon, name: &str, wipe: bool) -> Response {
     }
     forget(d, name);
     if wipe {
-        let stack = e.stack();
-        for dir in [stack.cluster_dir(name), stack.run_dir().join(name)] {
-            match std::fs::remove_dir_all(&dir) {
-                Err(err) if err.kind() != std::io::ErrorKind::NotFound => {
-                    return failed(format!("removing {}: {err}", dir.display()), "");
-                }
-                _ => {}
-            }
-        }
-        if let Err(err) = e.logs().remove(name) {
-            return failed(format!("removing the logs of {name:?}: {err}"), "");
+        // Data folders and logs can be many files: on a blocking thread.
+        let (e, name) = (e.clone(), name.to_owned());
+        let wiped = tokio::task::spawn_blocking(move || wipe_all(&e, &name))
+            .await
+            .map_err(|err| err.to_string());
+        if let Err(err) = wiped.and_then(|r| r) {
+            return failed(err, "");
         }
     }
     Response {
         ok: true,
         ..Response::default()
     }
+}
+
+/// Deletes `name`'s data, sockets and logs. It blocks.
+fn wipe_all(e: &doze_engine::Engine, name: &str) -> Result<(), String> {
+    let stack = e.stack();
+    for dir in [stack.cluster_dir(name), stack.run_dir().join(name)] {
+        match std::fs::remove_dir_all(&dir) {
+            Err(err) if err.kind() != std::io::ErrorKind::NotFound => {
+                return Err(format!("removing {}: {err}", dir.display()));
+            }
+            _ => {}
+        }
+    }
+    e.logs()
+        .remove(name)
+        .map_err(|err| format!("removing the logs of {name:?}: {err}"))
 }
 
 impl Live {

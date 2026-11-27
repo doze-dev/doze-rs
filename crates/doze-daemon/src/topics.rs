@@ -20,7 +20,12 @@ const LOG_BACKLOG: i64 = 200;
 /// A topic's outcome: `Err` ends the stream with that error.
 type Done = Result<(), String>;
 
-pub(crate) fn run(d: &Daemon, w: &Writer, req: &doze_control::Request, end: watch::Receiver<bool>) {
+pub(crate) async fn run(
+    d: &Daemon,
+    w: &Writer,
+    req: &doze_control::Request,
+    end: watch::Receiver<bool>,
+) {
     let op = req.known_op();
     let interval = if req.interval.is_empty() {
         Ok(STATS_GAP)
@@ -39,7 +44,7 @@ pub(crate) fn run(d: &Daemon, w: &Writer, req: &doze_control::Request, end: watc
                 error,
                 ..Response::default()
             };
-            let _ = send(w, &reply(req.id, r));
+            let _ = send(w, &reply(req.id, r)).await;
             return;
         }
     }
@@ -47,7 +52,7 @@ pub(crate) fn run(d: &Daemon, w: &Writer, req: &doze_control::Request, end: watc
         ok: true,
         ..Response::default()
     };
-    if send(w, &reply(req.id, ok)).is_err() {
+    if send(w, &reply(req.id, ok)).await.is_err() {
         return;
     }
     let gap = interval.unwrap_or(STATS_GAP).max(STATS_MIN_GAP);
@@ -59,12 +64,10 @@ pub(crate) fn run(d: &Daemon, w: &Writer, req: &doze_control::Request, end: watc
             _ => logs_for(d, w, req.id, &req.names, -1).await,
         }
     };
-    let result = d.inner.rt.block_on(async {
-        tokio::select! {
-            _ = ended.wait_for(|e| *e) => Ok(()),
-            r = body => r,
-        }
-    });
+    let result = tokio::select! {
+        _ = ended.wait_for(|e| *e) => Ok(()),
+        r = body => r,
+    };
     let error = match result {
         Err(e) if !*end.borrow() => e,
         _ => String::new(),
@@ -75,7 +78,7 @@ pub(crate) fn run(d: &Daemon, w: &Writer, req: &doze_control::Request, end: watc
         error,
         ..Frame::default()
     };
-    let _ = send(w, &last);
+    let _ = send(w, &last).await;
 }
 
 async fn subscribe(d: &Daemon, w: &Writer, req: &doze_control::Request, gap: Duration) -> Done {
@@ -105,9 +108,9 @@ async fn subscribe(d: &Daemon, w: &Writer, req: &doze_control::Request, gap: Dur
     Ok(())
 }
 
-fn emit(w: &Writer, id: u64, mut f: Frame) -> Done {
+async fn emit(w: &Writer, id: u64, mut f: Frame) -> Done {
     f.id = id;
-    send(w, &f).map_err(|e| e.to_string())
+    send(w, &f).await.map_err(|e| e.to_string())
 }
 
 /// A full snapshot first, then the instances that changed (and the ones gone), at most every 100 ms.
@@ -137,7 +140,7 @@ async fn instances(d: &Daemon, w: &Writer, id: u64) -> Done {
             keep
         });
         if first || !frame.instances.is_empty() || !frame.removed.is_empty() {
-            emit(w, id, frame)?;
+            emit(w, id, frame).await?;
         }
         first = false;
         changes.changed().await.map_err(|e| e.to_string())?;
@@ -150,12 +153,12 @@ async fn stats(d: &Daemon, w: &Writer, id: u64, gap: Duration) -> Done {
     let ring = &d.inner.meters;
     let _watching = ring.watch();
     for f in ring.history() {
-        emit(w, id, f)?;
+        emit(w, id, f).await?;
     }
     loop {
         let frame = crate::meters::sample(d).await;
         ring.record(&frame);
-        emit(w, id, frame)?;
+        emit(w, id, frame).await?;
         tokio::time::sleep(gap).await;
     }
 }
@@ -186,9 +189,9 @@ async fn journal(d: &Daemon, w: &Writer, id: u64, since: u64) -> Done {
         } else {
             since
         };
-        for e in j.since(from).map_err(|e| e.to_string())? {
+        for e in kept(j, from).await? {
             if let Some(f) = journal_frame(&e) {
-                emit(w, id, f)?;
+                emit(w, id, f).await?;
             }
             last = e.seq;
         }
@@ -203,20 +206,29 @@ async fn journal(d: &Daemon, w: &Writer, id: u64, since: u64) -> Done {
             continue;
         }
         if last != 0 && e.seq > last + 1 {
-            for m in j.since(last).map_err(|e| e.to_string())? {
+            for m in kept(j, last).await? {
                 if m.seq >= e.seq {
                     break;
                 }
                 if let Some(f) = journal_frame(&m) {
-                    emit(w, id, f)?;
+                    emit(w, id, f).await?;
                 }
             }
         }
         if let Some(f) = journal_frame(&e) {
-            emit(w, id, f)?;
+            emit(w, id, f).await?;
         }
         last = e.seq;
     }
+}
+
+/// The journal's events after `seq`, read from disk on a blocking thread (the whole file is read).
+async fn kept(j: &doze_journal::Journal, seq: u64) -> Result<Vec<doze_journal::Event>, String> {
+    let j = j.clone();
+    tokio::task::spawn_blocking(move || j.since(seq))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())
 }
 
 /// `events`: each instance as it changes, one per frame (Go's `StreamEvents`).
@@ -234,7 +246,7 @@ async fn events(d: &Daemon, w: &Writer, id: u64) -> Done {
             instances: vec![v],
             ..Frame::default()
         };
-        emit(w, id, frame)?;
+        emit(w, id, frame).await?;
     }
 }
 
@@ -273,24 +285,28 @@ async fn logs_for(d: &Daemon, w: &Writer, id: u64, names: &[String], backlog: i6
 }
 
 async fn follow_one(d: &Daemon, w: &Writer, id: u64, name: &str, backlog: i64) -> Done {
-    let store = d.engine().logs();
+    let store = d.engine().logs().clone();
     let n = usize::try_from(backlog).unwrap_or(0);
-    let (lines, from) = store.tail_at(name, 0, n).map_err(|e| e.to_string())?;
+    // The backlog is read from disk: on a blocking thread, as the follow reads.
+    let (s, inst) = (store.clone(), name.to_owned());
+    let (lines, from) = tokio::task::spawn_blocking(move || s.tail_at(&inst, 0, n))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())?;
     for l in &lines {
-        emit(w, id, log_line(l))?;
+        emit(w, id, log_line(l)).await?;
     }
-    let mut failed = None;
     store
-        .follow(name, from, |l| match emit(w, id, log_line(&l)) {
-            Ok(()) => true,
-            Err(e) => {
-                failed = Some(e);
-                false
-            }
+        .follow_async(name, from, |l| async move {
+            emit(w, id, log_line(&l)).await.is_ok()
         })
         .await
         .map_err(|e| e.to_string())?;
-    failed.map_or(Ok(()), Err)
+    // The follow ends only when a frame could not be sent: the client has gone.
+    if w.is_closed() {
+        return Err("the client has gone".into());
+    }
+    Ok(())
 }
 
 fn log_line(l: &doze_logstore::Line) -> Frame {

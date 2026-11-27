@@ -1,6 +1,7 @@
-//! The unary ops (Go's `server.go` dispatch and `daemon/handler.go`): each answers with one [`Response`]. They run on
-//! the daemon's runtime and to their end: a client that goes away does not abort a wake (Go ran them on the daemon's
-//! context).
+//! The unary ops (Go's `server.go` dispatch and `daemon/handler.go`): each answers with one [`Response`]. Each runs
+//! as a task on the daemon's runtime, and to its end: a client that goes away does not abort a wake (Go ran them on
+//! the daemon's context). Nothing here may block a worker (there are two, and they supervise every service): disk work
+//! goes to the blocking threads.
 
 use crate::Daemon;
 use crate::view::{self, go_duration};
@@ -10,33 +11,32 @@ use doze_engine::{Cause, Error};
 /// What `logs` reads when the request does not say (Go's `logBacklog`).
 const LOG_BACKLOG: usize = 200;
 
-pub(crate) fn answer(d: &Daemon, req: &doze_control::Request) -> Response {
+pub(crate) async fn answer(d: &Daemon, req: &doze_control::Request) -> Response {
     let Some(op) = req.known_op() else {
         return failed(&format!("unknown op: {}", req.op), "");
     };
-    let rt = d.inner.rt.clone();
     let done = match op {
-        Op::Status => return status(d),
-        Op::Logs => return logs(d, req),
-        Op::Up => rt.block_on(up(d, &req.db)),
-        Op::Boot | Op::Wake => rt.block_on(wake(d, &req.db)),
-        Op::Down | Op::Sleep => rt.block_on(down(d, &req.db)),
-        Op::Restart => rt.block_on(restart(d, &req.db)),
-        Op::Task => rt.block_on(d.engine().run_task(&req.db)),
+        Op::Status => return status(d).await,
+        Op::Logs => return logs(d, req).await,
+        Op::Up => up(d, &req.db).await,
+        Op::Boot | Op::Wake => wake(d, &req.db).await,
+        Op::Down | Op::Sleep => down(d, &req.db).await,
+        Op::Restart => restart(d, &req.db).await,
+        Op::Task => d.engine().run_task(&req.db).await,
         Op::KeepAwake | Op::Pin => pin(d, &req.db),
-        Op::Off | Op::On => rt.block_on(off(d, &req.db, op == Op::Off)),
-        Op::Apply => rt.block_on(d.engine().sync(target(&req.db))).map(|_| ()),
-        Op::Destroy => rt.block_on(d.engine().destroy(target(&req.db))),
-        Op::Reset => return rt.block_on(crate::admin::reset(d, &req.db)),
-        Op::Resources => return rt.block_on(crate::admin::resources(d, &req.db)),
-        Op::Admin => return rt.block_on(crate::admin::admin(d, req)),
-        Op::Plan => return rt.block_on(plan(d, &req.db)),
-        Op::Migrate => return rt.block_on(crate::admin::migrate(d, &req.db)),
-        Op::Lint => return rt.block_on(crate::lint::lint(d, &req.input)),
-        Op::Value => return rt.block_on(crate::blocks::value(d, req)),
-        Op::Children => return rt.block_on(crate::blocks::children(d, req)),
-        Op::Add => return rt.block_on(crate::live::add(d, &req.block)),
-        Op::Remove => return rt.block_on(crate::live::remove(d, &req.db, req.wipe)),
+        Op::Off | Op::On => off(d, &req.db, op == Op::Off).await,
+        Op::Apply => d.engine().sync(target(&req.db)).await.map(|_| ()),
+        Op::Destroy => d.engine().destroy(target(&req.db)).await,
+        Op::Reset => return crate::admin::reset(d, &req.db).await,
+        Op::Resources => return crate::admin::resources(d, &req.db).await,
+        Op::Admin => return crate::admin::admin(d, req).await,
+        Op::Plan => return plan(d, &req.db).await,
+        Op::Migrate => return crate::admin::migrate(d, &req.db).await,
+        Op::Lint => return crate::lint::lint(d, &req.input).await,
+        Op::Value => return crate::blocks::value(d, req).await,
+        Op::Children => return crate::blocks::children(d, req).await,
+        Op::Add => return crate::live::add(d, &req.block).await,
+        Op::Remove => return crate::live::remove(d, &req.db, req.wipe).await,
         // Streams and cancel are the session's.
         Op::Subscribe | Op::Events | Op::Cancel => {
             return failed(&format!("unknown op: {}", req.op), "");
@@ -73,8 +73,11 @@ fn failed(error: &str, code: &str) -> Response {
     }
 }
 
-fn status(d: &Daemon) -> Response {
+async fn status(d: &Daemon) -> Response {
     let e = d.engine();
+    let mut views = view::snapshot(e, &d.labels());
+    crate::meters::fill(d, &mut views).await;
+    crate::client::fill_paths(d, &mut views);
     Response {
         ok: true,
         listen: d.inner.info.listen.clone(),
@@ -89,12 +92,7 @@ fn status(d: &Daemon) -> Response {
             .info
             .loaded
             .map_or_else(Timestamp::zero, Timestamp::from_system_time),
-        instances: {
-            let mut views = view::snapshot(e, &d.labels());
-            d.inner.rt.block_on(crate::meters::fill(d, &mut views));
-            crate::client::fill_paths(d, &mut views);
-            views
-        },
+        instances: views,
         ..Response::default()
     }
 }
@@ -183,7 +181,7 @@ async fn off(d: &Daemon, name: &str, off: bool) -> Result<(), Error> {
 }
 
 /// Go's `LogLines`: the last lines of one run (the latest when `run` is 0), as frames and as plain lines.
-fn logs(d: &Daemon, req: &doze_control::Request) -> Response {
+async fn logs(d: &Daemon, req: &doze_control::Request) -> Response {
     let e = d.engine();
     let name = req.db.as_str();
     if e.stack().service(name).is_none() {
@@ -197,7 +195,13 @@ fn logs(d: &Daemon, req: &doze_control::Request) -> Response {
         .ok()
         .filter(|n| *n > 0)
         .unwrap_or(LOG_BACKLOG);
-    match e.logs().tail(name, req.run, n) {
+    // Read from disk: on a blocking thread.
+    let (store, inst, run) = (e.logs().clone(), name.to_owned(), req.run);
+    let tail = match tokio::task::spawn_blocking(move || store.tail(&inst, run, n)).await {
+        Ok(t) => t,
+        Err(err) => return failed(&err.to_string(), ""),
+    };
+    match tail {
         Ok(lines) => {
             let log: Vec<_> = lines.iter().map(crate::topics::log_frame).collect();
             Response {

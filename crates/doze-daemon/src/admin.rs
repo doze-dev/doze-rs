@@ -48,6 +48,16 @@ pub(crate) async fn reset(d: &Daemon, name: &str) -> Response {
     if let Err(err) = e.stop(name, Cause::Command).await {
         return failed(format!("stopping {name:?}: {err}"), "");
     }
+    // A data folder can hold many files, and the task record is a file rewritten: on a blocking thread.
+    let (d, name) = (d.clone(), name.to_owned());
+    tokio::task::spawn_blocking(move || wipe(&d, &name))
+        .await
+        .unwrap_or_else(|err| failed(err.to_string(), ""))
+}
+
+/// Removes `name`'s data and run folders and forgets a task's last run. It blocks.
+fn wipe(d: &Daemon, name: &str) -> Response {
+    let e = d.engine();
     let stack = e.stack();
     for (what, dir) in [
         ("data", stack.cluster_dir(name)),
