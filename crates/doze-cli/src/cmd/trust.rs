@@ -54,6 +54,10 @@ pub(crate) fn run_trust(ctx: &mut Ctx<'_>, mode: &Mode, a: &Trust) -> Outcome {
                 "no domains recorded for this stack: its daemon records the ones doze.hcl declares when the stack \
                  comes up (doze up), then doze trust sets them up"
                     .into(),
+                format!(
+                    "https:// for its .doze names needs no domain: {} sets it up with the names (one password)",
+                    doze_doctor::FIX_HTTPS
+                ),
             ],
             checks: Vec::new(),
         })));

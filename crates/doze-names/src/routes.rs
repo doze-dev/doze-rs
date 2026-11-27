@@ -69,7 +69,15 @@ impl Routes {
     /// What a project declares now, replacing what it said before: a domain it dropped loses this project as a reason
     /// to be routed. One the machine still routes is kept with no claimant, so [`Routes::stale`] reports it until the
     /// route is removed; one never routed is forgotten.
+    ///
+    /// A project in the system's temporary folder is refused when the home is not in it too: that is a test's or a
+    /// fixture's project run against the person's real home, and its domains would be routed machine-wide (a fixture's
+    /// `dev.acme.com` once landed in a real record this way). Folders whose doze.hcl is gone leave every entry here.
     pub fn record(&self, dir: &str, domains: &[String]) -> Result<(), Error> {
+        if throwaway(&self.home, dir) {
+            return Err(Error::Throwaway(dir.to_owned()));
+        }
+        let home = self.home.clone();
         let want: BTreeSet<String> = route_domains(domains)
             .into_iter()
             .filter(|d| valid_domain(d).is_ok())
@@ -77,7 +85,7 @@ impl Routes {
         let routed = self.routed;
         self.update(|rs| {
             rs.retain(|d, dirs| {
-                dirs.retain(|x| x != dir);
+                dirs.retain(|x| x != dir && claims(&home, x));
                 !dirs.is_empty() || want.contains(d) || routed(d)
             });
             for d in want {
@@ -105,7 +113,7 @@ impl Routes {
     pub fn stale(&self) -> Vec<String> {
         self.read()
             .into_iter()
-            .filter(|(d, dirs)| !declared(dirs) && (self.routed)(d))
+            .filter(|(d, dirs)| !self.declared(dirs) && (self.routed)(d))
             .map(|(d, _)| d)
             .collect()
     }
@@ -113,7 +121,7 @@ impl Routes {
     /// Forgets a stale domain once its route is gone.
     pub fn removed(&self, domain: &str) -> Result<(), Error> {
         self.update(|rs| {
-            if rs.get(domain).is_some_and(|dirs| !declared(dirs)) {
+            if rs.get(domain).is_some_and(|dirs| !self.declared(dirs)) {
                 rs.remove(domain);
             }
         })
@@ -121,7 +129,7 @@ impl Routes {
 
     /// Whether some project with a doze.hcl still declares a domain: the authority stays trusted while one does.
     pub fn any_declared(&self) -> bool {
-        self.read().values().any(|dirs| declared(dirs))
+        self.read().values().any(|dirs| self.declared(dirs))
     }
 
     /// The projects with a doze.hcl that still declare `route`.
@@ -129,7 +137,7 @@ impl Routes {
         let mut rs = self.read();
         let dirs = rs.remove(route).unwrap_or_default();
         dirs.into_iter()
-            .filter(|d| declared(std::slice::from_ref(d)))
+            .filter(|d| self.declared(std::slice::from_ref(d)))
             .collect()
     }
 
@@ -139,7 +147,7 @@ impl Routes {
         keep.extend(
             self.read()
                 .into_iter()
-                .filter(|(_, dirs)| declared(dirs))
+                .filter(|(_, dirs)| self.declared(dirs))
                 .map(|(d, _)| d),
         );
         for d in prune {
@@ -155,7 +163,112 @@ impl Routes {
     }
 }
 
-/// Whether one of the folders still has a doze.hcl: a claimant that may still mean it.
-fn declared(dirs: &[String]) -> bool {
-    dirs.iter().any(|d| Path::new(d).join("doze.hcl").is_file())
+impl Routes {
+    /// Whether one of the folders still claims its routes ([`claims`]).
+    fn declared(&self, dirs: &[String]) -> bool {
+        dirs.iter().any(|d| claims(&self.home, d))
+    }
+}
+
+/// Whether a recorded folder may still mean its routes: it has a doze.hcl, and it is not a throwaway folder in a real
+/// home (one recorded before [`Routes::record`] refused them is treated as gone, so its route goes as stale).
+fn claims(home: &Path, dir: &str) -> bool {
+    Path::new(dir).join("doze.hcl").is_file() && !throwaway(home, dir)
+}
+
+/// The system's temporary folder, as named and with links resolved (macOS: `/var/folders/…` is
+/// `/private/var/folders/…`, and project folders are recorded resolved).
+fn temp_roots() -> Vec<PathBuf> {
+    let t = std::env::temp_dir();
+    let mut out = vec![t.clone()];
+    if let Ok(c) = t.canonicalize()
+        && c != t
+    {
+        out.push(c);
+    }
+    out
+}
+
+/// Whether `dir` is in the system's temporary folder while `home` is not: a test's or a fixture's project reaching
+/// the person's real home.
+pub(crate) fn throwaway(home: &Path, dir: &str) -> bool {
+    let roots = temp_roots();
+    let under = |p: &Path| roots.iter().any(|t| p.starts_with(t));
+    let home_resolved = home.canonicalize().unwrap_or_else(|_| home.to_path_buf());
+    under(Path::new(dir)) && !under(home) && !under(&home_resolved)
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    use super::*;
+
+    fn project(root: &Path, name: &str) -> String {
+        let dir = root.join(name);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("doze.hcl"), "stack = \"x\"\n").unwrap();
+        dir.canonicalize().unwrap().display().to_string()
+    }
+
+    fn scratch(tag: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("dz-routes-{tag}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    #[test]
+    fn a_throwaway_project_never_reaches_a_real_home() {
+        let tmp = scratch("real");
+        let acme = project(&tmp, "work/acme");
+        // A home outside the temporary folder stands for the person's real ~/.doze. Nothing is written to it: the
+        // refusal comes before the file is touched.
+        let real = Path::new("/nonexistent-doze-home-for-a-test");
+        let routes = Routes::with_check(real, |_| false);
+        let err = routes.record(&acme, &["dev.acme.com".into()]).unwrap_err();
+        assert!(matches!(err, Error::Throwaway(_)), "{err}");
+        assert!(err.to_string().contains("temporary folder"), "{err}");
+        assert!(!real.exists());
+        // A test's own home in the temporary folder records its projects as before.
+        let home = tmp.join("home");
+        let routes = Routes::with_check(&home, |_| false);
+        routes.record(&acme, &["dev.acme.com".into()]).unwrap();
+        assert_eq!(routes.claimants("dev.acme.com"), vec![acme.clone()]);
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn recording_drops_folders_that_are_gone_and_a_throwaway_entry_reads_as_stale() {
+        let tmp = scratch("gone");
+        let home = tmp.join("home");
+        let (a, b) = (project(&tmp, "a"), project(&tmp, "b"));
+        let routes = Routes::with_check(&home, |d| d == "old.test");
+        routes
+            .record(&a, &["a.test".into(), "old.test".into()])
+            .unwrap();
+        std::fs::remove_dir_all(&a).unwrap();
+        routes.record(&b, &["b.test".into()]).unwrap();
+        let text = std::fs::read_to_string(routes.path()).unwrap();
+        assert!(
+            !text.contains(&a),
+            "a deleted project leaves the record: {text}"
+        );
+        assert!(
+            !text.contains("a.test"),
+            "its unrouted domain goes with it: {text}"
+        );
+        assert_eq!(
+            routes.stale(),
+            vec!["old.test".to_string()],
+            "a routed one stays, stale"
+        );
+
+        // An entry written before the refusal (a fixture's folder in a real home) counts as gone.
+        assert!(throwaway(
+            Path::new("/nonexistent-doze-home-for-a-test"),
+            &b
+        ));
+        assert!(!throwaway(&home, &b));
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
 }

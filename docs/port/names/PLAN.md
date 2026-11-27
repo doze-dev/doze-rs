@@ -117,6 +117,15 @@ The networking needs root once per machine, never per run, as in Go:
   refused: a short built-in list and a ccTLD second-level rule, under 1 KB, instead of the ~230 KB Public Suffix List.
   Proved end to end with doze-aws in `crates/doze-aws/tests/names_front_door.rs` (rustls, curl, and SecTrust on
   macOS).
+- **Reaching it for the common case (2026-11-27)**: a stack with only `.doze` names had no path to https: the authority
+  was made only for a declared domain, `doze trust` needs one, and every `https://<name>.doze` got a bare "access
+  denied" alert. Now the first handshake for a fronted name makes the authority (files, no privilege; a person's own
+  files still make none), so an untrusted machine's client reads "unknown issuer" rather than an alert; the front door
+  logs each refused name once with why; `doze doctor` has a `names: https` line (made? trusted?); and the zone's
+  one-password setup (`doze doctor --fix`, `doze dns-setup`) trusts the authority beside the network daemon and the
+  resolver route, making it first when there is none (a dry run shows the script and makes nothing). `doze trust`
+  stays the domains' command and points there when a stack has none. `up` and `status` say one line while https for a
+  stack's web names is not trusted.
 - **Not here, recorded so it is not lost**: the core's client-facing proxy (Go `internal/proxy`: one listener per
   instance, boot on first connection, splice) and its TLS termination for engines that need it (`tls.go`: a cached
   self-signed certificate, enough for postgres `sslmode=require`). In protocol 2 that is the core's proxy plus the

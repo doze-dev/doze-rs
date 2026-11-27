@@ -279,3 +279,55 @@ async fn many_handshakes_for_names_under_an_instance_at_once_all_verify() {
     assert_eq!(kept, 25, "one leaf per name");
     door.close().await;
 }
+
+/// A refused handshake reaches the client as a bare alert, so the log says which name and why, once per name; and a
+/// routed `.doze` name with no authority yet gets one made, so https works on a home that never declared a domain.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_refused_handshake_is_logged_once_and_a_zone_name_needs_no_declared_domain() {
+    let home = scratch("refused");
+    let reg = Registry::open(&home, "doze");
+    reg.claim(&Name::qualified("web", "shop"))
+        .unwrap()
+        .route(&backend("web").await.to_string())
+        .unwrap();
+    let ca_dir = home.join("ca");
+    let said = std::sync::Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
+    let mut cfg = config(&reg, &ca_dir);
+    let log = said.clone();
+    cfg.log = std::sync::Arc::new(move |l| log.lock().unwrap().push(l));
+    let tls = cfg.tls.clone();
+    let door = serve(cfg);
+    until(|| reg.ingress_tls_holder().is_some()).await;
+    for _ in 0..3 {
+        assert!(https_get(&tls, "nobody.shop.doze", None).await.is_err());
+    }
+    let refused: Vec<String> = said
+        .lock()
+        .unwrap()
+        .iter()
+        .filter(|l| l.contains("refused"))
+        .cloned()
+        .collect();
+    assert_eq!(
+        refused,
+        vec![
+            "names: https://nobody.shop.doze refused: no doze program serves that name over http"
+                .to_string()
+        ],
+        "said once, with the name and why"
+    );
+    assert!(!ca_dir.exists(), "a refused name makes nothing");
+    let root = {
+        // The first handshake that needs it makes the authority; the client is then told who issued the leaf.
+        let _ = https_get(&tls, "web.shop.doze", None).await;
+        Ca::probe(&ca_dir).unwrap().expect("the authority was made")
+    };
+    let (status, body) = https_get(&tls, "web.shop.doze", Some(root.root_der()))
+        .await
+        .unwrap();
+    assert!(
+        status.contains("200") && body == "web web.shop.doze",
+        "{status} {body}"
+    );
+    door.close().await;
+}

@@ -138,6 +138,8 @@ pub(crate) async fn wake(d: &Daemon, name: &str) -> Result<(), Error> {
 
 /// Go's `Up`: one instance, or every one the config has not paused, in the config's order.
 async fn up(d: &Daemon, name: &str) -> Result<(), Error> {
+    // The system's resolver agreeing with the zone first: a stale "no such name" crashes an app at boot.
+    crate::settle::settle().await;
     if !name.is_empty() {
         return d.engine().wake(name, Cause::Command).await.map(|_| ());
     }

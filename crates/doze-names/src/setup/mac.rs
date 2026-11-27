@@ -93,7 +93,7 @@ pub(crate) fn check(s: &Setup) -> Status {
     } else if netd_outdated(&s.paths.launchd_job) {
         // What runs is a copy made at setup, so it stays as it was until setup is run again.
         up = false;
-        detail = "the doze network daemon is from an older doze — run setup again (one password) for this one".into();
+        detail = super::OLDER_NETD.into();
     }
     let file = resolver_file(s);
     let routed = resolver_installed(s);

@@ -321,6 +321,7 @@ impl Zone {
         );
         fc.log = log;
         let door = doze_names::front_door::serve(fc);
+        crate::settle::serving(&self.reg);
         say!(
             "names: *.{}.{} (zone on {addr})",
             doze_names::label(&self.stack),

@@ -170,6 +170,8 @@ fn finish(
             plan: Some(plan),
         })));
     }
+    // The authority the script trusts, made first as the person (files under the doze home).
+    r.prepare().map_err(|e| machine::failed(&e))?;
     run(ctx, &plan)?;
     let still = r
         .after(m, ctx.host.settle())

@@ -84,6 +84,7 @@ $ doze trust
 exit 0
 stdout:
 | no domains recorded for this stack: its daemon records the ones doze.hcl declares when the stack comes up (doze up), then doze trust sets them up
+| https:// for its .doze names needs no domain: doze doctor --fix sets it up with the names (one password)
 json exit 0
 json:
 | {
@@ -93,7 +94,8 @@ json:
 |   "data": {
 |     "checks": [],
 |     "said": [
-|       "no domains recorded for this stack: its daemon records the ones doze.hcl declares when the stack comes up (doze up), then doze trust sets them up"
+|       "no domains recorded for this stack: its daemon records the ones doze.hcl declares when the stack comes up (doze up), then doze trust sets them up",
+|       "https:// for its .doze names needs no domain: doze doctor --fix sets it up with the names (one password)"
 |     ]
 |   }
 | }

@@ -33,6 +33,12 @@ use crate::Error;
 use std::fmt;
 use std::path::{Path, PathBuf};
 
+/// What a person loses while the network daemon that runs is an older doze's (it is a copy made at setup, so it stays
+/// as it was until setup runs again): said beside the check, so "run setup again" has a reason.
+pub const OLDER_NETD: &str = "the doze network daemon is from an older doze — doze doctor --fix (one password) \
+     installs this one; until then a stack's names can read as \"no such name\" for a while after a restart \
+     (ENOTFOUND), and https:// to a name may not reach the front door";
+
 /// One part of the setup, reported on its own.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Step {

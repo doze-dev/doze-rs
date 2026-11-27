@@ -1,5 +1,5 @@
-//! The doze certificate authority: one per machine under `<home>/ca`, made the first time a domain needs https and
-//! trusted once by the person. The front door mints a short-lived certificate per domain on the first handshake that
+//! The doze certificate authority: one per machine under `<home>/ca`, made the first time a name needs https (or by
+//! the one-password setup that trusts it) and trusted once by the person. The front door mints a short-lived certificate per domain on the first handshake that
 //! asks and keeps it beside the root. The key never leaves the folder; a copy lets whoever has it forge only this
 //! machine's own names, the risk mkcert and OrbStack take too. Rotation makes a new one.
 //!
@@ -41,6 +41,11 @@ const LEAF_RENEW: Duration = Duration::from_secs(7 * 86_400);
 /// The authority's folder under a doze home.
 pub fn ca_dir(home: &Path) -> PathBuf {
     home.join("ca")
+}
+
+/// The root certificate's file in an authority's folder, whether or not it is made yet.
+pub fn root_file(dir: &Path) -> PathBuf {
+    dir.join(ROOT_CRT)
 }
 
 pub(crate) fn ca_err(what: impl std::fmt::Display) -> Error {

@@ -53,6 +53,20 @@ impl CaSource {
         }
     }
 
+    /// Makes the authority when there is none (files under the doze home, no privilege), so a handshake gets a
+    /// certificate a client can name the issuer of, rather than a bare alert. One that is there and cannot be used is
+    /// an error, never replaced (`doze trust --rotate` does that).
+    pub fn ensure(&self) -> Result<(), crate::Error> {
+        if self.current().is_some() {
+            return Ok(());
+        }
+        Ca::load_or_create(&self.dir)?;
+        if let Ok(mut seen) = self.seen.lock() {
+            seen.at = None;
+        }
+        Ok(())
+    }
+
     /// The authority, reloaded when its root file changed; `None` when there is none (or it cannot be used).
     pub fn current(&self) -> Option<Arc<Ca>> {
         let mut seen = self.seen.lock().ok()?;
@@ -71,6 +85,33 @@ impl CaSource {
     }
 }
 
+/// Why a handshake gets no certificate.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Refused {
+    /// No doze program fronts the name (not registered, or registered without a route): it is not ours to answer.
+    NotFronted,
+    /// There is no usable certificate authority, and none could be made (says why).
+    NoAuthority(String),
+    /// The person's own certificate files could not be read.
+    OwnFiles(String),
+    /// A leaf could not be minted.
+    Mint(String),
+}
+
+impl std::fmt::Display for Refused {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Refused::NotFronted => f.write_str("no doze program serves that name over http"),
+            Refused::NoAuthority(why) => write!(f, "{why} (doze trust --rotate makes a new one)"),
+            Refused::OwnFiles(cert) => write!(
+                f,
+                "the certificate {cert} the stack declares cannot be read"
+            ),
+            Refused::Mint(why) => write!(f, "a certificate could not be made: {why}"),
+        }
+    }
+}
+
 /// The front door's rustls certificate resolver.
 #[derive(Debug)]
 pub struct Certs {
@@ -83,8 +124,19 @@ impl Certs {
         Certs { reg, ca }
     }
 
+    /// Where the authority comes from.
+    pub fn ca(&self) -> &CaSource {
+        &self.ca
+    }
+
     /// The certificate for `server_name`, or `None`.
     pub fn for_name(&self, server_name: &str) -> Option<Arc<CertifiedKey>> {
+        self.choose(server_name).ok()
+    }
+
+    /// The certificate for `server_name`, or why there is none: what the front door's log says when it refuses a
+    /// handshake, since the client only sees a bare alert.
+    pub fn choose(&self, server_name: &str) -> Result<Arc<CertifiedKey>, Refused> {
         let name = normalize(server_name);
         let snap = self.reg.snapshot();
         let owned = if in_zone(&name) {
@@ -95,23 +147,45 @@ impl Certs {
         // Only what the front door fronts: a name without a route answers nothing over https either (http's
         // `front_target`). And never under a wildcard over a shared suffix (`*.co.uk`), which a registry written by
         // an older program may hold: that would mint for strangers' names.
-        let (entry, owner) = owned.filter(|(e, o)| {
-            !e.target.is_empty() && !(wildcard(o) && shared_suffix(&route_domain(o)))
-        })?;
+        let (entry, owner) = owned
+            .filter(|(e, o)| {
+                !e.target.is_empty() && !(wildcard(o) && shared_suffix(&route_domain(o)))
+            })
+            .ok_or(Refused::NotFronted)?;
         if !entry.cert.is_empty() {
             // The person's own files, as they are now (a renewed file is picked up).
-            return own_files(Path::new(&entry.cert), Path::new(&entry.key));
+            return own_files(Path::new(&entry.cert), Path::new(&entry.key))
+                .ok_or_else(|| Refused::OwnFiles(entry.cert.clone()));
         }
-        let ca = self.ca.current()?;
+        // The first handshake that needs the authority makes it (files only, no privilege): https answers every name
+        // the front door fronts (PLAN, "TLS and proxying"), and a machine that does not trust it yet gets an "unknown
+        // issuer: doze local CA" a person can act on, rather than a bare alert.
+        let ca = match self.ca.current() {
+            Some(ca) => ca,
+            None => {
+                self.ca.ensure().map_err(|e| {
+                    Refused::NoAuthority(format!(
+                        "the certificate authority in {} cannot be used: {e}",
+                        self.ca.dir.display()
+                    ))
+                })?;
+                self.ca.current().ok_or_else(|| {
+                    Refused::NoAuthority(format!(
+                        "no certificate authority in {}",
+                        self.ca.dir.display()
+                    ))
+                })?
+            }
+        };
         let leaf = if covers(&owner, &name) {
             ca.leaf(&owner)
         } else {
             ca.leaf_under(&name)
         }
-        .ok()?;
+        .map_err(|e| Refused::Mint(e.to_string()))?;
         let key = PrivateKeyDer::Sec1(PrivateSec1KeyDer::from(leaf.key_der.clone()));
-        let signer = any_supported_type(&key).ok()?;
-        Some(Arc::new(CertifiedKey::new(
+        let signer = any_supported_type(&key).map_err(|e| Refused::Mint(e.to_string()))?;
+        Ok(Arc::new(CertifiedKey::new(
             vec![CertificateDer::from(leaf.cert_der.clone())],
             signer,
         )))

@@ -148,11 +148,23 @@ fn check_reports_each_part_and_the_fix() {
     assert!(!names.is_empty());
     // The machine contract the app reads: `ok` on every check, the fix on a failing one.
     assert!(names.iter().all(|c| c["ok"].is_boolean()));
+    assert!(names.iter().filter(|c| c["ok"] == false).all(|c| {
+        // https for the names is set up with them, by the one-password repair.
+        let fix = if c["name"] == "names: https" {
+            "doze doctor --fix"
+        } else {
+            "doze dns-setup"
+        };
+        c["fix"] == fix
+    }));
+    let https = names.iter().find(|c| c["name"] == "names: https").unwrap();
+    assert_eq!(https["ok"], false, "a fresh home has no authority: {https}");
     assert!(
-        names
-            .iter()
-            .filter(|c| c["ok"] == false)
-            .all(|c| c["fix"] == "doze dns-setup")
+        https["detail"]
+            .as_str()
+            .unwrap()
+            .contains("https:// names are refused until doze doctor --fix"),
+        "{https}"
     );
     assert!(handed(&host).is_empty());
 }

@@ -25,6 +25,7 @@ mod meters;
 pub mod names;
 pub mod planners;
 mod session;
+mod settle;
 pub mod spec_tree;
 pub mod tls;
 mod topics;

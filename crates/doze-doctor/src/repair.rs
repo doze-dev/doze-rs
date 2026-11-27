@@ -19,6 +19,8 @@ use std::time::Duration;
 pub enum Kind {
     /// The `.doze` zone (what `doze dns-setup` does).
     Names,
+    /// https:// for the zone's names: the machine's authority trusted (also part of `doze dns-setup`).
+    Https,
     /// The stack's domains and the authority (what `doze trust` does).
     Domains,
 }
@@ -40,6 +42,8 @@ pub struct Repair {
     /// and the rest is still repaired.
     pub cannot: Vec<String>,
     request: Option<TrustRequest>,
+    /// The authority's folder, when the script trusts an authority not made yet: [`Repair::prepare`] makes it.
+    make_ca: Option<std::path::PathBuf>,
 }
 
 /// The repair for what is missing on `m` for `stack`: nothing when everything is in place. A part that cannot be
@@ -78,11 +82,24 @@ pub fn plan(m: &Machine, stack: Option<&StackDomains>) -> Repair {
             request = Some(req);
         }
     }
+    // https for the zone, unless the domains' part trusts the authority already (the same root, one line).
+    let domains_trust = request.as_ref().is_some_and(|r| r.ca.is_some());
+    let mut make_ca = None;
+    if !domains_trust && let Some((plan, make)) = crate::https::plan(m) {
+        if make {
+            make_ca = Some(doze_names::ca::ca_dir(m.home()));
+        }
+        parts.push(Part {
+            kind: Kind::Https,
+            plan,
+        });
+    }
     Repair {
         parts,
         foreign,
         cannot,
         request,
+        make_ca,
     }
 }
 
@@ -90,6 +107,15 @@ impl Repair {
     /// Whether there is nothing to do.
     pub fn is_empty(&self) -> bool {
         self.parts.is_empty()
+    }
+
+    /// What must be in place before the script runs, done as the person: the authority the script trusts, made when
+    /// there is none (files under the doze home). A dry run skips this and changes nothing.
+    pub fn prepare(&self) -> Result<(), Error> {
+        if let Some(dir) = &self.make_ca {
+            doze_names::ca::Ca::load_or_create(dir)?;
+        }
+        Ok(())
     }
 
     /// Every part as one script under one prompt; `None` when there is nothing to do.
