@@ -106,7 +106,7 @@ fn nothing_set_up_is_repaired_by_the_zone_install() {
         one.script
             .contains(&dir.path().join("etc/resolver").display().to_string())
     );
-    let root = m.home().join("ca/root.crt").display().to_string();
+    let root = m.home().join("ca").join("root.crt").display().to_string();
     assert!(
         one.script.contains(&format!("add-trusted-cert -d -r trustRoot -p ssl -p basic -k /Library/Keychains/System.keychain '{root}'")),
         "{}",
@@ -118,7 +118,7 @@ fn nothing_set_up_is_repaired_by_the_zone_install() {
     );
     r.prepare().unwrap();
     assert!(
-        m.home().join("ca/root.crt").is_file(),
+        m.home().join("ca").join("root.crt").is_file(),
         "the run makes the root the script trusts"
     );
 }

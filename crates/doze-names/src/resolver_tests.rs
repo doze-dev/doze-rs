@@ -29,6 +29,24 @@ fn reg(home: &std::path::Path, owner: &str) -> Registry {
     r
 }
 
+/// A resolver serving `make(addr)` at a free loopback address, and that address. [`free_udp_addr`] releases the port
+/// it found before the resolver binds it, and another process can take it in that instant: macOS CI once logged
+/// "something other than doze holds 127.0.0.1:24988" and the resolver stood by for its ten seconds, past the test's
+/// wait. A resolver that does not bind at once is closed and another address tried, so a stolen port fails nothing.
+pub(crate) async fn serve_free(
+    make: impl Fn(SocketAddr) -> ResolverConfig,
+) -> (Resolver, SocketAddr) {
+    for _ in 0..5 {
+        let addr = free_udp_addr().unwrap();
+        let mut r = serve(make(addr));
+        if r.bound(Duration::from_secs(2)).await {
+            return (r, addr);
+        }
+        r.close().await;
+    }
+    panic!("no free loopback address could be bound in five tries");
+}
+
 fn config(r: &Registry, addr: SocketAddr, upstreams: Upstreams) -> ResolverConfig {
     let mut cfg = ResolverConfig::from_registry(r);
     let resolving = r.clone();
@@ -54,11 +72,10 @@ async fn ask(addr: SocketAddr, host: &str) -> Vec<u8> {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn one_peer_serves_every_peers_names() {
     // Go: TestOnePeerServesEveryPeersNames. Whichever program is installed powers the zone for all of them.
-    let (h, addr) = (home(), free_udp_addr().unwrap());
+    let h = home();
     let kafka = reg(&h, "doze-kafka");
     kafka.claim(&Name::apex("kafka")).unwrap();
-    let mut holder = serve(config(&kafka, addr, Upstreams::fixed(vec![])));
-    assert!(holder.bound(RETRY * 3).await, "the first peer never bound");
+    let (holder, addr) = serve_free(|a| config(&kafka, a, Upstreams::fixed(vec![]))).await;
     assert_eq!(
         kafka.resolver_holder().map(|e| e.owner).as_deref(),
         Some("doze-kafka")
@@ -82,11 +99,10 @@ async fn one_peer_serves_every_peers_names() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_peer_takes_over_when_the_holder_exits() {
     // Go: TestPeerTakesOverWhenTheHolderExits. Without the retry loop the zone would stay dark.
-    let (h, addr) = (home(), free_udp_addr().unwrap());
+    let h = home();
     let kafka = reg(&h, "doze-kafka");
     kafka.claim(&Name::apex("kafka")).unwrap();
-    let mut holder = serve(config(&kafka, addr, Upstreams::fixed(vec![])));
-    assert!(holder.bound(RETRY * 3).await);
+    let (holder, addr) = serve_free(|a| config(&kafka, a, Upstreams::fixed(vec![]))).await;
     let aws = reg(&h, "doze-aws");
     aws.claim(&Name::apex("aws")).unwrap();
     let mut standby = serve(config(&aws, addr, Upstreams::fixed(vec![])));
@@ -109,10 +125,9 @@ async fn a_holder_letting_go_leaves_its_successors_record() {
     // in a few hundred runs: the successor's record is written while the holder still serves (as when a peer binds
     // in the instant the holder's socket closes), then the holder lets go. Both peers have this process's pid, so
     // only the record's owner and address say whose it is; released by pid alone, the successor's record went.
-    let (h, addr) = (home(), free_udp_addr().unwrap());
+    let h = home();
     let kafka = reg(&h, "doze-kafka");
-    let mut holder = serve(config(&kafka, addr, Upstreams::fixed(vec![])));
-    assert!(holder.bound(RETRY * 3).await);
+    let (holder, addr) = serve_free(|a| config(&kafka, a, Upstreams::fixed(vec![]))).await;
     let aws = reg(&h, "doze-aws");
     aws.claim_holder(RESOLVER_KEY, &addr.to_string()).unwrap();
     holder.close().await;
@@ -125,10 +140,9 @@ async fn a_holder_letting_go_leaves_its_successors_record() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_holder_that_exits_takes_its_record_with_it() {
-    let (h, addr) = (home(), free_udp_addr().unwrap());
+    let h = home();
     let kafka = reg(&h, "doze-kafka");
-    let mut holder = serve(config(&kafka, addr, Upstreams::fixed(vec![])));
-    assert!(holder.bound(RETRY * 3).await);
+    let (holder, _) = serve_free(|a| config(&kafka, a, Upstreams::fixed(vec![]))).await;
     assert_eq!(
         kafka.resolver_holder().map(|e| e.owner).as_deref(),
         Some("doze-kafka")
@@ -164,11 +178,10 @@ async fn upstream_server() -> SocketAddr {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn an_unserved_domain_is_forwarded_upstream_and_the_zone_never_is() {
     // Go: TestAnUnservedDomainIsForwardedUpstreamAndTheZoneNeverIs.
-    let (h, addr) = (home(), free_udp_addr().unwrap());
+    let h = home();
     let r = reg(&h, "doze");
     let up = upstream_server().await;
-    let mut s = serve(config(&r, addr, Upstreams::fixed(vec![up])));
-    assert!(s.bound(RETRY * 3).await);
+    let (s, addr) = serve_free(|a| config(&r, a, Upstreams::fixed(vec![up]))).await;
     let resp = ask(addr, "dev.acme.com").await;
     assert_eq!(
         (rcode(&resp), ancount(&resp)),

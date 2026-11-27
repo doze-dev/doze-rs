@@ -199,4 +199,4 @@ pub fn free_udp_addr() -> std::io::Result<SocketAddr> {
 
 #[cfg(test)]
 #[path = "resolver_tests.rs"]
-mod tests;
+pub(crate) mod tests;

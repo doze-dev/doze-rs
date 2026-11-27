@@ -68,7 +68,7 @@ mod tests {
 
         cfg.defaults.names = true;
         let env = ca_env(&cfg);
-        let root = home.join("ca/root.crt").display().to_string();
+        let root = home.join("ca").join("root.crt").display().to_string();
         assert_eq!(env["DOZE_CA_FILE"], root);
         assert_eq!(env["NODE_EXTRA_CA_CERTS"], root, "node adds to its store");
         let Some(bundle) = env.get("SSL_CERT_FILE") else {

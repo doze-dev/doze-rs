@@ -259,8 +259,9 @@ mod tests {
             "another project's record keeps it"
         );
         let text = std::fs::read_to_string(routes.path()).unwrap();
+        // The folders as read back, not the file's text: JSON escapes a Windows path's backslashes.
         assert!(
-            !text.contains(&a),
+            routes.read().values().all(|dirs| !dirs.contains(&a)),
             "a deleted project leaves the record: {text}"
         );
         assert!(
@@ -288,7 +289,11 @@ mod tests {
             .record(&project(&tmp, "b", "doze.hcl"), &["b.test".into()])
             .unwrap();
         let text = std::fs::read_to_string(routes.path()).unwrap();
-        assert!(text.contains(&away), "kept while it cannot be seen: {text}");
+        assert_eq!(
+            routes.read().get("shop.test"),
+            Some(&vec![away.clone()]),
+            "kept while it cannot be seen: {text}"
+        );
         assert!(!gone(&away));
         // Nor is its route taken for stale: up does not call it undeclared, and no repair removes it.
         assert!(
