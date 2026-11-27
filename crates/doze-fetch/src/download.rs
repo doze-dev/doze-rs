@@ -101,11 +101,11 @@ fn root(content: &Path) -> PathBuf {
 mod tests {
     use super::*;
 
-    fn home(tag: &str) -> PathBuf {
-        let d = std::env::temp_dir().join(format!("doze-dl-{tag}-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&d);
-        std::fs::create_dir_all(&d).unwrap();
-        d
+    fn home(tag: &str) -> tempfile::TempDir {
+        tempfile::Builder::new()
+            .prefix(&format!("doze-dl-{tag}-"))
+            .tempdir()
+            .unwrap()
     }
 
     fn served(dir: &Path, name: &str, bytes: &[u8]) -> String {
@@ -116,10 +116,11 @@ mod tests {
 
     #[test]
     fn an_archive_is_unpacked_once_runs_from_its_folder_and_a_changed_one_is_refused() {
-        let h = home("tgz");
+        let h_dir = home("tgz");
+        let h = h_dir.path();
         let a = archive::tests::targz(&[("tool-1.0/bin/serve", b"#!/bin/sh\n", true)]);
-        let url = served(&h, "tool.tgz", &a);
-        let (dir, digest) = ensure(&h, &url, None).unwrap();
+        let url = served(h, "tool.tgz", &a);
+        let (dir, digest) = ensure(h, &url, None).unwrap();
         assert!(
             dir.ends_with("tool-1.0") && dir.join("bin/serve").exists(),
             "{}",
@@ -127,29 +128,29 @@ mod tests {
         );
         assert!(digest.starts_with("sha256:"));
         // Cached: the same folder, the pin satisfied.
-        assert_eq!(ensure(&h, &url, Some(&digest)).unwrap().0, dir);
+        assert_eq!(ensure(h, &url, Some(&digest)).unwrap().0, dir);
         // Another machine with the same lock, the archive replaced at the source.
-        let other = home("tgz-other");
+        let other_dir = home("tgz-other");
+        let other = other_dir.path();
         let b = archive::tests::targz(&[("tool-1.0/bin/serve", b"tampered", true)]);
-        let url = served(&other, "tool.tgz", &b);
-        let e = ensure(&other, &url, Some(&digest)).unwrap_err();
+        let url = served(other, "tool.tgz", &b);
+        let e = ensure(other, &url, Some(&digest)).unwrap_err();
         assert!(
             e.contains("checksum mismatch") && e.contains("nothing was unpacked"),
             "{e}"
         );
-        assert!(!content_dir(&other, &url).exists(), "nothing was unpacked");
+        assert!(!content_dir(other, &url).exists(), "nothing was unpacked");
         // A cache entry pinned to something else is refused too.
-        let e = ensure(&h, &served(&h, "tool.tgz", &a), Some("sha256:00")).unwrap_err();
+        let e = ensure(h, &served(h, "tool.tgz", &a), Some("sha256:00")).unwrap_err();
         assert!(e.contains("doze.lock pins sha256:00"), "{e}");
-        let _ = std::fs::remove_dir_all(&h);
-        let _ = std::fs::remove_dir_all(&other);
     }
 
     #[test]
     fn a_bare_executable_gets_a_folder_and_a_zip_is_refused() {
-        let h = home("bare");
-        let url = served(&h, "mytool", b"#!/bin/sh\necho hi\n");
-        let (dir, _) = ensure(&h, &url, None).unwrap();
+        let h_dir = home("bare");
+        let h = h_dir.path();
+        let url = served(h, "mytool", b"#!/bin/sh\necho hi\n");
+        let (dir, _) = ensure(h, &url, None).unwrap();
         let tool = dir.join("mytool");
         assert!(tool.exists());
         #[cfg(unix)]
@@ -158,8 +159,7 @@ mod tests {
             let mode = std::fs::metadata(&tool).unwrap().permissions().mode();
             assert_eq!(mode & 0o111, 0o111, "{mode:o}");
         }
-        let e = ensure(&h, &served(&h, "x.zip", b"PK\x03\x04rest"), None).unwrap_err();
+        let e = ensure(h, &served(h, "x.zip", b"PK\x03\x04rest"), None).unwrap_err();
         assert!(e.contains(".zip"), "{e}");
-        let _ = std::fs::remove_dir_all(&h);
     }
 }
