@@ -70,8 +70,8 @@ impl Routes {
     /// to be routed. One the machine still routes is kept with no claimant, so [`Routes::stale`] reports it until the
     /// route is removed; one never routed is forgotten.
     ///
-    /// A deleted project (its folder missing while the folder it was in is there) leaves every entry here; one that
-    /// only cannot be seen now (an unmounted volume, a checkout in progress) is kept.
+    /// A project that no longer claims (its folder deleted, or there with no config doze would load) leaves every
+    /// entry here; one that only cannot be seen now (an unmounted volume, a checkout in progress) is kept.
     pub fn record(&self, dir: &str, domains: &[String]) -> Result<(), Error> {
         let want: BTreeSet<String> = route_domains(domains)
             .into_iter()
@@ -80,7 +80,7 @@ impl Routes {
         let routed = self.routed;
         self.update(|rs| {
             rs.retain(|d, dirs| {
-                dirs.retain(|x| x != dir && !gone(x));
+                dirs.retain(|x| x != dir && claims(x));
                 !dirs.is_empty() || want.contains(d) || routed(d)
             });
             for d in want {
@@ -185,7 +185,7 @@ impl Routes {
 /// cannot be read now (permissions, a volume being mounted) still claims, so no route is removed on a passing error.
 fn claims(dir: &str) -> bool {
     match std::fs::metadata(dir) {
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => false,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => !gone(dir),
         Err(_) => true,
         Ok(m) if !m.is_dir() => false,
         Ok(_) => std::fs::read_dir(dir).map_or(true, |entries| {
@@ -290,6 +290,29 @@ mod tests {
         let text = std::fs::read_to_string(routes.path()).unwrap();
         assert!(text.contains(&away), "kept while it cannot be seen: {text}");
         assert!(!gone(&away));
+        // Nor is its route taken for stale: up does not call it undeclared, and no repair removes it.
+        assert!(
+            routes.stale().iter().all(|d| d != "shop.test"),
+            "{:?}",
+            routes.stale()
+        );
+        assert_eq!(routes.claimants("shop.test"), vec![away.clone()]);
+        assert!(routes.keep(&[], &[]).contains(&"shop.test".to_string()));
+
+        // A folder that is there and holds no config doze would load leaves the record.
+        let bare = tmp.join("bare");
+        std::fs::create_dir_all(&bare).unwrap();
+        let bare = bare.canonicalize().unwrap().display().to_string();
+        std::fs::write(home.join(FILE), format!("{{\"bare.test\": [{bare:?}]}}\n")).unwrap();
+        let routes = Routes::with_check(&home, |_| false);
+        routes
+            .record(&project(&tmp, "c", "doze.hcl"), &["c.test".into()])
+            .unwrap();
+        let text = std::fs::read_to_string(routes.path()).unwrap();
+        assert!(
+            !text.contains("bare.test"),
+            "never routed, no claimant: forgotten: {text}"
+        );
         let _ = std::fs::remove_dir_all(&tmp);
     }
 

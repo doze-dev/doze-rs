@@ -1,16 +1,18 @@
 //! Before the stack's apps start: while the system still says a name this daemon holds does not exist (a negative
 //! answer it cached while the stack was down), the daemon says so and waits a bounded time for it to clear, so an app
 //! that looks the name up at boot does not crash with ENOTFOUND (`doze_names::settle` has the rules). Nothing when
-//! names are off or the system does not ask this registry's zone; once every name has resolved, not again for this
-//! daemon (a restart is a new daemon, which is when a stale answer bites). Two `up`s at once wait on the same look.
+//! names are off or the system does not ask this registry's zone. Once a look has run its course (every name resolved,
+//! or the budget spent and said once with the fix), not again for this daemon: a name the system never resolves (a VPN
+//! or split DNS owning .doze, a stale /etc/resolver/doze) costs one wait, not one per `up`. A restart is a new
+//! daemon, which is when a stale answer bites. Two `up`s at once wait on the same look.
 
 use doze_names::Registry;
 use std::sync::OnceLock;
 
 /// The registry this daemon's names are in, once it serves them.
 static SERVED: OnceLock<Registry> = OnceLock::new();
-/// Whether the system has resolved every name of this daemon's once; held while a look is in progress, so a second
-/// `up` waits for it rather than going on early.
+/// Whether a look has run its course for this daemon; held while one is in progress, so a second `up` waits for it
+/// rather than going on early.
 static SETTLED: tokio::sync::Mutex<bool> = tokio::sync::Mutex::const_new(false);
 
 /// Called when the daemon serves its names (names on).
@@ -33,8 +35,9 @@ pub(crate) async fn settle() {
         .unwrap_or(false);
 }
 
-/// One look, and the wait: whether every name of `pid`'s resolved through the system. A machine whose system does not
-/// ask this zone, or a daemon with no names yet, has not settled: the next `up` looks again (cheaply).
+/// One look, and the wait: whether it ran its course (every name of `pid`'s resolved, or the budget was spent and
+/// said). A machine whose system does not ask this zone, or a daemon with no names yet, has not: the next `up` looks
+/// again (cheaply, with nothing to wait for).
 fn look(reg: &Registry, pid: i64) -> bool {
     let hosts: Vec<String> = reg
         .snapshot()
@@ -47,11 +50,12 @@ fn look(reg: &Registry, pid: i64) -> bool {
     }
     #[allow(clippy::print_stderr)] // the daemon's stderr is its log file
     let log = |l: String| eprintln!("doze daemon: {l}");
-    doze_names::settle::wait_resolved(
+    // What is still refused after the budget was said in the log, with how to clear it; not waited for again.
+    let _ = doze_names::settle::wait_resolved(
         &hosts,
         (doze_names::settle::BUDGET, doze_names::settle::EVERY),
         &doze_names::settle::system_resolves,
         &log,
-    )
-    .is_empty()
+    );
+    true
 }

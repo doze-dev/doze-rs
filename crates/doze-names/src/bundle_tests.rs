@@ -125,8 +125,15 @@ fn pem_blocks_keep_each_block_whole_and_drop_what_is_between() {
 fn no_system_roots_writes_no_bundle_of_the_doze_root_alone() {
     let dir = scratch("no-roots");
     let ca = Ca::load_or_create(&dir).unwrap();
-    assert!(ca.bundle_with("", None).is_err());
+    // A corporate file alone (an inherited SSL_CERT_FILE, an administrator's anchor) is not the system's roots.
+    let corp = dir.join("corp.pem");
+    std::fs::write(&corp, corp_root("Corp Root")).unwrap();
+    assert!(ca.bundle_with("", Some(&corp)).is_err());
     assert!(!ca.bundle_path().exists());
+    // Remembered: the next look does not ask the system again while nothing changed.
+    assert!(dir.join(NO_ROOTS).exists());
+    assert!(ca.ensure_bundle().is_err(), "the failure is kept");
+    std::fs::remove_file(dir.join(NO_ROOTS)).unwrap();
     // As an older doze left it: the root alone, newer than the root.
     std::fs::copy(ca.root_path(), ca.bundle_path()).unwrap();
     if let Ok(path) = ca.ensure_bundle() {

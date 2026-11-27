@@ -12,6 +12,15 @@ use x509_cert::der::DecodePem;
 use x509_cert::ext::pkix::BasicConstraints;
 
 const BUNDLE: &str = "bundle.pem";
+/// Beside the bundle when the system had no roots to put in it: the look is not repeated until something changes.
+const NO_ROOTS: &str = "bundle.none";
+
+fn no_roots() -> Error {
+    ca_err(
+        "no system roots found to put beside the doze root (no bundle file, or the system's roots could not be \
+         read): SSL_CERT_FILE is not set",
+    )
+}
 
 /// The distributions' bundle files, for systems that do not say otherwise (Debian, Fedora, SUSE, Alpine and BSD).
 const BUNDLE_FILES: [&str; 4] = [
@@ -107,8 +116,13 @@ fn system_roots_pem() -> String {
 /// The files the system's roots are read from, whose change makes a bundle out of date.
 fn roots_sources() -> &'static [&'static str] {
     if cfg!(target_os = "macos") {
-        // Apple's curated file, and the System keychain an administrator trusts roots in.
-        &["/etc/ssl/cert.pem", "/Library/Keychains/System.keychain"]
+        // The base roots: Apple's curated file and the system roots' keychain. Not the System keychain, which changes on
+        // unrelated writes (Wi-Fi, doze trust itself) and would rewrite the bundle, a verify-cert per anchor, for
+        // nothing; an administrator's new anchor is folded in at the next rewrite (a rotation, a root update).
+        &[
+            "/etc/ssl/cert.pem",
+            "/System/Library/Keychains/SystemRootCertificates.keychain",
+        ]
     } else {
         &BUNDLE_FILES
     }
@@ -155,19 +169,21 @@ impl Ca {
         let root = std::fs::read_to_string(self.root_path())?;
         let mut out = String::new();
         without_doze_roots(system, &mut out);
+        // Only the system's own roots count: an inherited file or a corporate anchor alone is not the machine's trust,
+        // and a bundle of them would cut its clients off from public https. None is written then, the clients keep
+        // their own stores, and the failure is remembered so the next look does not ask the system again until its
+        // root files or the doze root change.
+        if pem_blocks(&out).is_empty() {
+            let _ = std::fs::remove_file(self.bundle_path());
+            let _ = write_atomic(&self.dir.join(NO_ROOTS), b"", false);
+            return Err(no_roots());
+        }
+        let _ = std::fs::remove_file(self.dir.join(NO_ROOTS));
         if let Some(inherited) = inherited
             && !same_file(inherited, &self.bundle_path())
             && let Ok(extra) = std::fs::read_to_string(inherited)
         {
             without_doze_roots(&extra, &mut out);
-        }
-        if pem_blocks(&out).is_empty() {
-            // A bundle of the doze root alone would cut every client given it off from public https: none is written,
-            // and the clients keep their own stores.
-            return Err(ca_err(
-                "no system roots found to put beside the doze root (no bundle file, or the keychain could not be \
-                 read): SSL_CERT_FILE is not set",
-            ));
         }
         out.push_str(&root);
         let path = self.bundle_path();
@@ -181,15 +197,25 @@ impl Ca {
     pub fn ensure_bundle(&self) -> Result<PathBuf, Error> {
         let modified =
             |p: &std::path::Path| std::fs::metadata(p).and_then(|m| Ok((m.modified()?, m.len())));
+        // Whether something made at `at` is newer than the root and every file the system's roots come from.
+        let current = |at: std::time::SystemTime| {
+            modified(&self.root_path()).is_ok_and(|(r, _)| at >= r)
+                && roots_sources()
+                    .iter()
+                    .all(|src| modified(std::path::Path::new(src)).map_or(true, |(m, _)| at >= m))
+        };
+        // The system had no roots last time, and nothing they come from changed since: not asked again.
+        if let Ok((at, _)) = modified(&self.dir.join(NO_ROOTS))
+            && current(at)
+        {
+            return Err(no_roots());
+        }
         // A bundle no bigger than the root is the root alone (an older doze wrote one on a system without roots): never
         // kept, since it cuts its clients off from public https.
-        if let (Ok((b, size)), Ok((r, root_len))) =
+        if let (Ok((b, size)), Ok((_, root_len))) =
             (modified(&self.bundle_path()), modified(&self.root_path()))
-            && b >= r
             && size > root_len + 64
-            && roots_sources()
-                .iter()
-                .all(|src| modified(std::path::Path::new(src)).map_or(true, |(m, _)| b >= m))
+            && current(b)
         {
             return Ok(self.bundle_path());
         }
