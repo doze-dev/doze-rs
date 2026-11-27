@@ -1,7 +1,9 @@
 //! `doze trust`: the one-time, one-prompt setup for a stack's own domains (Go `cmd/doze/trust.go`). Each declared
 //! domain is routed to doze's resolver and, when the doze authority serves it, the authority is trusted here; routes
-//! no stack declares any more go in the same prompt. `--check` looks without changing anything, `--remove` undoes
-//! this stack's routes (and the authority's trust with the last stack), `--rotate` makes a new authority and trusts it.
+//! no stack declares any more go in the same prompt. `--check` looks without changing anything (with no domain, at
+//! https for the stack's names), `--remove` undoes this stack's routes (the authority stays while the zone is on: it
+//! serves the .doze names; with the zone off it goes with the last stack), `--rotate` makes a new authority and
+//! trusts it, domains or not.
 //!
 //! The stack's domains are what its daemon recorded when it last came up (`doze_doctor::domains`), until the Rust core
 //! reads doze.hcl itself.
@@ -48,21 +50,23 @@ pub(crate) fn run_trust(ctx: &mut Ctx<'_>, mode: &Mode, a: &Trust) -> Outcome {
     let m = machine::machine(ctx);
     let home = m.home().to_path_buf();
     let stack = StackDomains::recorded(&home, &project.dir);
-    if stack.domains.is_empty() && !a.remove {
-        return Ok(Done::ok(View::Ran(Ran {
-            said: vec![
-                "no domains recorded for this stack: its daemon records the ones doze.hcl declares when the stack \
-                 comes up (doze up), then doze trust sets them up"
-                    .into(),
-            ],
-            checks: Vec::new(),
-        })));
+    if stack.domains.is_empty()
+        && let Some(done) = without_domains(&m, a)
+    {
+        return Ok(done);
     }
     let mut said = Vec::new();
     let auth = authority(&home, a.rotate, &mut said)?;
     if a.remove {
         let req = request(&home, &stack, auth.ca);
-        return remove(ctx, &home, &stack, req, (m.setup.os, a.dry_run));
+        // With the zone on, the authority serves every .doze name over https: it stays when the last domain goes.
+        return remove(
+            ctx,
+            &home,
+            &stack,
+            req,
+            (m.setup.os, a.dry_run, !m.zone_off),
+        );
     }
     // The authority is trusted only when a domain is served from it (Go `usesDozeCA`), or when it was just made.
     let used = a.rotate || doze_doctor::domains::uses_doze_ca(&home, &stack) == Some(true);
@@ -110,6 +114,40 @@ pub(crate) fn run_trust(ctx: &mut Ctx<'_>, mode: &Mode, a: &Trust) -> Outcome {
         view: View::Ran(Ran { said, checks }),
         problem,
     })
+}
+
+/// A stack with no domain recorded: `--check` says how https stands for its .doze names (the authority still serves
+/// them), a plain run says where things are set up; `None` for `--rotate` and `--remove`, which work without a
+/// domain (the new authority is trusted in the same prompt; the zone's authority stays).
+fn without_domains(m: &doze_doctor::Machine, a: &Trust) -> Option<Done> {
+    if a.check {
+        let checks: Vec<Check> = doze_doctor::https::check(m).into_iter().collect();
+        let problem = checks.iter().find(|c| c.state == State::Fail).map(|c| {
+            machine::missing(
+                "https:// for the names is",
+                c.fix.as_deref().unwrap_or(doze_doctor::FIX_HTTPS),
+            )
+        });
+        return Some(Done {
+            view: View::Doctor(Report::new(checks)),
+            problem,
+        });
+    }
+    if a.remove || a.rotate {
+        return None;
+    }
+    Some(Done::ok(View::Ran(Ran {
+        said: vec![
+            "no domains recorded for this stack: its daemon records the ones doze.hcl declares when the stack \
+             comes up (doze up), then doze trust sets them up"
+                .into(),
+            format!(
+                "https:// for its .doze names needs no domain: {} sets it up with the names (one password)",
+                doze_doctor::FIX_HTTPS
+            ),
+        ],
+        checks: Vec::new(),
+    })))
 }
 
 /// What a person reads after the run: where each domain answers, and what a rotation means for running processes.
@@ -196,7 +234,7 @@ fn remove(
     home: &Path,
     stack: &StackDomains,
     mut req: TrustRequest,
-    (os, dry_run): (doze_names::setup::Os, bool),
+    (os, dry_run, keep_ca): (doze_names::setup::Os, bool, bool),
 ) -> Outcome {
     let routes = Routes::open(home);
     let others = |d: &String| routes.claimants(d).iter().any(|c| *c != stack.dir);
@@ -208,7 +246,7 @@ fn remove(
         .collect();
     req.prune = Vec::new();
     let elsewhere = routes.recorded().iter().any(others);
-    let last = !elsewhere;
+    let last = !elsewhere && !keep_ca;
     if last {
         req.untrust_all = true;
     } else {
@@ -250,6 +288,11 @@ fn remove(
             )
         })?;
         said.push("✓ the certificate authority's files are gone".into());
+    } else if !elsewhere && ca_dir(home).exists() {
+        said.push(
+            "› the certificate authority stays: it serves the .doze names over https (doze dns-setup --uninstall removes it)"
+                .into(),
+        );
     }
     Ok(Done::ok(View::Ran(Ran {
         said,

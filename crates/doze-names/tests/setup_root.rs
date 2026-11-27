@@ -135,12 +135,22 @@ fn trust_and_untrust(os: Os, ip: IpAddr) {
         assert!(said.contains(&ip.to_string()), "resolvectl: {said}");
     }
     let ca = req.ca.as_ref().unwrap();
-    let bundle = std::fs::read_to_string(ca.bundle().unwrap()).unwrap();
-    let root = std::fs::read_to_string(ca.root_path()).unwrap();
-    assert!(
-        bundle.contains(root.trim()),
-        "the bundle carries the doze root"
-    );
+    if cfg!(windows) {
+        // Windows keeps its roots in the certificate store, not a file: no bundle is written, and saying so is not an
+        // error a stack start trips on (its clients keep their own store, which trust just added the doze root to).
+        assert!(ca.bundle().is_err(), "no file of system roots on Windows");
+        assert!(
+            !ca.bundle_path().exists(),
+            "and no bundle of the doze root alone"
+        );
+    } else {
+        let bundle = std::fs::read_to_string(ca.bundle().unwrap()).unwrap();
+        let root = std::fs::read_to_string(ca.root_path()).unwrap();
+        assert!(
+            bundle.contains(root.trim()),
+            "the bundle carries the doze root"
+        );
+    }
 
     let mut out = Vec::new();
     untrust(os, &mut options(&mut out), &req).unwrap();

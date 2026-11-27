@@ -148,11 +148,23 @@ fn check_reports_each_part_and_the_fix() {
     assert!(!names.is_empty());
     // The machine contract the app reads: `ok` on every check, the fix on a failing one.
     assert!(names.iter().all(|c| c["ok"].is_boolean()));
+    assert!(names.iter().filter(|c| c["ok"] == false).all(|c| {
+        // https for the names is set up with them, by the one-password repair.
+        let fix = if c["name"] == "names: https" {
+            "doze doctor --fix"
+        } else {
+            "doze dns-setup"
+        };
+        c["fix"] == fix
+    }));
+    let https = names.iter().find(|c| c["name"] == "names: https").unwrap();
+    assert_eq!(https["ok"], false, "a fresh home has no authority: {https}");
     assert!(
-        names
-            .iter()
-            .filter(|c| c["ok"] == false)
-            .all(|c| c["fix"] == "doze dns-setup")
+        https["detail"]
+            .as_str()
+            .unwrap()
+            .contains("https:// names are refused until doze doctor --fix"),
+        "{https}"
     );
     assert!(handed(&host).is_empty());
 }
@@ -272,6 +284,44 @@ fn an_authority_no_domain_uses_is_not_trusted() {
         "{}",
         ran.stdout
     );
+}
+
+/// With no domain the authority still serves the stack's .doze names: `--check` says how https stands for them,
+/// `--rotate` makes a new authority and trusts it under one prompt (what doctor's broken-authority line names), and
+/// `--remove` leaves it while the zone is on.
+#[test]
+fn trust_without_domains_checks_rotates_and_keeps_https_for_the_names() {
+    let (sb, host) = machine();
+    let ran = doze(&sb, &host, &["trust", "--check"]);
+    assert_eq!(ran.code, 1, "{}", ran.stdout);
+    assert!(ran.stdout.contains("names: https"), "{}", ran.stdout);
+    assert!(
+        ran.stderr.contains("doze doctor --fix (one sudo)"),
+        "{}",
+        ran.stderr
+    );
+    assert!(handed(&host).is_empty());
+
+    let ran = doze(&sb, &host, &["trust", "--rotate"]);
+    assert_ne!(ran.code, 2, "{}", ran.stderr);
+    assert!(
+        ran.stdout.contains("new certificate authority"),
+        "{}",
+        ran.stdout
+    );
+    let root = doze_names::ca::ca_dir(&sb.home()).join("root.crt");
+    assert!(root.is_file(), "the new authority was made");
+    let scripts = handed(&host);
+    assert_eq!(scripts.len(), 1, "one prompt");
+    assert!(
+        scripts[0].1.contains(&root.display().to_string()),
+        "it trusts the new root: {}",
+        scripts[0].1
+    );
+
+    let ran = doze(&sb, &host, &["trust", "--remove"]);
+    assert_eq!(ran.code, 0, "{}", ran.stderr);
+    assert!(root.is_file(), "the zone's authority stays: {}", ran.stdout);
 }
 
 /// A cancelled `trust --remove` leaves the record as it was, so the routes are not taken for stale.

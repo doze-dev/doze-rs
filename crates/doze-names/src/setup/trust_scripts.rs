@@ -111,7 +111,12 @@ pub(crate) fn uninstall_routes(os: Os, recorded: &[String]) -> String {
 /// Trusts the authority for TLS on this machine. macOS: for TLS and basic chaining only, as mkcert does, never for code
 /// signing or mail.
 pub(crate) fn trust(os: Os, ca: &Ca) -> String {
-    let root = ca.root_path().display().to_string();
+    trust_root(os, &ca.root_path())
+}
+
+/// Trusts the root certificate file at `root` (one that may not be made yet, for a script shown before it runs).
+pub(crate) fn trust_root(os: Os, root: &std::path::Path) -> String {
+    let root = root.display().to_string();
     match os {
         Os::Mac => format!(
             "security add-trusted-cert -d -r trustRoot -p ssl -p basic -k {SYSTEM_KEYCHAIN} {}",

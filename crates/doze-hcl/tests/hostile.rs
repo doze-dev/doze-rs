@@ -57,5 +57,8 @@ fn a_huge_object_literal_is_refused_quickly() {
         r.is_err(),
         "more than 10,000 attributes are refused (catalogue K4)"
     );
-    assert!(start.elapsed() < Duration::from_millis(500));
+    // WHY 2 s: the cap is counted after the parse, so the refusal costs time in step with the text: 0.21 s for these 30,000
+    // attributes in a debug build on an M-series Mac, and a shared CI macOS runner under load took over 0.5 s (#175). What this
+    // guards against is work that grows faster than the text, which at 30,000 attributes would take many seconds.
+    assert!(start.elapsed() < Duration::from_secs(2));
 }

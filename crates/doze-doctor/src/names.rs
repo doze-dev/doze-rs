@@ -23,6 +23,7 @@ pub fn checks(m: &Machine) -> Vec<Check> {
         .into_iter()
         .map(|s| Check::step(format!("names: {}", s.name), s.done, s.detail).fix(FIX_NAMES))
         .collect();
+    out.extend(crate::https::check(m));
     out.extend(holders(m));
     out
 }

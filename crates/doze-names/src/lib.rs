@@ -35,6 +35,7 @@ pub mod registry;
 pub mod resolvconf;
 pub mod resolver;
 pub mod routes;
+pub mod settle;
 #[cfg(feature = "setup")]
 pub mod setup;
 mod standby;

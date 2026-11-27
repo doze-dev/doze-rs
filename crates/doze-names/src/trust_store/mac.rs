@@ -125,9 +125,13 @@ pub fn sha256_lines(out: &str) -> Vec<String> {
 /// Apple's curated file of the system roots trusted for TLS (the keychain of system roots holds more, some distrusted),
 /// plus any authority an administrator put in the System keychain and trusted: a corporate root. A certificate merely
 /// present there, such as the machine's own identities, is not an anchor and is left out, and so is doze's own.
+///
+/// Empty when the system's own roots cannot be read: corporate anchors alone are not the machine's trust, and a bundle
+/// of them would cut its clients off from public https.
 pub(super) fn roots_pem() -> String {
     let mut out = std::fs::read_to_string("/etc/ssl/cert.pem")
         .ok()
+        .filter(|t| !crate::bundle::pem_blocks(t).is_empty())
         .or_else(|| {
             output(
                 "security",
@@ -140,6 +144,9 @@ pub(super) fn roots_pem() -> String {
             )
         })
         .unwrap_or_default();
+    if crate::bundle::pem_blocks(&out).is_empty() {
+        return String::new();
+    }
     if let Some(admin) = output(
         "security",
         &["find-certificate", "-a", "-p", SYSTEM_KEYCHAIN],

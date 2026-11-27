@@ -262,7 +262,7 @@ fn stack(
     };
     let wiring = doze_config::stack::Wiring {
         planner: &planner,
-        extra_env: crate::names::ca_env(cfg),
+        extra_env: crate::ca_env::ca_env(cfg),
         fetch: catalog.service_downloads(),
     };
     let stack = doze_config::stack::to_stack(cfg, &wiring);

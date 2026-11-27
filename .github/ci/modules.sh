@@ -57,7 +57,16 @@ DOZE_POSTGRES_BINDIR=$POSTGRES17_BINDIR step cargo test "${pg[@]}"
 # The kafka and aws module faces (core plan M3) against real clients: kcat through the granted address, and the aws CLI.
 echo "::endgroup::"; echo "::group::kcat and the aws CLI"
 if [ "$(uname -s)" = Linux ]; then
-  command -v kcat >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq kcat; }
+  if ! command -v kcat >/dev/null; then
+    # The runner image's Microsoft repository went unsigned (403, "no longer signed") and failed the whole update, so
+    # kcat never installed and its tests failed far from the cause. kcat comes from Ubuntu's own archive: drop the
+    # third-party lists first so none of them can block it.
+    sudo rm -f /etc/apt/sources.list.d/microsoft*
+    grep -l packages.microsoft.com /etc/apt/sources.list.d/* 2>/dev/null | xargs -r sudo rm -f || true
+    sudo apt-get update -qq
+    sudo apt-get install -y -qq kcat
+  fi
+  command -v kcat >/dev/null || { echo "kcat did not install"; exit 1; }
   if ! command -v aws >/dev/null; then
     curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o "$engines/awscli.zip"
     unzip -q -o "$engines/awscli.zip" -d "$engines" && sudo "$engines/aws/install" >/dev/null

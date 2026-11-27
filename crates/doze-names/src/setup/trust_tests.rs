@@ -1,5 +1,5 @@
 use super::*;
-use crate::trust_store::mac_resolver_port;
+use crate::trust_store::{SYSTEM_KEYCHAIN, mac_resolver_port};
 
 fn scratch(tag: &str) -> PathBuf {
     let d = std::env::temp_dir().join(format!("doze-names-trust-{tag}-{}", std::process::id()));
@@ -210,4 +210,43 @@ fn linux_restates_the_list_and_windows_writes_a_rule_per_route() {
         scripts::untrust(Os::Windows, Some(&ca)).contains(&format!("-eq '{}'", ca.fingerprint()))
     );
     let _ = std::fs::remove_dir_all(dir.parent().unwrap());
+}
+
+/// The zone's https needs no declared domain: with no authority made yet, the plan names the root file it will be made
+/// at (so a dry run shows the real script and makes nothing), trusted for TLS only; once it is made, the same file.
+#[test]
+fn https_for_the_zone_trusts_the_authority_before_and_after_it_is_made() {
+    let home = scratch("https");
+    let root = crate::ca::root_file(&ca_dir(&home)).display().to_string();
+    let mac = https_plan(Os::Mac, &home, None).unwrap();
+    assert!(
+        mac.script.contains(&format!(
+            "security add-trusted-cert -d -r trustRoot -p ssl -p basic -k {SYSTEM_KEYCHAIN} '{root}'"
+        )),
+        "{}",
+        mac.script
+    );
+    assert!(
+        mac.what.starts_with("trust the doze certificate authority"),
+        "{}",
+        mac.what
+    );
+    assert!(!ca_dir(&home).exists(), "planning makes nothing");
+    let linux = https_plan(Os::Linux, &home, None).unwrap();
+    assert!(
+        linux.script.contains(&format!("cp -f '{root}'")),
+        "{}",
+        linux.script
+    );
+    let ca = Ca::load_or_create(&ca_dir(&home)).unwrap();
+    assert_eq!(ca.root_path().display().to_string(), root);
+    if !ca_trusted(&ca).0 {
+        let made = https_plan(Os::Mac, &home, Some(&ca)).unwrap();
+        assert!(
+            made.script.contains(&format!("'{root}'")),
+            "{}",
+            made.script
+        );
+    }
+    let _ = std::fs::remove_dir_all(&home);
 }

@@ -30,7 +30,7 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Status, _notices: &mut Not
     if a.watch {
         return watch::run(ctx, mode, &stack, a.graph);
     }
-    let report = match stack.read()? {
+    let mut report = match stack.read()? {
         Some(c) => Report::of(&stack::snapshot(&c)?, ctx.now),
         None => {
             let cfg = crate::config::shape_of(ctx, mode, &stack.project)?;
@@ -39,6 +39,12 @@ pub(crate) fn run(ctx: &mut Ctx<'_>, mode: &Mode, a: &Status, _notices: &mut Not
             r
         }
     };
+    if !mode.json && !a.graph {
+        // One line when https:// for the stack's names is not set up here: a refused https says nothing at the client.
+        report.hint = crate::config::shape_of(ctx, mode, &stack.project)
+            .ok()
+            .and_then(|cfg| crate::cmd::trust_hint::https_line(&cfg, &ctx.home, mode.out()));
+    }
     Ok(Done::ok(if a.graph {
         View::Graph(Box::new(report))
     } else {
@@ -57,6 +63,8 @@ pub struct Report {
     pub(crate) views: Vec<InstanceView>,
     /// With the daemon down, the module blocks whose port is their module's default (unknown to the CLI).
     pub(crate) module_ports: Vec<String>,
+    /// A line under the table about this machine (https:// for the names not set up), when there is one.
+    pub(crate) hint: Option<String>,
 }
 
 impl Report {
@@ -67,6 +75,7 @@ impl Report {
             now,
             views: go_order(stack::declared(snap).cloned().collect()),
             module_ports: Vec::new(),
+            hint: None,
         }
     }
 
@@ -78,6 +87,7 @@ impl Report {
             now,
             views,
             module_ports: Vec::new(),
+            hint: None,
         }
     }
 
@@ -111,6 +121,10 @@ impl Report {
         if self.running {
             out.push('\n');
             out.push_str(&p.dim(&self.summary(" · connect to any endpoint to wake it")));
+            out.push('\n');
+        }
+        if let Some(h) = &self.hint {
+            out.push_str(h);
             out.push('\n');
         }
         out

@@ -96,20 +96,29 @@ fn netd_step(s: &Setup) -> Step {
     let unit = std::fs::read_to_string(&s.paths.netd_unit).ok();
     let registry = s.registry().display().to_string();
     let (done, detail) = match unit.as_deref() {
-        None => (false, "not installed — a routed domain is unreachable while no stack runs".to_string()),
-        Some(_) if job_outdated(&s.paths.netd_unit, &netd_stamp()) => (
+        None => (
             false,
-            "from an older setup — run setup again (one sudo), so a routed domain is answered when no stack runs".into(),
+            "not installed — a routed domain is unreachable while no stack runs".to_string(),
         ),
+        Some(_) if job_outdated(&s.paths.netd_unit, &netd_stamp()) => {
+            (false, super::OLDER_NETD.into())
+        }
         // Set up under a sudo that swapped HOME for root's: the daemon answers from a registry nobody writes.
         Some(u) if netd_serves(u).is_some_and(|r| r != registry) => (
             false,
-            format!("answers from {}, not your registry — run setup again (one sudo)", netd_serves(u).unwrap_or_default()),
+            format!(
+                "answers from {}, not your registry — run setup again (one sudo)",
+                netd_serves(u).unwrap_or_default()
+            ),
         ),
-        Some(_) if !active(NETD_UNIT_NAME) => {
-            (false, format!("installed but not running (systemctl status {NETD_UNIT_NAME})"))
-        }
-        Some(_) => (true, "answers the zone when no doze program runs, so a routed domain is never dark".into()),
+        Some(_) if !active(NETD_UNIT_NAME) => (
+            false,
+            format!("installed but not running (systemctl status {NETD_UNIT_NAME})"),
+        ),
+        Some(_) => (
+            true,
+            "answers the zone when no doze program runs, so a routed domain is never dark".into(),
+        ),
     };
     Step::new("network daemon", done, detail)
 }

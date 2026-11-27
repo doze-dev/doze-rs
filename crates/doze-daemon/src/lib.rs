@@ -12,6 +12,7 @@
 
 mod admin;
 mod blocks;
+mod ca_env;
 pub mod catalog;
 mod client;
 mod console;
@@ -25,6 +26,7 @@ mod meters;
 pub mod names;
 pub mod planners;
 mod session;
+mod settle;
 pub mod spec_tree;
 pub mod tls;
 mod topics;

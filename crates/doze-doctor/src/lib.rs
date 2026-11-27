@@ -6,11 +6,13 @@
 //! (sudo in a terminal, the system's prompt from the app, a recorder in a test), through `doze_names::setup::run_plan`.
 //!
 //! - [`names`]: the `.doze` zone's machine setup (the network daemon, the resolver route), and who answers for it.
+//! - [`https`]: https:// for the `.doze` names: the machine's authority made and trusted.
 //! - [`domains`]: a stack's own domains: routed here, the authority trusted, stale routes.
 //! - [`leftovers`]: what doze left behind that a person may want gone (routes nobody declares, names of dead processes).
 //! - [`repair`]: the failing parts as one script under one prompt.
 
 pub mod domains;
+pub mod https;
 pub mod leftovers;
 pub mod names;
 pub mod repair;
@@ -73,6 +75,8 @@ impl Check {
 
 /// The command that sets the `.doze` names up.
 pub const FIX_NAMES: &str = "doze dns-setup";
+/// The command that has this machine trust https:// for the `.doze` names (with the zone's setup, one password).
+pub const FIX_HTTPS: &str = "doze doctor --fix";
 /// The command that sets a stack's domains up.
 pub const FIX_DOMAINS: &str = "doze trust";
 /// The command that replaces a broken authority.

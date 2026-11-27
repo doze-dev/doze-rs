@@ -139,14 +139,50 @@ pub fn trust_plan(os: Os, req: &TrustRequest) -> (Option<Plan>, Vec<String>) {
         }
         if !ca_trusted(ca).0 {
             script.push(scripts::trust(os, ca));
-            what.push(format!(
-                "trust the doze certificate authority for TLS on this machine (its key stays in {}; anyone with that key \
-                 could sign any name for this machine)",
-                ca.dir().display()
-            ));
+            what.push(trust_words(ca.dir()));
         }
     }
     (plan(os, &what, script), foreign)
+}
+
+/// What trusting the authority means, said in the prompt.
+fn trust_words(dir: &Path) -> String {
+    format!(
+        "trust the doze certificate authority for TLS on this machine (its key stays in {}; anyone with that key \
+         could sign any name for this machine)",
+        dir.display()
+    )
+}
+
+/// The script that has this machine believe the front door's https:// for every name (`doze doctor --fix` and `doze
+/// dns-setup`, beside the zone's setup, so one password covers both): the authority under `home` trusted, and
+/// rotated-out roots no longer. With `ca` `None` the authority is not made yet: the script names the root file it
+/// will be made at, and the caller makes it ([`Ca::load_or_create`]) before running the script. `None` when there is
+/// nothing to do.
+pub fn https_plan(os: Os, home: &Path, ca: Option<&Ca>) -> Option<Plan> {
+    let (mut script, mut what) = (Vec::new(), Vec::new());
+    let dir = ca_dir(home);
+    match ca {
+        Some(ca) => {
+            for fp in ca
+                .previous()
+                .iter()
+                .filter(|fp| fingerprint_trusted(Some(ca), fp))
+            {
+                script.push(scripts::untrust_fingerprint(os, Some(ca), fp));
+                what.push("stop trusting a rotated-out authority".into());
+            }
+            if !ca_trusted(ca).0 {
+                script.push(scripts::trust(os, ca));
+                what.push(trust_words(&dir));
+            }
+        }
+        None => {
+            script.push(scripts::trust_root(os, &crate::ca::root_file(&dir)));
+            what.push(trust_words(&dir));
+        }
+    }
+    plan(os, &what, script)
 }
 
 fn plan(os: Os, what: &[String], script: Vec<String>) -> Option<Plan> {

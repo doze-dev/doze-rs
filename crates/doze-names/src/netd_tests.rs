@@ -11,7 +11,7 @@ use crate::Name;
 use crate::pool::LOOPBACK;
 use crate::registry::FILE_NAME;
 use crate::registry::tests::home;
-use crate::resolver::free_udp_addr;
+use crate::resolver::tests::serve_free;
 use crate::upstream::Upstreams;
 use crate::wire::TYPE_A;
 use crate::wire::tests::{ancount, query, rcode, soa};
@@ -34,15 +34,14 @@ async fn ask(addr: SocketAddr, host: &str) -> Vec<u8> {
 /// TestTheNetworkDaemonAnswersTheZoneWhenNoProgramDoes (the forwarding half is the resolver's own test).
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn the_daemon_answers_the_zone_when_no_program_does() {
-    let (h, addr) = (home(), free_udp_addr().unwrap());
-    let mut cfg = zone_config(&h.join(FILE_NAME));
-    cfg.addr = addr.to_string();
-    cfg.upstreams = Arc::new(Upstreams::fixed(vec![]));
-    let mut netd = serve(cfg);
-    assert!(
-        netd.bound(Duration::from_secs(3)).await,
-        "the daemon never took the resolver"
-    );
+    let h = home();
+    let (netd, addr) = serve_free(|a| {
+        let mut cfg = zone_config(&h.join(FILE_NAME));
+        cfg.addr = a.to_string();
+        cfg.upstreams = Arc::new(Upstreams::fixed(vec![]));
+        cfg
+    })
+    .await;
     let nx = ask(addr, "web.shop.doze").await;
     assert_eq!(rcode(&nx), 3, "nothing runs: NXDOMAIN");
     assert_eq!(

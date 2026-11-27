@@ -67,8 +67,9 @@ fn parts_run_in_order_and_a_failure_stops_the_rest() {
     assert_eq!(String::from_utf8_lossy(&out.stdout), "");
 }
 
-/// A machine with nothing set up: the names checks fail with `doze dns-setup` as the fix, and the repair is the zone's
-/// install under one prompt.
+/// A machine with nothing set up: the names checks fail with `doze dns-setup` as the fix (https with `doze doctor
+/// --fix`), and the repair is the zone's install and the authority's trust under one prompt: a first-time person types
+/// one password and gets https:// for every `.doze` name, with no domain declared.
 #[test]
 fn nothing_set_up_is_repaired_by_the_zone_install() {
     let dir = tempfile::tempdir().unwrap();
@@ -78,16 +79,72 @@ fn nothing_set_up_is_repaired_by_the_zone_install() {
     let failing: Vec<&Check> = checks.iter().filter(|c| c.state == State::Fail).collect();
     assert!(!failing.is_empty(), "{checks:?}");
     assert!(failing.iter().all(|c| c.name.starts_with("names: ")
-        && c.fix.as_deref() == Some(crate::FIX_NAMES)
+        && c.fix.as_deref()
+            == Some(if c.name == crate::https::NAME {
+                crate::FIX_HTTPS
+            } else {
+                crate::FIX_NAMES
+            })
         && !c.ok));
+    let https = failing
+        .iter()
+        .find(|c| c.name == crate::https::NAME)
+        .unwrap();
+    assert!(
+        https
+            .detail
+            .contains("https:// names are refused until doze doctor --fix"),
+        "{}",
+        https.detail
+    );
     let r = plan(&m, None);
-    assert_eq!(r.parts.len(), 1);
+    let kinds: Vec<Kind> = r.parts.iter().map(|p| p.kind).collect();
+    assert_eq!(kinds, [Kind::Names, Kind::Https]);
     let one = r.one().unwrap();
     assert!(one.script.contains("dev.doze.netd"), "{}", one.script);
     assert!(
         one.script
             .contains(&dir.path().join("etc/resolver").display().to_string())
     );
+    let root = m.home().join("ca").join("root.crt").display().to_string();
+    assert!(
+        one.script.contains(&format!("add-trusted-cert -d -r trustRoot -p ssl -p basic -k /Library/Keychains/System.keychain '{root}'")),
+        "{}",
+        one.script
+    );
+    assert!(
+        !m.home().join("ca").exists(),
+        "planning (a dry run) makes nothing"
+    );
+    r.prepare().unwrap();
+    assert!(
+        m.home().join("ca").join("root.crt").is_file(),
+        "the run makes the root the script trusts"
+    );
+}
+
+/// A broken authority serves no name: with no domain declared the repair still says it cannot fix it and how, rather
+/// than "nothing to do", and plans no trust of it; doctor's https line names the rotation.
+#[test]
+fn a_broken_authority_without_domains_is_said_not_passed_over() {
+    let dir = tempfile::tempdir().unwrap();
+    let m = machine(dir.path());
+    let ca = m.home().join("ca");
+    std::fs::create_dir_all(&ca).unwrap();
+    std::fs::write(ca.join("root.crt"), "not a certificate").unwrap();
+    std::fs::write(ca.join("root.key"), "not a key").unwrap();
+    let r = plan(&m, None);
+    assert!(
+        r.cannot
+            .iter()
+            .any(|c| c.starts_with("the certificate authority")
+                && c.ends_with("(doze trust --rotate)")),
+        "{:?}",
+        r.cannot
+    );
+    assert!(r.parts.iter().all(|p| p.kind != Kind::Https));
+    let https = crate::https::check(&m).unwrap();
+    assert_eq!(https.fix.as_deref(), Some(crate::FIX_ROTATE));
 }
 
 #[test]
@@ -135,7 +192,7 @@ fn a_recorded_domain_is_checked_and_routed_with_the_zone() {
 
     let r = plan(&m, Some(&stack));
     let kinds: Vec<Kind> = r.parts.iter().map(|p| p.kind).collect();
-    assert_eq!(kinds, [Kind::Names, Kind::Domains]);
+    assert_eq!(kinds, [Kind::Names, Kind::Domains, Kind::Https]);
     let one = r.one().unwrap();
     assert!(one.what.contains(domain), "{}", one.what);
     assert!(one.script.contains(domain));

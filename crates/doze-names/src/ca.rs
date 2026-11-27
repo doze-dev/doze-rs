@@ -1,5 +1,5 @@
-//! The doze certificate authority: one per machine under `<home>/ca`, made the first time a domain needs https and
-//! trusted once by the person. The front door mints a short-lived certificate per domain on the first handshake that
+//! The doze certificate authority: one per machine under `<home>/ca`, made the first time a name needs https (or by
+//! the one-password setup that trusts it) and trusted once by the person. The front door mints a short-lived certificate per domain on the first handshake that
 //! asks and keeps it beside the root. The key never leaves the folder; a copy lets whoever has it forge only this
 //! machine's own names, the risk mkcert and OrbStack take too. Rotation makes a new one.
 //!
@@ -41,6 +41,11 @@ const LEAF_RENEW: Duration = Duration::from_secs(7 * 86_400);
 /// The authority's folder under a doze home.
 pub fn ca_dir(home: &Path) -> PathBuf {
     home.join("ca")
+}
+
+/// The root certificate's file in an authority's folder, whether or not it is made yet.
+pub fn root_file(dir: &Path) -> PathBuf {
+    dir.join(ROOT_CRT)
 }
 
 pub(crate) fn ca_err(what: impl std::fmt::Display) -> Error {
@@ -118,7 +123,8 @@ impl Ca {
         }
         doze_os::fs::private_dir(dir)?;
         let _lock = doze_os::fs::lock(&dir.join(".lock"))?;
-        if let Some(ca) = Ca::probe(dir)? {
+        // Under the lock already: the plain look (`probe` would wait on the lock this process holds).
+        if let Some(ca) = Ca::probe_once(dir)? {
             return Ok(ca);
         }
         Ca::create(dir, read_previous(dir))
@@ -126,7 +132,21 @@ impl Ca {
 
     /// The authority under `dir` without making one: `None` when there is none, an error when one is there and
     /// cannot be used (unreadable, or expiring within a leaf's life), which `doze trust --rotate` fixes.
+    ///
+    /// One of the pair without the other is an authority being made (or rotated) by another process, which writes
+    /// both under the folder's lock: the look is made again under that lock, once the writer is done, rather than
+    /// calling a half-written authority broken.
     pub fn probe(dir: &Path) -> Result<Option<Ca>, Error> {
+        let (crt, key) = (dir.join(ROOT_CRT), dir.join(ROOT_KEY));
+        let lock = dir.join(".lock");
+        if crt.exists() != key.exists() && lock.exists() {
+            let _held = doze_os::fs::lock(&lock)?;
+            return Ca::probe_once(dir);
+        }
+        Ca::probe_once(dir)
+    }
+
+    fn probe_once(dir: &Path) -> Result<Option<Ca>, Error> {
         let (crt, key) = (
             std::fs::read_to_string(dir.join(ROOT_CRT)),
             std::fs::read_to_string(dir.join(ROOT_KEY)),

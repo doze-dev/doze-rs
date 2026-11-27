@@ -4,7 +4,7 @@
 //! when the holder exits, and the holder serving every peer's routes from the one registry, so a process that dies
 //! stops being proxied to the moment it stops answering DNS.
 
-use crate::certs::{CA_CHECK_EVERY, CaSource, Certs, Chosen};
+use crate::certs::{CA_CHECK_EVERY, CaSource, Certs, Chosen, Refused};
 use crate::front::{INGRESS_KEY, INGRESS_TLS_KEY, ingress_bind, ingress_tls_bind};
 use crate::resolver::Log;
 use crate::standby::Standby;
@@ -27,6 +27,29 @@ use tokio_rustls::LazyConfigAcceptor;
 struct Tls {
     base: Arc<rustls::ServerConfig>,
     certs: Arc<Certs>,
+    /// The names a refusal was logged for: each said once (bounded), not at every retry of a client.
+    said: Arc<std::sync::Mutex<std::collections::HashSet<String>>>,
+}
+
+/// How many refused names are remembered as said before the memory starts again.
+const SAID_CAP: usize = 256;
+
+impl Tls {
+    /// Whether a refusal for `name` is new, and so worth a line in the log.
+    fn first_refusal(&self, name: &str) -> bool {
+        let Ok(mut said) = self.said.lock() else {
+            return false;
+        };
+        if said.len() >= SAID_CAP {
+            said.clear();
+        }
+        said.insert(name.to_owned())
+    }
+}
+
+/// The log line for a refused https handshake: which name, and why.
+pub(crate) fn refusal_line(name: &str, why: &Refused) -> String {
+    format!("names: https://{name} refused: {why}")
 }
 
 /// Where to serve, and from what.
@@ -84,6 +107,7 @@ pub fn serve(cfg: FrontConfig) -> FrontDoor {
         Tls {
             base: Arc::new(c),
             certs,
+            said: Arc::default(),
         }
     })
     .ok();
@@ -197,7 +221,7 @@ async fn accept_until_stopped(
             r = listener.accept() => match r { Ok(v) => v, Err(_) => continue },
         };
         let (reg, tls) = (cfg.registry.clone(), tls.cloned());
-        tokio::spawn(connection(reg, stream, peer, tls));
+        tokio::spawn(connection(reg, stream, peer, tls, cfg.log.clone()));
     }
 }
 
@@ -206,6 +230,7 @@ async fn connection(
     stream: tokio::net::TcpStream,
     peer: SocketAddr,
     tls: Option<Tls>,
+    log: Log,
 ) {
     let ip = peer.ip();
     let is_tls = tls.is_some();
@@ -233,10 +258,20 @@ async fn connection(
             let name = start.client_hello().server_name().map(str::to_owned);
             let certs = tls.certs.clone();
             let chosen = match name {
-                Some(n) => tokio::task::spawn_blocking(move || certs.for_name(&n))
-                    .await
-                    .ok()
-                    .flatten(),
+                Some(n) => {
+                    let asked = n.clone();
+                    match tokio::task::spawn_blocking(move || certs.choose(&asked)).await {
+                        Ok(Ok(c)) => Some(c),
+                        Ok(Err(why)) => {
+                            // The client sees only an alert; the log says which name and why.
+                            if tls.first_refusal(&n) {
+                                log(refusal_line(&n, &why));
+                            }
+                            None
+                        }
+                        Err(_) => None,
+                    }
+                }
                 None => None,
             };
             // No certificate: the handshake goes on to fail with an alert the client can read, as before.

@@ -190,13 +190,10 @@ fn suffix(name: &str) -> String {
         .collect()
 }
 
-/// The variables that point clients at the doze authority (Go `caPairs`), for a stack that serves a domain from it,
-/// once the daemon has made it.
+/// The variables that point clients at the doze authority (Go `caPairs`), for a stack with names (the authority serves
+/// every name the front door fronts, as the daemon gives its processes), once the authority is made.
 fn authority(ctx: &mut Ctx<'_>, cfg: &Config) -> Vec<Pair> {
-    let uses = cfg
-        .instances
-        .iter()
-        .any(|i| i.enabled && !i.domains.is_empty() && i.cert.is_empty());
+    let uses = cfg.defaults.names;
     let home = std::path::Path::new(&cfg.home);
     let Some(ca) = uses
         .then(|| {

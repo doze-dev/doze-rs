@@ -33,18 +33,20 @@ impl std::fmt::Debug for Wiring<'_> {
 
 /// The variables that point the usual clients at the doze certificate authority (Go's `caEnv`):
 /// Node adds the root to its store; OpenSSL and Python replace theirs, so they get the bundle that
-/// still holds the public roots.
-pub fn ca_env(root: &Path, bundle: &Path) -> BTreeMap<String, String> {
-    let (root, bundle) = (
-        root.to_string_lossy().into_owned(),
-        bundle.to_string_lossy().into_owned(),
-    );
-    BTreeMap::from([
+/// still holds the public roots. With no bundle (no system roots to put in it) those two are left
+/// unset, never pointed at the doze root alone: the clients keep their own stores.
+pub fn ca_env(root: &Path, bundle: Option<&Path>) -> BTreeMap<String, String> {
+    let root = root.to_string_lossy().into_owned();
+    let mut out = BTreeMap::from([
         ("DOZE_CA_FILE".to_owned(), root.clone()),
         ("NODE_EXTRA_CA_CERTS".to_owned(), root),
-        ("SSL_CERT_FILE".to_owned(), bundle.clone()),
-        ("REQUESTS_CA_BUNDLE".to_owned(), bundle),
-    ])
+    ]);
+    if let Some(bundle) = bundle {
+        let bundle = bundle.to_string_lossy().into_owned();
+        out.insert("SSL_CERT_FILE".to_owned(), bundle.clone());
+        out.insert("REQUESTS_CA_BUNDLE".to_owned(), bundle);
+    }
+    out
 }
 
 /// The engine's stack for `cfg`.

@@ -1,12 +1,12 @@
 //! What doze left behind on the machine that no running doze program owns: names held for processes that are gone,
-//! and an authority kept although no stack declares a domain. Stale routes are the domains' report
-//! ([`crate::domains`]), since `doze trust` removes them in its own prompt.
+//! and routes recorded for a project in the system's temporary folder (a test's or a fixture's run against this home).
+//! Stale routes are the domains' report ([`crate::domains`]), since `doze trust` removes them in its own prompt. The
+//! authority is not a leftover: it serves every `.doze` name over https, domain or not.
 //!
-//! None of these is failing: the next doze program to start clears dead names, and an unused authority is trusted by
-//! nothing that asks for it. They are said so a person reading doctor knows what is on the machine.
+//! None of these is failing: the next doze program to start clears dead names, and a temporary project's route is
+//! said with the command that takes it away. They are said so a person reading doctor knows what is on the machine.
 
 use crate::{Check, State};
-use doze_names::ca::ca_dir;
 use doze_names::routes::Routes;
 use std::path::Path;
 
@@ -26,13 +26,13 @@ pub fn checks(home: &Path) -> Vec<Check> {
             ),
         ));
     }
-    if ca_dir(home).join("root.crt").is_file() && !Routes::open(home).any_declared() {
+    for (domain, dir) in Routes::open(home).temporary() {
         out.push(Check::new(
-            "leftovers: certificate authority",
+            format!("leftovers: route {domain}"),
             State::Warn,
             format!(
-                "{} is kept although no stack declares a domain; doze trust --remove in the last such stack takes it away",
-                ca_dir(home).display()
+                "recorded for {dir}, a project in the temporary folder (a test or a fixture run against this home); \
+                 cd {dir} && doze trust --remove takes it away"
             ),
         ));
     }

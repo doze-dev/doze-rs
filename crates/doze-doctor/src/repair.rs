@@ -14,11 +14,16 @@ use doze_names::setup::{Plan, Shell};
 use doze_names::trust_store::domain_routed;
 use std::time::Duration;
 
+/// How the repair names the authority in what it cannot do.
+const AUTHORITY: &str = "the certificate authority";
+
 /// Which part of the machine a part of the repair sets up.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
     /// The `.doze` zone (what `doze dns-setup` does).
     Names,
+    /// https:// for the zone's names: the machine's authority trusted (also part of `doze dns-setup`).
+    Https,
     /// The stack's domains and the authority (what `doze trust` does).
     Domains,
 }
@@ -40,6 +45,8 @@ pub struct Repair {
     /// and the rest is still repaired.
     pub cannot: Vec<String>,
     request: Option<TrustRequest>,
+    /// The authority's folder, when the script trusts an authority not made yet: [`Repair::prepare`] makes it.
+    make_ca: Option<std::path::PathBuf>,
 }
 
 /// The repair for what is missing on `m` for `stack`: nothing when everything is in place. A part that cannot be
@@ -60,9 +67,7 @@ pub fn plan(m: &Machine, stack: Option<&StackDomains>) -> Repair {
     if let Some(stack) = stack.filter(|s| !s.domains.is_empty()) {
         let auth = Authority::probe(m.home());
         if let Some(why) = &auth.broken {
-            cannot.push(format!(
-                "the certificate authority: {why} (doze trust --rotate)"
-            ));
+            cannot.push(format!("{AUTHORITY}: {why} (doze trust --rotate)"));
         }
         let ca = auth
             .ca
@@ -78,11 +83,31 @@ pub fn plan(m: &Machine, stack: Option<&StackDomains>) -> Repair {
             request = Some(req);
         }
     }
+    // https for the zone, unless the domains' part trusts the authority already (the same root, one line).
+    let domains_trust = request.as_ref().is_some_and(|r| r.ca.is_some());
+    let mut make_ca = None;
+    // A broken authority serves no name, domain or not: said even for a stack without domains, never "nothing to do".
+    if !m.zone_off
+        && !cannot.iter().any(|c| c.starts_with(AUTHORITY))
+        && let crate::https::Https::Broken(why) = crate::https::Https::probe(m)
+    {
+        cannot.push(format!("{AUTHORITY}: {why} (doze trust --rotate)"));
+    }
+    if !domains_trust && let Some((plan, make)) = crate::https::plan(m) {
+        if make {
+            make_ca = Some(doze_names::ca::ca_dir(m.home()));
+        }
+        parts.push(Part {
+            kind: Kind::Https,
+            plan,
+        });
+    }
     Repair {
         parts,
         foreign,
         cannot,
         request,
+        make_ca,
     }
 }
 
@@ -90,6 +115,15 @@ impl Repair {
     /// Whether there is nothing to do.
     pub fn is_empty(&self) -> bool {
         self.parts.is_empty()
+    }
+
+    /// What must be in place before the script runs, done as the person: the authority the script trusts, made when
+    /// there is none (files under the doze home). A dry run skips this and changes nothing.
+    pub fn prepare(&self) -> Result<(), Error> {
+        if let Some(dir) = &self.make_ca {
+            doze_names::ca::Ca::load_or_create(dir)?;
+        }
+        Ok(())
     }
 
     /// Every part as one script under one prompt; `None` when there is nothing to do.
