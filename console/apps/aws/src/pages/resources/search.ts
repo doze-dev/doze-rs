@@ -52,3 +52,11 @@ export function oneSearch(s: Record<string, unknown>): { tab?: string; p?: strin
   if (typeof s.group === "string" && s.group.length <= 512) out.group = s.group;
   return out;
 }
+
+/** `?group=Messaging+and+events`: the Resources index opens at that group's heading and marks it (a breadcrumb's group links here). */
+export function indexSearch(s: Record<string, unknown>): { group?: string } {
+  return typeof s.group === "string" && s.group && s.group.length <= 100 ? { group: s.group } : {};
+}
+
+/** The id of a group's heading on the index: its name as a word (`Messaging and events` is `group-messaging-and-events`), which an id and `aria-labelledby` can hold. */
+export const groupId = (group: string) => `group-${group.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;

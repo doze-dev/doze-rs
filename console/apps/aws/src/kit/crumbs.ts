@@ -1,9 +1,10 @@
+import { useCallback } from "react";
 import type { Crumb } from "@doze/ui/components/app/page-header";
 import { useCatalogue } from "../api/resources";
 import { ACCESS_SERVICES } from "../nav";
 
 /** What a service's pages begin with: `Resources`, or `Access` for IAM and STS (the rail marks Access on their pages), then the service
- * (`CloudWatch Logs`). Its group (`Observability`) is not a crumb: it has no page of its own, so it only led back to Resources. */
+ * (`CloudWatch Logs`). Its group (`Observability`) is put between the two by the shell (`withGroup`): a link to that heading of the index. */
 export function serviceTrail(service: string, title?: string): Crumb[] {
   const space = ACCESS_SERVICES.includes(service) ? { label: "Access", to: "/access" } : { label: "Resources", to: "/resources" };
   return [space, ...(title ? [{ label: title, to: `/resources/${service}` }] : [])];
@@ -42,4 +43,25 @@ export function kindCrumbs(d: { group: string; service: string; service_title: s
 export function resourceCrumbs(d: { name: string; /** What its address says, when that is not its name (a KMS key's id). */ key?: string; group: string; service: string; service_title: string; kind: string; kind_title: string }, ...rest: Crumb[]): Crumb[] {
   const self = { label: d.name, to: `/resources/${d.service}/${d.kind}/${encodeURIComponent(d.key ?? d.name)}` };
   return [...kindCrumbs(d), self, ...rest];
+}
+
+/** Where a group's heading is on the Resources index: the index opens at it and marks it. */
+export const groupTo = (group: string) => `/resources?group=${encodeURIComponent(group).replace(/%20/g, "+")}`;
+
+/** The board's trail has the service's group between Resources and the service (`Resources > Messaging and events > SQS > Queues`). A page makes
+ * `Resources > SQS > ...` and the shell puts the group in (the one place, so no page forgets it): after `Resources`, when the next crumb is a
+ * service's page (`/resources/<service>...`) of a service the catalogue gives a group, and not twice. Access (IAM, STS) has no groups. */
+export function withGroup(crumbs: Crumb[], groupOf: (service: string) => string | undefined): Crumb[] {
+  const [first, next] = crumbs;
+  if (first?.to !== "/resources" || !next) return crumbs;
+  const service = /^\/resources\/([^/?#]+)/.exec(next.to)?.[1];
+  const group = service ? groupOf(decodeURIComponent(service)) : undefined;
+  if (!group || crumbs.some((c) => c.label === group)) return crumbs;
+  return [first, { label: group, to: groupTo(group) }, ...crumbs.slice(1)];
+}
+
+/** The shaping the shell gives every page header: {@link withGroup} with the catalogue's groups (nothing changes until it is read). */
+export function useGroupShape(): (crumbs: Crumb[]) => Crumb[] {
+  const services = useCatalogue().data?.services;
+  return useCallback((crumbs) => withGroup(crumbs, (name) => services?.find((s) => s.name === name)?.group), [services]);
 }

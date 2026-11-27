@@ -14,7 +14,8 @@ import { Button } from "@doze/ui/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@doze/ui/components/ui/dropdown-menu";
 import { Skeleton } from "@doze/ui/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@doze/ui/components/ui/tabs";
-import { DetailError, Segmented, useFeeders, withCurrent } from "../../../kit";
+import { DetailError, Segmented, useFeedersAt, withCurrent } from "../../../kit";
+import { useNow } from "../../card";
 import { callOp, deepKey, machineOf, on, useOpRead } from "../deep/api";
 import { at, Card, CodeBlock, pretty } from "../deep/parts";
 import { RedriveDialog, StartDialog, StopDialog } from "./dialogs";
@@ -86,11 +87,12 @@ export function ExecutionPage({ arn }: { arn: string }) {
   };
   const shownStep = selected ?? (failedStep ? failedStep.name : (current ?? undefined));
   const activityName = current && states[current] ? taskResource(states[current]?.Resource)?.activity : undefined;
-  const pollers = useFeeders((workers.data?.calls ?? []).filter((c) => c.service === "stepfunctions" && (c.resource ?? "").endsWith(`:activity:${activityName ?? "\u0000"}`)).reverse(), ["GetActivityTask"]);
+  const now = useNow();
+  const polls = useFeedersAt((workers.data?.calls ?? []).filter((c) => c.service === "stepfunctions" && (c.resource ?? "").endsWith(`:activity:${activityName ?? "\u0000"}`)).reverse(), ["GetActivityTask"]);
   const startMs = msOf(e?.startDate);
   const stopMs = msOf(e?.stopDate);
   const redrivable = e?.redriveStatus === "REDRIVABLE";
-  const note = shownStep && run?.steps.get(shownStep) && e ? stepNote(definition ?? undefined, run.steps.get(shownStep) as never, { status: e.status, redrivable: redrivable && run.steps.get(shownStep)?.status === "failed", pollers }) : null;
+  const note = shownStep && run?.steps.get(shownStep) && e ? stepNote(definition ?? undefined, run.steps.get(shownStep) as never, { status: e.status, redrivable: redrivable && run.steps.get(shownStep)?.status === "failed", poll: polls[0] ?? null, now }) : null;
   const left = useMemo(() => {
     const done = steps.filter((s) => s.status === "succeeded" && states[s.name]?.Type === "Task");
     if (done.length === 0) return undefined;

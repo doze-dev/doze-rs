@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { causeHint, clockMs, durationWords, executionWords, graphWords, redriveWarning, retryFor, stepNote } from "./execution-model";
+import { causeHint, clockMs, durationWords, executionWords, graphWords, pollClause, redriveWarning, retryFor, stepNote } from "./execution-model";
 
 const when = (ms: number | null) => (ms === null ? "–" : "Nov 8, 2026 07:41:08");
 
@@ -37,24 +37,26 @@ describe("the sentence under the name", () => {
   });
 });
 
+const NOW = 1_700_000_000_000;
+
 describe("what a failed step teaches", () => {
   const def = { StartAt: "N", States: { N: { Type: "Task", Resource: "arn:aws:states:::lambda:invoke", Retry: [{ ErrorEquals: ["Lambda.ServiceException"], MaxAttempts: 3 }], End: true } } };
   test("a Retry rule that does not match the error", () => {
     expect(retryFor(def.States.N, "KeyError")).toBeNull();
-    expect(stepNote(def, { name: "N", status: "failed", error: "KeyError", types: [] }, { status: "FAILED", redrivable: true, pollers: [] })?.text).toBe("The Retry rule on N matches Lambda.ServiceException only, so this error was not retried. Redrive continues from N with the same input, so it would fail the same way until what it calls or the input changes. A redrive is possible for 14 days after the execution ended.");
+    expect(stepNote(def, { name: "N", status: "failed", error: "KeyError", types: [] }, { status: "FAILED", redrivable: true, poll: null, now: 0 })?.text).toBe("The Retry rule on N matches Lambda.ServiceException only, so this error was not retried. Redrive continues from N with the same input, so it would fail the same way until what it calls or the input changes. A redrive is possible for 14 days after the execution ended.");
   });
   test("States.ALL matches every error", () => {
     expect(retryFor({ Retry: [{ ErrorEquals: ["States.ALL"] }] }, "KeyError")).not.toBeNull();
   });
   test("an activity task that waits", () => {
     const wait = { StartAt: "P", TimeoutSeconds: 3600, States: { P: { Type: "Task", Resource: "arn:aws:states:us-east-1:1:activity:pack-order", HeartbeatSeconds: 120, End: true } } };
-    expect(stepNote(wait, { name: "P", status: "running", types: [] }, { status: "RUNNING", redrivable: false, pollers: ["fulfilment (py)"] })?.text).toBe("P is an activity task. It stays in progress until a worker calls GetActivityTask for pack-order, then answers with SendTaskSuccess or SendTaskFailure. With HeartbeatSeconds 120 the worker must call SendTaskHeartbeat within that time. fulfilment (py) polls pack-order; the machine's own timeout of 3,600 seconds still applies.");
+    expect(stepNote(wait, { name: "P", status: "running", types: [] }, { status: "RUNNING", redrivable: false, poll: { who: "fulfilment (py)", at: NOW - 12_000 }, now: NOW })?.text).toBe("P is an activity task. It stays in progress until a worker calls GetActivityTask for pack-order, then answers with SendTaskSuccess or SendTaskFailure. With HeartbeatSeconds 120 the worker must call SendTaskHeartbeat within that time. fulfilment (py) polls pack-order; the machine's own timeout of 3,600 seconds still applies.");
   });
 });
 
 describe("the tense of an activity step's note follows the execution", () => {
   const wait = { StartAt: "P", TimeoutSeconds: 3600, States: { P: { Type: "Task", Resource: "arn:aws:states:us-east-1:1:activity:pack-order", HeartbeatSeconds: 120, End: true } } };
-  const note = (status: string) => stepNote(wait, { name: "P", status: "running", types: [] }, { status, redrivable: false, pollers: ["fulfilment (py)"] })?.text;
+  const note = (status: string) => stepNote(wait, { name: "P", status: "running", types: [] }, { status, redrivable: false, poll: { who: "fulfilment (py)", at: NOW - 12_000 }, now: NOW })?.text;
   test("a run in progress is in the present tense", () => {
     expect(note("RUNNING")).toContain("It stays in progress until a worker calls GetActivityTask for pack-order");
     expect(note("RUNNING")).toContain("the worker must call SendTaskHeartbeat");
@@ -65,10 +67,38 @@ describe("the tense of an activity step's note follows the execution", () => {
       const text = note(status)!;
       expect(text).toContain(`It was waiting for a worker to call GetActivityTask for pack-order and answer with SendTaskSuccess or SendTaskFailure when the execution ${how}.`);
       expect(text).toContain("the worker had to call SendTaskHeartbeat");
-      expect(text).toContain("fulfilment (py) polled pack-order; the machine's own timeout of 3,600 seconds applied.");
+      expect(text).toContain("pack-order was last polled by fulfilment (py) 12 s ago; the machine's own timeout of 3,600 seconds applied.");
       expect(text).not.toContain("stays in progress");
       expect(text).not.toContain(" polls ");
     }
+  });
+});
+
+describe("who polls an activity is said in the present only while it is going on", () => {
+  const poll = { who: "AWS CLI", at: NOW };
+  test("a poll within the last minute of a run in progress is in the present", () => {
+    expect(pollClause(poll, NOW + 5_000, true, "pack-order")).toBe(" AWS CLI polls pack-order;");
+    expect(pollClause(poll, NOW + 60_000, true, "pack-order")).toBe(" AWS CLI polls pack-order;");
+  });
+  test("an older poll says when it was, even in a run in progress", () => {
+    expect(pollClause(poll, NOW + 60_001, true, "pack-order")).toBe(" pack-order was last polled by AWS CLI 1 min ago;");
+    expect(pollClause(poll, NOW + 7 * 60_000, true, "pack-order")).toBe(" pack-order was last polled by AWS CLI 7 min ago;");
+    expect(pollClause(poll, NOW + 3 * 3_600_000, true, "pack-order")).toBe(" pack-order was last polled by AWS CLI 3 h ago;");
+  });
+  test("a run that has ended never says it in the present, however fresh the poll", () => {
+    expect(pollClause(poll, NOW + 2_000, false, "pack-order")).toBe(" pack-order was last polled by AWS CLI 2 s ago;");
+  });
+  test("a poll that ticked while the page was open ages into the past, and nothing is said of an activity no one polled", () => {
+    const at = (s: number) => pollClause(poll, NOW + s * 1000, true, "pack-order");
+    expect(at(30)).toContain(" polls ");
+    expect(at(90)).toContain("last polled by AWS CLI 1 min ago");
+    expect(pollClause(null, NOW, true, "pack-order")).toBe("");
+  });
+  test("the note carries it, and is closed without a poll", () => {
+    const wait = { StartAt: "P", States: { P: { Type: "Task", Resource: "arn:aws:states:us-east-1:1:activity:pack-order", End: true } } };
+    const text = (poll: { who: string; at: number } | null, now: number) => stepNote(wait, { name: "P", status: "running", types: [] }, { status: "RUNNING", redrivable: false, poll, now })?.text;
+    expect(text({ who: "AWS CLI", at: NOW }, NOW + 4 * 60_000)).toBe("P is an activity task. It stays in progress until a worker calls GetActivityTask for pack-order, then answers with SendTaskSuccess or SendTaskFailure. pack-order was last polled by AWS CLI 4 min ago.");
+    expect(text(null, NOW)).toBe("P is an activity task. It stays in progress until a worker calls GetActivityTask for pack-order, then answers with SendTaskSuccess or SendTaskFailure.");
   });
 });
 
@@ -90,7 +120,7 @@ describe("what redriving a failed Lambda step says", () => {
     expect(causeHint({ state, error: "KeyError", cause: "not json", input: "{}" })).toBeNull();
   });
   test("the teaching line under a failed step names what it calls", () => {
-    const note = stepNote({ StartAt: "N", States: { N: state } }, { name: "N", status: "failed", error: "KeyError", types: [] }, { status: "FAILED", redrivable: true, pollers: [] });
+    const note = stepNote({ StartAt: "N", States: { N: state } }, { name: "N", status: "failed", error: "KeyError", types: [] }, { status: "FAILED", redrivable: true, poll: null, now: 0 });
     expect(note?.text).toContain("until send-email or the input changes");
     expect(note?.names).toEqual(["N", "send-email"]);
   });
