@@ -11,8 +11,17 @@ name: ci
 # - The merge queue (since 2026-11-18): once a pull request's `all-green` has passed, the GraphQL
 #   `enqueuePullRequest` mutation puts it in main's queue (`gh pr merge` refuses: auto-merge is off for the repo). GitHub runs CI once more on main plus the queued changes ahead of it, and merges only if that
 #   run is green too, so nobody brings a branch up to date with main by hand.
+# - One part alone, before the full run: `gh workflow run ci --ref <branch> -f only=windows-os` runs the `os` job on the two
+#   Windows runners and nothing else (`just prepush` prints this when it cannot run something itself). Every other job is
+#   skipped, so `all-green` fails: a partial run can never satisfy main's protection.
 on:
   workflow_dispatch:
+    inputs:
+      only:
+        description: "all, or one part alone (then all-green stays red)"
+        type: choice
+        options: [all, windows-os]
+        default: all
   pull_request:
     types: [labeled]
   merge_group:
@@ -23,7 +32,7 @@ permissions:
 # A new run on the same branch or pull request replaces its older one, so runners (macOS above all) go to the newest
 # code. A label other than `ci` gets a group of its own, so it never cancels a real run.
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}-${{ github.event.label.name || 'run' }}
+  group: ci-${{ github.event.pull_request.number || github.ref }}-${{ github.event.label.name || 'run' }}${{ inputs.only == 'windows-os' && '-windows-os' || '' }}
   cancel-in-progress: true
 
 env:
@@ -35,12 +44,26 @@ jobs:
   gate:
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'merge_group' || github.event.label.name == 'ci'
     runs-on: ubuntu-24.04
+    # `only` is empty unless a manual run asked for one part alone (the input above); `os` is the os job's runners.
+    outputs:
+      only: ${{ steps.plan.outputs.only }}
+      os: ${{ steps.plan.outputs.os }}
     steps:
       - run: echo "CI started by ${{ github.event_name }} on ${{ github.ref }}"
+      - id: plan
+        env:
+          ONLY: ${{ inputs.only }}
+        run: |
+          case "$ONLY" in
+            "" | all) echo 'os=["ubuntu-24.04","ubuntu-24.04-arm","windows-latest","windows-11-arm"]' >> "$GITHUB_OUTPUT" ;;
+            windows-os) echo "only=windows-os" >> "$GITHUB_OUTPUT"; echo 'os=["windows-latest","windows-11-arm"]' >> "$GITHUB_OUTPUT"; echo "only the os job on Windows: all-green will fail" ;;
+            *) echo "unknown only=$ONLY"; exit 1 ;;
+          esac
 
   # The workspace check on Linux (.github/ci/check.sh); macOS runs the same script in the one `macos` job below.
   check:
     needs: gate
+    if: needs.gate.outputs.only == ''
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -57,8 +80,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macOS runs .github/ci/os.sh in the one `macos` job below.
-        os: [ubuntu-24.04, ubuntu-24.04-arm, windows-latest, windows-11-arm]
+        # macOS runs .github/ci/os.sh in the one `macos` job below. The list is the gate's (ubuntu-24.04, ubuntu-24.04-arm,
+        # windows-latest, windows-11-arm; the two Windows ones alone for `only=windows-os`).
+        os: ${{ fromJSON(needs.gate.outputs.os) }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -78,6 +102,7 @@ jobs:
   # pass; a release's `--accepted` may only come from this job.
   modules:
     needs: gate
+    if: needs.gate.outputs.only == ''
     strategy:
       fail-fast: false
       matrix:
@@ -95,6 +120,7 @@ jobs:
   # portable; a red job here is information about what is still Unix-only, not noise.
   windows:
     needs: gate
+    if: needs.gate.outputs.only == ''
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -112,6 +138,7 @@ jobs:
   # one red run reports everything that is red.
   macos:
     needs: gate
+    if: needs.gate.outputs.only == ''
     runs-on: macos-latest
     timeout-minutes: 180
     env:
@@ -278,6 +305,7 @@ jobs:
   # reason written in weight.md. The first CI run replaces the estimate with a measurement; the limit stays until a person lowers it.
   weight:
     needs: gate
+    if: needs.gate.outputs.only == ''
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -296,6 +324,7 @@ jobs:
   # The CLI-only doze, in a job of its own so its line is judged whatever the other binaries do.
   weight-doze:
     needs: gate
+    if: needs.gate.outputs.only == ''
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -347,6 +376,7 @@ jobs:
   # opens a `Store`, so the field and its `Arc` reach the lean build. Kafka's behaviour is unchanged (it never calls `Db::close`).
   weight-lean:
     needs: gate
+    if: needs.gate.outputs.only == ''
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -397,6 +427,7 @@ jobs:
   # This job keeps one thing the default job does not: idle memory with TLS configured (a certificate loaded), from the same default binary.
   weight-tls-idle:
     needs: gate
+    if: needs.gate.outputs.only == ''
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -430,6 +461,7 @@ jobs:
   # three browsers and the release binary (web/README.md).
   web:
     needs: gate
+    if: needs.gate.outputs.only == ''
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -458,6 +490,7 @@ jobs:
   # Both are in the `all-green` check, the one main's rules name.
   console-check:
     needs: gate
+    if: needs.gate.outputs.only == ''
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -475,6 +508,7 @@ jobs:
 
   console-e2e:
     needs: gate
+    if: needs.gate.outputs.only == ''
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -515,6 +549,7 @@ jobs:
   # deny.toml sets `all-features = true`, so this checks the `tls` feature's crates (ring, rustls) too.
   supply-chain:
     needs: gate
+    if: needs.gate.outputs.only == ''
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -523,6 +558,7 @@ jobs:
   # A short fuzz run of each parser on nightly; longer runs are for a person at a terminal.
   fuzz:
     needs: gate
+    if: needs.gate.outputs.only == ''
     runs-on: ubuntu-24.04
     env:
       # rust-toolchain.toml pins stable and would override the nightly action; cargo-fuzz needs nightly.

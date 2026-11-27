@@ -9,7 +9,7 @@ default:
 
 # ── Everyday ────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-# The pre-push checks (fmt, clippy, codegen, themes, lint-size, fuzz-check, tests). Push only when this exits 0.
+# The quick checks while working (fmt, clippy, codegen, themes, lint-size, fuzz-check, tests); before a push, `just push`.
 gates *args:
     cargo xtask gates {{ args }}
 
@@ -32,6 +32,30 @@ test crate="" *args:
 # Type-check a crate (or the workspace) without building it.
 check crate="":
     if [ -z "{{ crate }}" ]; then cargo check --workspace --exclude doze-app --all-targets; else cargo check -p {{ crate }} --all-targets; fi
+
+# ── Before a push ───────────────────────────────────────────────────────────────────────────────────────────────────
+# CI is not the test range: push with `just push`, which runs `just prepush` and pushes only when it passed on that exact HEAD.
+# prepush runs everything this Mac can run that ci.yml runs (check.sh, os.sh, modules.sh, the macos job's steps, a Windows
+# type-check, weight estimates, the consoles, fuzzing, and Linux in the Lima VM doze-ubuntu), picks the expensive suites from
+# the diff against origin/main, says plainly what it cannot cover, and writes a proof log to .git/prepush/<sha>.log.
+# tools/prepush/prepush.ts has the flags (--plan, --only, --with, --fuzz-seconds, -v).
+
+# Everything this Mac can run that CI runs, for this tree (exit 0 = pass, 1 = a gate failed, 3 = partial).
+prepush *args:
+    bun tools/prepush/prepush.ts {{ args }}
+
+# What prepush would run and why (nothing is run).
+prepush-plan:
+    bun tools/prepush/prepush.ts --plan
+
+# prepush, then push HEAD to its branch only if it passed and HEAD did not move meanwhile (extra args go to git push).
+push *args:
+    tools/prepush/push.sh {{ args }}
+
+# Empty prepush's caches: the VM's build and source (~/prepush in doze-ubuntu) and target/prepush here. Proof logs stay.
+prepush-clean:
+    -limactl shell "${PREPUSH_VM:-doze-ubuntu}" -- bash -c 'du -sh ~/prepush 2>/dev/null; rm -rf ~/prepush'
+    rm -rf target/prepush
 
 # ── CI, locally ─────────────────────────────────────────────────────────────────────────────────────────────────────
 

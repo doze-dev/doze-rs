@@ -30,6 +30,11 @@ cargo run -p doze-kafka
 `just` lists the repo's common tasks (the gates, CI's jobs run locally, fuzzing, release builds, the desktop app and
 the consoles). Each recipe is a name for a command the repo already runs, so the justfile and CI cannot drift.
 
+Before a push: `just push`. It runs `just prepush` (everything this Mac can run that `.github/workflows/ci.yml` runs, with
+Linux in the `doze-ubuntu` Lima VM and a Windows type-check through cargo-xwin) and pushes only if that passed on the same
+HEAD. `just prepush-plan` shows what it would run for the current diff and why; each run leaves a proof log in
+`.git/prepush/<sha>.log`; what it cannot cover (Windows tests, x86_64 Linux, idle memory on CI's runners) it names in its summary.
+
 ### The doze-kafka web console
 
 `doze-kafka` serves a web console beside the broker, on `127.0.0.1:9093` by default. It has no login and
