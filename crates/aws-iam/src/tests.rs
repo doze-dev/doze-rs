@@ -10,6 +10,7 @@ use serde_json::Value;
 use crate::core::{Core, Which};
 use crate::{Iam, Sts, services};
 
+mod allowed_by;
 mod authz;
 mod certs;
 mod credentials;

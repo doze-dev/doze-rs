@@ -105,6 +105,7 @@ pub(crate) fn sqs_call(action: &'static str, status: u16, code: &'static str) ->
         code,
         took: Duration::from_micros(1_500),
         would_be_denied: false,
+        allowed_by: None,
         user_agent: "Boto3/1.34.69 md/Botocore#1.34.69",
         message: "",
         function_error: "",

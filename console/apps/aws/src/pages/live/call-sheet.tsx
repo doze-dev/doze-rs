@@ -6,7 +6,7 @@ import { CopyButton } from "@doze/ui/components/app/copy-button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@doze/ui/components/ui/sheet";
 import { clockMsUtc, dateTimeUtc, micros, number } from "@doze/ui/lib/format";
 import type { CallRecord } from "../../api/types/CallRecord";
-import { outcomeSentence, WOULD_BE_DENIED } from "../../words";
+import { allowedBySentence, outcomeSentence, WOULD_BE_DENIED } from "../../words";
 import { copyCommand } from "./actions";
 import { CauseChain, madeBy } from "./cause";
 import { Explain } from "./explain";
@@ -112,6 +112,7 @@ export function CallSheet({ seq, call, serviceTitle, titles, held, onOpen, onClo
               <Field testId="caller" label="Caller" value={call.caller} none="None recorded: the request carried no access key, or was refused before a service read it." note={call.via ? "The access key of the caller the service made this call for." : "The access key id the request was signed with."} copy />
               <Field testId="region" label="Region" value={call.region} none="None recorded: the request was signed for no region, or was refused before a service read it." />
               <Field testId="did" label="What it did" value={call.summary} none="Not said: doze-aws reads a few words (a count, a size) from the answer of some operations only, and nothing from a call that failed." note="Read from the call's input and answer as it went by. The record keeps no bodies." />
+              <Field testId="allowed-by" label="Allowed by" value={call.allowed_by?.policy ?? null} none="No identity policy is named: IAM is off, or the caller is the account root, or only a resource-based policy allowed it, or it was refused." note={call.allowed_by ? allowedBySentence(call.allowed_by) : undefined} />
               <Field testId="status" label="HTTP status" value={String(call.status)} />
               <Field testId="error-code" label="Error code" value={call.error_code} none="None: the call succeeded." copy />
               <Field testId="outcome" label="Outcome" value={call.outcome} />

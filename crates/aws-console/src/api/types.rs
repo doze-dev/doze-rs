@@ -11,7 +11,7 @@ use ts_rs::{Config, TS};
 
 use crate::model::Invoked;
 use crate::model::{
-    About, ApiCoverage, ApiError, CallRecord, CallVia, CallsPage, CopyCommands, FlowRow,
+    About, AllowedBy, ApiCoverage, ApiError, CallRecord, CallVia, CallsPage, CopyCommands, FlowRow,
     FlowsResponse, Outcome, RingFill, ServiceName, ServiceRow, ServicesResponse, TailReady,
 };
 use crate::model::{
@@ -65,6 +65,7 @@ fn all() -> BTreeMap<String, String> {
     one::<RingFill>(&cfg, &mut out);
     one::<TailReady>(&cfg, &mut out);
     one::<CallVia>(&cfg, &mut out);
+    one::<AllowedBy>(&cfg, &mut out);
     one::<FlowRow>(&cfg, &mut out);
     one::<FlowsResponse>(&cfg, &mut out);
     one::<CopyCommands>(&cfg, &mut out);

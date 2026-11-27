@@ -44,6 +44,7 @@ pub struct Peers {
     authorizer: RwLock<Option<Arc<dyn Authorizer>>>,
     mode: authz::ModeCell,
     would_deny: RwLock<Option<authz::WouldDeny>>,
+    allowed_by: RwLock<Option<authz::AllowedBy>>,
     metrics: RwLock<metrics::Registry>,
     watcher: RwLock<Option<Arc<dyn CallWatcher>>>,
     rests: RwLock<Option<Arc<doze_runtime::Rests>>>,

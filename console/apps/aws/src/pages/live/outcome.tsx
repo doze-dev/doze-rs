@@ -3,7 +3,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@doze/ui/components/ui/
 import { cn } from "@doze/ui/lib/utils";
 import type { CallRecord } from "../../api/types/CallRecord";
 import { answerWords } from "./answer";
-import { OUTCOMES, type OutcomeTone, WOULD_BE_DENIED } from "../../words";
+import { OUTCOMES, type OutcomeTone, WOULD_BE_DENIED, allowedBySentence } from "../../words";
 import { LabTag } from "./lab-tag";
 
 /** Each outcome its own look. Error and denied share the `--bad` hue; denied is told apart by its shield and an outlined word.
@@ -19,7 +19,7 @@ const TONE: Record<OutcomeTone, { ink: string; icon: LucideIcon; word?: string }
  * refused hue; the same answer from a service that failed (5xx) stays ERROR. */
 export const isRefused = (c: Pick<CallRecord, "outcome" | "status">) => c.outcome === "error" && c.status > 0 && c.status < 500;
 
-type ResultCall = Pick<CallRecord, "outcome" | "status" | "error_code" | "would_be_denied"> & Partial<Pick<CallRecord, "action" | "answer_bytes" | "function_error" | "summary" | "lab">>;
+type ResultCall = Pick<CallRecord, "outcome" | "status" | "error_code" | "would_be_denied"> & Partial<Pick<CallRecord, "action" | "answer_bytes" | "function_error" | "summary" | "lab" | "allowed_by">>;
 
 /** How a call ended, on one line: an icon and the status for a success; for anything else the contract's word in capitals
  * (ERROR, DENIED, NOT BUILT), the status and the error code. The word and the icon carry the meaning; the colour repeats it.
@@ -67,6 +67,11 @@ export function Result({ call, className }: { call: ResultCall; className?: stri
       {said && !soft && (
         <span className="min-w-0 truncate text-[12px] text-muted-foreground" data-testid="answer-words">
           · {said}
+        </span>
+      )}
+      {call.allowed_by && !soft && (
+        <span className="max-w-full shrink-0 truncate text-[12px] text-muted-foreground" data-testid="allowed-by" title={allowedBySentence(call.allowed_by)}>
+          · allowed by <span className="font-medium text-foreground">{call.allowed_by.policy}</span>
         </span>
       )}
       {call.would_be_denied && !soft && <WouldBeDenied status={call.status} />}
