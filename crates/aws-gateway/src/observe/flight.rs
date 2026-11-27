@@ -22,6 +22,9 @@ impl WouldDeny {
 
     /// The identity policy `policy` (of `kind`) allowed `access_key_id`, signed for `region`, to do `action`: the request is marked
     /// with it. The first policy told stands (a request asks IAM once for each thing it does, and the first is the one named).
+    ///
+    /// Only when the request is certain: IAM is not told which request asked, so when the caller has several in flight for the action
+    /// the policy cannot be told to be theirs (two resources can be allowed by two policies), and none is named.
     pub fn allowed_by(
         &self,
         access_key_id: &str,
@@ -30,17 +33,32 @@ impl WouldDeny {
         policy: &str,
         kind: &str,
     ) {
-        self.mark(access_key_id, region, action, |n| {
+        let flight = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+        if let [only] = Self::asking(&flight, access_key_id, region, action).as_slice() {
+            let mut n = only.notes();
             if n.allowed_by.is_none() {
                 n.allowed_by = Some((policy.to_owned(), kind.to_owned()));
             }
-        });
+        }
     }
 
     /// Writes `note` on the request the caller has in flight that `action` is for (see the type's words on how it is found).
     fn mark(&self, access_key_id: &str, region: &str, action: &str, note: impl Fn(&mut Notes)) {
-        let operation = action.split_once(':').map_or(action, |(_, op)| op);
         let flight = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+        for s in Self::asking(&flight, access_key_id, region, action) {
+            note(&mut s.notes());
+        }
+    }
+
+    /// The requests in `flight` that `action` of the caller may be for: those whose operation is the action's, else the caller's one
+    /// request when it has exactly one, else none.
+    fn asking<'a>(
+        flight: &'a [Arc<Seen>],
+        access_key_id: &str,
+        region: &str,
+        action: &str,
+    ) -> Vec<&'a Arc<Seen>> {
+        let operation = action.split_once(':').map_or(action, |(_, op)| op);
         let mine: Vec<&Arc<Seen>> = flight
             .iter()
             .filter(|s| {
@@ -48,18 +66,17 @@ impl WouldDeny {
                 n.access_key_id == access_key_id && n.region == region
             })
             .collect();
-        let named: Vec<&&Arc<Seen>> = mine
+        let named: Vec<&Arc<Seen>> = mine
             .iter()
+            .copied()
             .filter(|s| s.notes().action == operation)
             .collect();
-        if named.is_empty() {
-            if let [only] = mine.as_slice() {
-                note(&mut only.notes());
-            }
-            return;
-        }
-        for s in named {
-            note(&mut s.notes());
+        if !named.is_empty() {
+            named
+        } else if mine.len() == 1 {
+            mine
+        } else {
+            Vec::new()
         }
     }
 
@@ -93,5 +110,49 @@ impl WouldDeny {
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .retain(|s| !Arc::ptr_eq(s, seen));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn request(flight: &WouldDeny, key: &str, operation: &'static str) -> Arc<Seen> {
+        let seen = Arc::new(Seen::default());
+        {
+            let mut n = seen.notes();
+            n.access_key_id = key.to_owned();
+            n.region = "us-east-1".to_owned();
+            n.action = operation;
+        }
+        flight.enter(&seen);
+        seen
+    }
+
+    fn named(seen: &Seen) -> Option<String> {
+        seen.notes().allowed_by.as_ref().map(|(p, _)| p.clone())
+    }
+
+    #[test]
+    fn a_policy_is_named_only_for_a_request_that_is_certain() {
+        let flight = WouldDeny::default();
+        // One request for the action: it is that one's.
+        let one = request(&flight, "AKID", "GetObject");
+        flight.allowed_by("AKID", "us-east-1", "s3:GetObject", "ReadOnly", "user");
+        assert_eq!(named(&one), Some("ReadOnly".into()));
+        // The same caller, two requests of the one operation, perhaps allowed by two different policies (two resources): IAM is not
+        // told which asked, so neither is named.
+        let a = request(&flight, "AKID2", "GetObject");
+        let b = request(&flight, "AKID2", "GetObject");
+        flight.allowed_by("AKID2", "us-east-1", "s3:GetObject", "ReadOnly", "user");
+        assert_eq!((named(&a), named(&b)), (None, None));
+        // Two requests of different operations: the one whose operation it is.
+        let get = request(&flight, "AKID3", "GetObject");
+        let put = request(&flight, "AKID3", "PutObject");
+        flight.allowed_by("AKID3", "us-east-1", "s3:PutObject", "Writer", "user");
+        assert_eq!((named(&get), named(&put)), (None, Some("Writer".into())));
+        // Several in flight and none of the action's: none is named (a guess could name a call it was not for).
+        flight.allowed_by("AKID3", "us-east-1", "s3:DeleteObject", "Deleter", "user");
+        assert_eq!(named(&get), None);
     }
 }
