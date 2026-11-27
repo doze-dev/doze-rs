@@ -12,6 +12,7 @@
 
 mod admin;
 mod blocks;
+mod ca_env;
 pub mod catalog;
 mod client;
 mod console;

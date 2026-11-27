@@ -8,7 +8,7 @@ mod others;
 
 use addr::addresses;
 pub use addr::{Addr, fronted, unready};
-pub use machine::{Check, Doctor, fix_of, machine, names_off, parse_doctor, zone_off};
+pub use machine::{Check, Doctor, HTTPS, fix_of, machine, names_off, parse_doctor, zone_off};
 pub use others::{Names, Other, others};
 
 use std::path::Path;

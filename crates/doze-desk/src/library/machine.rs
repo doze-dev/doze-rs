@@ -102,13 +102,18 @@ pub fn names_off(d: &mut Doctor) {
     );
 }
 
-/// The command that sets a part up, as Go's doctor names it: `doze dns-setup` for a names step, `doze trust` for a
-/// domain; none for the names switched off.
+/// The `names: https` check, as doctor names it under its section.
+pub const HTTPS: &str = "https";
+
+/// The command that sets a part up, as doctor names it: `doze dns-setup` for a names step (`doze doctor --fix` for
+/// https), `doze trust` for a domain; none for the names switched off.
 #[must_use]
 pub fn fix_of(c: &Check) -> &'static str {
     match c.section {
         _ if c.ok => "",
         "names" if c.text.contains("DOZE_ZONE") => "",
+        // https for the names: the same command doctor names (dns-setup, which the repair runs, does it too).
+        "names" if c.name == HTTPS => "doze doctor --fix",
         "names" => "doze dns-setup",
         "domains" => "doze trust",
         _ => "",

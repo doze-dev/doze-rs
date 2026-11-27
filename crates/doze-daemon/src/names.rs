@@ -409,33 +409,3 @@ fn project_dir(cfg: &doze_config::Config) -> String {
         .to_string_lossy()
         .into_owned()
 }
-
-/// The environment that points what the stack runs at the doze authority (Go's `caEnv`), when some app declares a
-/// domain without a certificate of its own: the authority is made then (Go's `ensureDomains`), and the bundle holds
-/// the machine's roots and it, since `SSL_CERT_FILE` replaces a client's store rather than adding to it. A stack
-/// whose domains all bring their own files trusts nothing of doze's.
-pub fn ca_env(cfg: &doze_config::Config) -> BTreeMap<String, String> {
-    let wanted = cfg.defaults.names
-        && cfg
-            .instances
-            .iter()
-            .any(|i| i.enabled && !i.domains.is_empty() && i.cert.is_empty());
-    if !wanted {
-        return BTreeMap::new();
-    }
-    let dir = doze_names::ca::ca_dir(Path::new(&cfg.home));
-    let ca = match doze_names::ca::Ca::load_or_create(&dir) {
-        Ok(ca) => ca,
-        Err(e) => {
-            say!("domains: no certificate authority ({e}); https is off for the minted domains");
-            return BTreeMap::new();
-        }
-    };
-    match ca.ensure_bundle() {
-        Ok(bundle) => doze_config::stack::ca_env(&ca.root_path(), &bundle),
-        Err(e) => {
-            say!("domains: could not write the trust bundle: {e}");
-            BTreeMap::new()
-        }
-    }
-}

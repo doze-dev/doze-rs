@@ -78,6 +78,9 @@ pub fn parts(doctor: &Doctor, at: &DozeAt, version: &str) -> Vec<Part> {
             text: c.text.clone(),
             fix: match (c.ok, c.section) {
                 (true, _) => String::new(),
+                (false, "names") if c.name == crate::library::HTTPS => {
+                    crate::library::fix_of(c).into()
+                }
                 (false, "names") => "doze dns-setup".into(),
                 (false, _) => "doze trust".into(),
             },
@@ -342,6 +345,27 @@ mod tests {
             text: format!("{name} text"),
             section,
         }
+    }
+
+    #[test]
+    fn the_https_row_names_the_same_command_as_doctor() {
+        let d = Doctor {
+            checks: vec![
+                check("names", "https", false),
+                check("names", "network", false),
+            ],
+        };
+        let at = DozeAt {
+            on_path: Some(PathBuf::from(PATH_LINK)),
+            own: None,
+        };
+        let p = parts(&d, &at, "v0.2.0");
+        assert_eq!(
+            (p[0].fix.as_str(), p[1].fix.as_str()),
+            ("doze doctor --fix", "doze dns-setup")
+        );
+        let a = attention_parts(&d, &at, "v0.2.0");
+        assert_eq!(a[0].fix, "doze doctor --fix");
     }
 
     #[test]
