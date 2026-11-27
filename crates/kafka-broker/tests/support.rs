@@ -24,6 +24,15 @@ use kafka_wire::messages::{ApiKey, BrokerId, CreateTopicsRequest, TopicName};
 
 pub const DATA: &str = "/data";
 
+/// The configuration the tests start from. An acks=all produce waits for its flush (`--fsync-on-ack`): these tests cut the
+/// power after an acknowledgement and check that it holds, which is that mode's promise. The default, which answers
+/// acks=all once written as Kafka does, has its own tests (`tests/produce.rs`).
+pub fn config() -> Config {
+    let mut config = Config::new(DATA.into());
+    config.fsync_on_ack = true;
+    config
+}
+
 pub struct Rig {
     pub fs: SimFs,
     /// Shared, so that a test can start the broker's background tasks (they hold it weakly).
@@ -42,7 +51,7 @@ pub fn open_on(fs: SimFs) -> Rig {
 
 /// A broker on `fs` with its configuration changed by `tweak`.
 pub fn open_on_with(fs: SimFs, tweak: impl FnOnce(&mut Config)) -> Rig {
-    let mut config = Config::new(DATA.into());
+    let mut config = config();
     tweak(&mut config);
     let broker = Broker::open(fs.clone(), config).unwrap();
     Rig {
@@ -235,7 +244,7 @@ impl Rig {
 pub fn rig_limited(max_partitions: i32) -> Rig {
     let fs = SimFs::new();
     fs.create_dir(Path::new("/")).ok();
-    let mut config = Config::new(DATA.into());
+    let mut config = config();
     config.max_partitions = max_partitions;
     let broker = Broker::open(fs.clone(), config).unwrap();
     Rig {
@@ -248,7 +257,7 @@ pub fn rig_limited(max_partitions: i32) -> Rig {
 pub fn rig_with(tweak: impl FnOnce(&mut Config)) -> Rig {
     let fs = SimFs::new();
     fs.create_dir(Path::new("/")).ok();
-    let mut config = Config::new(DATA.into());
+    let mut config = config();
     tweak(&mut config);
     let broker = Broker::open(fs.clone(), config).unwrap();
     Rig {

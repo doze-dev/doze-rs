@@ -11,14 +11,18 @@ start. Partitions of a request are written at once, each by its own writer.
 Test: `tests/produce::batches_are_given_the_next_offsets_in_order_and_stored_as_they_came`
 
 ### P2. Acks
-`acks=-1`: answered when the batch is flushed (and told so if the flush fails). `acks=1`: answered when written; the
-flush follows `fsync_interval` (500 ms) after the first unflushed write, and nothing is armed while the log is clean.
-`acks=0`: not answered, and a refusal is told by closing the connection. Any other value is INVALID_REQUIRED_ACKS on
-every partition.
-Test: `an_acknowledged_acks_all_produce_survives_*`, `an_acks_all_produce_is_flushed_when_it_arrives_*`, `acks_zero_is_not_answered_*`, `tests/produce_checks::*` (acks 2)
+`acks=-1` and `acks=1`: answered when written, as Kafka answers on one broker (no replica to wait for, and
+`log.flush.interval.messages` never reached by default); the flush follows `fsync_interval` (500 ms) after the first
+unflushed write, and nothing is armed while the log is clean. A crash of the broker loses nothing that was answered (the
+bytes are the kernel's); a crash of the machine can lose up to `fsync_interval`. With `--fsync-on-ack` (the owner's
+choice, 2026-11-27: off by default), `acks=-1` is answered when the batch is flushed (and told so if the flush fails).
+Transaction markers are flushed before they are answered either way. `acks=0`: not answered, and a refusal is told by
+closing the connection. Any other value is INVALID_REQUIRED_ACKS on every partition.
+Test: `an_acks_all_produce_is_answered_once_written_and_flushed_by_the_timer`, `an_acknowledged_acks_all_produce_survives_*`, `an_acks_all_produce_is_flushed_when_it_arrives_*` (both with `--fsync-on-ack`), `acks_zero_is_not_answered_*`, `tests/produce_checks::*` (acks 2)
 
 ### P3. Group commit
-Producers that arrive together for one partition share one flush.
+Producers that arrive together for one partition share one flush (with `--fsync-on-ack`; without it, the timer's one
+flush covers them all).
 Test: `producers_that_arrive_together_share_a_flush`
 
 ### P4. What a request is refused for before a partition is looked at

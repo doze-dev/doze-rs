@@ -104,7 +104,9 @@ fn an_index_that_points_past_the_log_or_a_log_cut_short_is_damage_and_not_a_shor
         .unwrap();
     let past = [4i64.to_be_bytes(), 100_000i64.to_be_bytes()].concat();
     crate::fs::FsFile::write_all_at(&index, &past, 0).unwrap();
-    assert!(log.reader().read(offset(5), usize::MAX, None).is_err());
+    // Offset 4 is looked up in the index. (Offset 5 began the segment's last append, so it is found from that hint with no
+    // lookup, and read correctly: the index is not consulted to be found damaged.)
+    assert!(log.reader().read(offset(4), usize::MAX, None).is_err());
 
     let (fs, dir, log) = build();
     let file = fs
@@ -186,4 +188,82 @@ fn a_small_answer_cut_from_a_large_read_is_copied_and_a_large_one_is_not() {
     let big = r.read(offset(0), 1 << 20, None).unwrap();
     assert!(big.len() > 100 << 10);
     assert_eq!(super::super::read::COPIED.with(std::cell::Cell::get), 1);
+}
+
+/// A reader that keeps up asks for the offset where the last append (or its own last read) ended: it is found with no
+/// index lookup, so the read is one read of the file. An offset in the middle still goes through the index, and the
+/// answers are the same either way.
+#[test]
+fn a_reader_that_keeps_up_reads_once_with_no_index_lookup() {
+    let (fs, _dir, mut log) = fresh(NEVER);
+    // Enough batches for many index entries (one per 150 bytes), so a lookup takes several reads.
+    for _ in 0..64 {
+        log.append(&[batch(3, 0)], NOW, TimestampType::Create)
+            .unwrap();
+    }
+    let r = log.reader();
+    // Caught up at the end, and woken by an append: the read begins where the append did.
+    let end = log.end_offset();
+    log.append(&[batch(3, 0)], NOW, TimestampType::Create)
+        .unwrap();
+    let unread = r.unread_near_the_end(end);
+    assert_eq!(
+        unread,
+        Some(r.read(end, usize::MAX, None).unwrap().len() as u64)
+    );
+
+    // Fallen behind by two appends: the read begins where its own last read ended.
+    log.append(&[batch(3, 0)], NOW, TimestampType::Create)
+        .unwrap();
+    log.append(&[batch(3, 0)], NOW, TimestampType::Create)
+        .unwrap();
+    let next = offset(end.get() + 3);
+    let before = fs.count(Op::Read);
+    let tail = r.read(next, usize::MAX, None).unwrap();
+    assert_eq!(bases(&tail), vec![next.get(), next.get() + 3]);
+    assert_eq!(
+        fs.count(Op::Read) - before,
+        1,
+        "the data, and nothing of the index"
+    );
+
+    // The reader's own last read is a hint too: a second append, read from where the first read ended.
+    log.append(&[batch(3, 0)], NOW, TimestampType::Create)
+        .unwrap();
+    log.append(&[batch(3, 0)], NOW, TimestampType::Create)
+        .unwrap();
+    let from = offset(next.get() + 6);
+    assert_eq!(bases(&r.read(from, 1, None).unwrap()), vec![from.get()]);
+    let before = fs.count(Op::Read);
+    assert_eq!(
+        bases(&r.read(offset(from.get() + 3), usize::MAX, None).unwrap()),
+        vec![from.get() + 3]
+    );
+    assert_eq!(fs.count(Op::Read) - before, 1);
+
+    // An offset in the middle has no hint, and is looked up.
+    assert_eq!(r.unread_near_the_end(offset(30)), None);
+    let before = fs.count(Op::Read);
+    assert_eq!(bases(&r.read(offset(30), 1, None).unwrap()), vec![30]);
+    assert!(fs.count(Op::Read) - before > 1, "an index lookup");
+}
+
+/// A hint that does not hold a batch where it says is not trusted: the read looks the offset up and answers as it would
+/// have with no hint.
+#[test]
+fn a_hint_that_does_not_point_at_a_batch_falls_back_to_the_index() {
+    let (_fs, _dir, mut log) = fresh(NEVER);
+    for _ in 0..8 {
+        log.append(&[batch(3, 0)], NOW, TimestampType::Create)
+            .unwrap();
+    }
+    let r = log.reader();
+    let segments = r.shared.segments.load();
+    let active = segments.last().unwrap();
+    // Offset 12 said to be at a position inside a batch.
+    active.remember(12, 7);
+    assert_eq!(
+        bases(&r.read(offset(12), usize::MAX, None).unwrap()),
+        vec![12, 15, 18, 21]
+    );
 }

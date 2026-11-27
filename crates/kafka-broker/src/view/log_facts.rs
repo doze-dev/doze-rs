@@ -78,6 +78,8 @@ pub struct Durability {
     pub last_stop: LastStop,
     /// `--fsync-interval`: appends that did not ask to be durable are flushed this long after the first.
     pub fsync_ms: i64,
+    /// `--fsync-on-ack`: an acks=all append is acknowledged after its flush (otherwise it waits for the timer like the rest).
+    pub fsync_on_ack: bool,
     /// Every record before this offset is on disk (the end of the log at its last completed flush); `None` for a log
     /// read back from a stop that did not vouch for it, until its first flush, or one that is not open.
     pub flushed_through: Option<i64>,
@@ -210,6 +212,7 @@ impl<F: Fs> ConsoleView<'_, F> {
                 offline: None,
                 last_stop: self.last_stop(),
                 fsync_ms: i64::try_from(b.config.fsync_interval.as_millis()).unwrap_or(i64::MAX),
+                fsync_on_ack: b.config.fsync_on_ack,
                 flushed_through: None,
             },
         }

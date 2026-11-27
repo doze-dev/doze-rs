@@ -50,9 +50,14 @@ pub(crate) struct Args {
     /// Delete segments older than this many milliseconds (0 = unbounded).
     #[arg(long, default_value_t = 0)]
     retention_ms: i64,
-    /// How soon after a write that did not ask to be durable (acks=1) it is flushed (0 = at once).
+    /// How soon after a write it is flushed to disk (0 = at once). Without --fsync-on-ack this covers acks=all too.
     #[arg(long, default_value = "500ms", value_parser = duration::parse)]
     fsync_interval: Duration,
+    /// Answer an acks=all produce only once it is flushed to disk. Off by default, as in Kafka: acks=all is answered
+    /// once written, and a crash of the broker still loses nothing; a crash of the machine can lose up to
+    /// --fsync-interval of writes unless this is on.
+    #[arg(long, default_value_t = false, action = clap::ArgAction::Set, num_args = 0..=1, default_missing_value = "true")]
+    fsync_on_ack: bool,
     /// How long committed offsets are kept once their group has no members (0 = for ever).
     #[arg(long, default_value = "168h", value_parser = duration::parse)]
     offsets_retention: Duration,

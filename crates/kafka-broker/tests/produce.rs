@@ -289,3 +289,42 @@ async fn an_acks_all_produce_is_durable_the_moment_it_is_answered_even_with_the_
         );
     }
 }
+
+/// The default, as in Kafka on one broker: acks=all is answered once written, with no flush to wait for (the timer here is
+/// an hour, and the answer comes at once). What was answered is the kernel's from then on: a crash of the broker (the
+/// files as they are) keeps it; only a power cut before the timer's flush can take it.
+#[tokio::test(start_paused = true)]
+async fn an_acks_all_produce_is_answered_once_written_and_flushed_by_the_timer() {
+    let rig = support::rig_with(|c| {
+        c.fsync_on_ack = false;
+        c.fsync_interval = Duration::from_secs(3600);
+    });
+    rig.create(vec![topic("t", 1)], false).await;
+    let answered =
+        tokio::time::timeout(Duration::from_secs(10), rig.produce(-1, "t", 0, records(2))).await;
+    let r = answered.expect("answered without waiting for the timer");
+    assert_eq!((r.error_code, r.base_offset), (0, 0));
+    let crash = Cut {
+        data: DataCut::Keep,
+        names: NameCut::Volatile,
+        seed: 1,
+    };
+    assert_eq!(
+        stored(&rig.fs.power_cut(crash), "t", 0).len(),
+        1,
+        "a crash of the broker keeps it"
+    );
+    assert!(
+        stored(&rig.fs.power_cut(drop_unflushed()), "t", 0).is_empty(),
+        "not flushed yet: a power cut takes it"
+    );
+    tokio::time::advance(Duration::from_secs(3601)).await;
+    for _ in 0..10 {
+        tokio::task::yield_now().await;
+    }
+    assert_eq!(
+        stored(&rig.fs.power_cut(drop_unflushed()), "t", 0).len(),
+        1,
+        "the timer's flush covers acks=all as it covers acks=1"
+    );
+}

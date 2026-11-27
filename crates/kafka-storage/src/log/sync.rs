@@ -102,9 +102,10 @@ impl<F: Fs> PartitionLog<F> {
         }
     }
 
-    /// Flushes what is not known to be on disk: the active segment's log and index, and the directory if its
-    /// entries changed. When it returns Ok, every append before the call (and everything read back when the log
-    /// was opened) is durable. Nothing dirty means no system call.
+    /// Flushes what is not known to be on disk: the active segment's log, and the directory if its entries changed.
+    /// When it returns Ok, every append before the call (and everything read back when the log was opened) is durable.
+    /// Nothing dirty means no system call. The active segment's index is left to the roll and the close
+    /// (`ActiveSegment::sync_log`).
     ///
     /// # Errors
     /// A failed flush, which takes the partition offline for good; or the offline error of an earlier one.
@@ -114,7 +115,9 @@ impl<F: Fs> PartitionLog<F> {
         if self.synced_seq >= upto && !self.dir_dirty && !self.active.is_dirty() {
             return Ok(());
         }
-        self.flush_active()?;
+        if let Err(e) = self.active.sync_log() {
+            return Err(self.fail("flushing the active segment", e));
+        }
         self.flush_directory()?;
         self.synced_seq = upto;
         let end = self.end;
@@ -125,7 +128,7 @@ impl<F: Fs> PartitionLog<F> {
         Ok(())
     }
 
-    /// Flushes the active segment; used by a sync and by the roll that seals it.
+    /// Flushes the active segment, its index too; used by the roll that seals it and by a close.
     pub(super) fn flush_active(&mut self) -> Result<(), StorageError> {
         match self.active.sync() {
             Ok(()) => Ok(()),
@@ -163,7 +166,8 @@ impl<F: Fs> PartitionLog<F> {
     /// # Errors
     /// A failed flush.
     pub fn close(mut self) -> Result<(), StorageError> {
-        self.sync()
+        self.sync()?;
+        self.flush_active()
     }
 }
 

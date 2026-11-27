@@ -19,7 +19,8 @@ Test: `tests/process::it_serves_a_client_stops_on_sigterm_and_comes_back_with_th
 Kept from the Go edition with the same meaning: `--listen --advertised-host --advertised-port --data-dir --segment-bytes
 --index-interval-bytes --retention-bytes --retention-ms --fsync-interval --kafka-version --auto-create-topics
 --default-partitions --max-partitions --message-max-bytes --log-level --log-format`; durations in Go's syntax (`1m30s`).
-New: `--worker-threads` (default 2; idle threads are weight). Accepted and ignored, hidden, until their phase:
+New: `--worker-threads` (default 2; idle threads are weight); `--fsync-on-ack` (off: acks=all is answered once written,
+as in Kafka; see produce.md P2). Accepted and ignored, hidden, until their phase:
 `--meta-db --console --console-addr`, so that the conformance harness, which passes them all, can run the scenarios of the
 parts that exist.
 **The console flags and the start-up rule** (Phase 8, slice 8g; SEC-187 to SEC-189): `--console-allow-host HOST` (repeatable or comma separated) and `--console-unprotected` are parsed, checked and kept, and shown in `--help` with the note that the console arrives with Phase 9 and nothing yet acts on them (the start logs that they are accepted and ignored). What exists is the rule on their inputs: with SASL or TLS on, a `--console-addr` beyond loopback (unless `--console=false`) stops the start in the Go edition's words unless `--console-unprotected` is given, which starts it with a warning; a console address that is not `host:port` stops it too; and SASL without TLS on a `--listen` address that other machines can reach is warned about. **Every start refusal exits 2** (SEC-D62; it was 1). Test: `cli::tests::console::*`, `tests/process` `console::*`.

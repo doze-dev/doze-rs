@@ -200,13 +200,21 @@ impl<F: Fs> ActiveSegment<F> {
         self.index.publish();
     }
 
-    /// Flushes the log and the index, whichever changed.
+    /// Flushes the log and the index, whichever changed: for the roll that seals the segment and for a clean close.
     pub(crate) fn sync(&mut self) -> io::Result<()> {
+        self.sync_log()?;
+        self.index.sync()
+    }
+
+    /// Flushes the log if it changed, and not the index: what an acknowledgement or the timer needs. The active segment's
+    /// index is never trusted after a stop that did not vouch for the log (recovery walks the segment and writes the index
+    /// again from it), and a stop that vouches flushed it, so flushing it with every append bought nothing but an fsync.
+    pub(crate) fn sync_log(&mut self) -> io::Result<()> {
         if self.log_dirty {
             self.view.log_file().sync_data()?;
             self.log_dirty = false;
         }
-        self.index.sync()
+        Ok(())
     }
 
     /// Brings the segment in line with what recovery found: cut the log to its valid length, flush the cut, and
@@ -257,14 +265,12 @@ fn known(t: TimestampMs) -> Option<TimestampMs> {
 }
 
 impl<F: Fs> ActiveSegment<F> {
-    /// Writes a stamped batch at `pos`: the body, then the header. Two writes because `std` has no stable positioned
-    /// gather write, and joining them would copy the body; the order does not matter to recovery (a stop between
-    /// the two leaves a batch whose length or checksum does not fit, which the scan cuts, either way), the header
-    /// goes last so that what is half written never looks like a batch for even a moment.
+    /// Writes a stamped batch at `pos`, its header (stamped apart) and its body (the producer's bytes, not copied) in one
+    /// positioned gather write. Readers see only what is committed, after the write; a stop part-way leaves a batch whose
+    /// length or checksum does not fit, which recovery cuts.
     fn write_batch(&self, batch: &Stamped<'_>, pos: u64) -> io::Result<()> {
-        let log = self.view.log_file();
-        let header = batch.header();
-        log.write_all_at(batch.body(), pos + header.len() as u64)?;
-        log.write_all_at(header, pos)
+        self.view
+            .log_file()
+            .write_all_vectored_at(&[batch.header(), batch.body()], pos)
     }
 }

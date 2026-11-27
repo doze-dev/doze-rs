@@ -900,7 +900,7 @@ What changed:
 - **A fetch with nothing to read runs where it is.** Each fetch round went through `block_in_place`, even when every partition was at
   its end and the round touched no file. A quiet consumer fetches twice a second (Java's `fetch.max.wait.ms` is 500 ms), so a
   blocking thread was woken for nothing every half second, and its 10 s keep-alive never ran out. A round whose partitions are all
-  at their end, or refused, now runs on the worker (`handlers/fetch.rs`, `at_the_end`).
+  at their end, or refused, now runs on the worker (`handlers/fetch.rs`, now `in_memory`: "Hand-offs on the hot path" below).
 - **A small produce batch is checked where it is.** The check is CPU work only (a CRC, a walk of the records, a re-encoding only
   where the codec changes). Batches of 16 KiB or less, the usual size from an app, no longer hand the worker over
   (`handlers/produce.rs`, `CHECKED_HERE`). The partition writer's own hand-off stays: a write into the page cache can stall while
@@ -944,6 +944,86 @@ Measured (release, darwin/arm64, loopback, franz-go, two runs each):
 
 acks=all is now about as fast as acks=1 (1.25M to 1.68M records/s on the same machine and load), since the flush no longer waits
 on the drive's cache.
+
+### Hand-offs on the hot path (2026-11-27)
+
+The owner asked for a deep look at how doze-kafka uses compute: threads, the runtime, pools, system calls. Three reviews
+read the kafka crates (runtime and threads; memory and copies; system calls and I/O), and the broker was profiled with
+macOS `sample` under an app-like load. The broker's own code was almost never on the CPU: in the samples taken while it
+worked, 82% of its time was `pwrite`, `fsync`, `pread` and the socket's reads and writes, and the rest of its threads
+waited. What was left to take out was hand-offs, system calls and allocations, not code to speed up.
+
+What was already right, and stays: one runtime with two workers, and no thread started anywhere else. Bounded tasks: one per
+connection, one writer per open partition (at most 512, closed after five quiet minutes, no timer while idle). Chores
+that park while there is nothing to do. Two copies of a record each way, which is the floor for buffered I/O. Requests
+decoded without a copy. Indexes kept on disk. A fetch at the end of the log that does no I/O.
+
+What changed:
+- **A partition's writer no longer swaps a worker out.** Every group of appends went through `block_in_place`, which moves
+  the worker's other tasks to a new thread and leaves a blocking thread behind for the keep-alive. A small group (at most
+  64 KiB, nothing to flush, no roll, no history to read first) is now written on the writer's own task: it is a write into
+  the page cache. Everything else (a flush, a roll, a bigger group, the chores, the close) moves the writer's state to the
+  blocking pool and back (`blocking::with_moved`), so the pool's threads are reused and no worker is ever swapped.
+  256 KiB was tried first: on a busy machine a 1 KB-record bulk load then fell in two rounds of five, which fits two
+  writers stalled in the page cache holding both workers; 64 KiB keeps an app's batches inline and sends a bulk
+  producer's to the pool.
+- **A fetch that reads recent records runs where it is.** A consumer that keeps up asks for where its own last read ended,
+  or (caught up, woken by an append) where that append began. Each segment now remembers both (two words, each an offset
+  and a position packed together, `SegmentView::hinted`), so such a read finds its place with no index lookup. The index
+  search was one small `pread` per step of a binary search, up to 16 a partition a fetch. Such a read is of bytes written
+  moments ago, so it is a copy out of the page cache. A round whose reads are all like that, at most 256 KiB in all, runs
+  on the worker (`handlers/fetch.rs`, `in_memory`). A hint that does not hold a batch is checked and dropped for the index.
+- **Metadata is answered where it is.** It is all in memory, and it was still wrapped in `block_in_place`, left over from
+  when Metadata created topics inline.
+- **The schema registry answers reads on its worker.** Every request went to `spawn_blocking`. A GET or HEAD with no
+  password to check is answered from memory; writes and sign-ins (a password hash is slow on purpose) still go to the pool.
+- **acks=all is answered once written**, as Kafka answers it on one broker (the owner's call, 2026-11-27). It is flushed by
+  `--fsync-interval` like acks=1; `--fsync-on-ack` brings back the flush before the answer. A crash of the broker loses
+  nothing either way. Transaction markers are still flushed before they are answered.
+- **The active segment's index is flushed by the roll and the close, not by every flush.** Recovery never trusts it
+  after a stop that did not vouch for the log, and a stop that vouches flushed it (storage.md S9, S13).
+- **A batch is one write.** Its header and body went out as two `pwrite`s; now it is one `pwritev` through rustix
+  (`FsFile::write_all_vectored_at`), the header and the body still held apart and not copied. The lean build on Linux has
+  no rustix, and writes the two parts in turn.
+- **A fetch's large reads use the buffer pool.** A read of 64 KiB or more took a new zeroed buffer (up to a megabyte a
+  partition), freed after the answer went out. The pool that keeps big request frames (`kafka_storage::pool`, moved from
+  kafka-server) now keeps these too. A buffer taken back is not zeroed again, and it is cut to what the read filled, so
+  nothing it held before is handed on. A read's first ask stays in the size class `max_bytes` needs.
+- **The connection's read buffer keeps room.** Frames are split off its front, so its spare room wore down and a request
+  could take two reads; room is made again before a read.
+- **The runtime's blocking pool is small and quick to shrink:** at most 64 threads (tokio's default is 512) and 5 s of
+  keep-alive (10 s), now that the hot path does not use it.
+
+Measured on darwin/arm64, release, franz-go and kcat on loopback, 0.2.4 against this change, two runs each, on a machine
+other sessions were building on (load average 11 to 22):
+
+| | 0.2.4 | After |
+|---|---|---|
+| Three apps at 200 records/s (acks=all) with their groups, 40 s: context switches | 112k, 123k | 55k, 51k |
+| the same: broker CPU | 3.63 s, 3.63 s | 2.17 s, 1.86 s |
+| the same: threads at most | 14, 9 | 10, 7 |
+| An app at 5 records/s and its group, 40 s: context switches | 3,391, 3,744 | 2,457, 2,471 |
+| the same: threads at most | 6, 6 | 5, 5 |
+| Bulk produce and consume (1.1 GB): resident memory at the peak | 33 to 38 MB | 28 to 31 MB |
+| Idle, and a quiet consumer group | 3 threads, no CPU | the same |
+
+Bulk throughput did not settle on that machine: five rounds of each build alternating gave the old one 106k to 1.08M
+records/s for 1 KB records and the new one 270k to 1.13M. Total broker CPU per round was the same within noise (0.24 to
+0.36 s against 0.31 to 0.37 s). It is to be measured again on a quiet machine.
+
+**Considered and left as they are:**
+- **sendfile for fetch**, which would save a copy for plaintext connections. On macOS it needs libc and `unsafe`, it
+  cannot work with TLS, and it means a second write path. The owner agreed.
+- **Retiring a consumer group's task once it has been empty for a while.** Kafka keeps an empty group's state (its
+  generation) until its offsets expire. Rebuilding the group from its record would reset that, which is visible, for a few
+  KB a group.
+- **Building a fetch's watchers only when it is about to wait.** A produce between the read and the watch would be
+  missed, so the read would have to be done twice; that costs what it saves.
+- **One flusher thread for every partition.** With acks=all answered once written, flushes are the timer's: at most two a
+  second for each partition with something to flush. The blocking pool's reused threads do that.
+- **The 1 ms wait loop in partition reconfigure** runs only when a topic's config changes while one of its partitions
+  is being opened.
+- **The console's recorder allocations, and offset commits sharing one flush**, are separate changes.
 
 ## One build: CI's measurements (2026-11-14)
 

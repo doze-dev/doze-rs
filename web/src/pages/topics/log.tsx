@@ -427,7 +427,7 @@ function Durability({ v }: { v: LogView }) {
     <Card
       title="Durability"
       word={d.offline ? <StatusDot tone="bad">Offline</StatusDot> : <StatusDot tone="ok">Online</StatusDot>}
-      lede={d.offline ? `A flush failed: ${d.offline}. Appends are refused until the broker restarts; reads continue.` : `An append that asks to be durable (acks=all) is acknowledged after its flush; the others are flushed within ${millis(Math.max(1, d.fsync_ms))} of the first. ${stop.sentence}`}
+      lede={d.offline ? `A flush failed: ${d.offline}. Appends are refused until the broker restarts; reads continue.` : d.fsync_on_ack ? `An acks=all append is acknowledged after its flush (--fsync-on-ack); the others are flushed within ${millis(Math.max(1, d.fsync_ms))} of the first. ${stop.sentence}` : `Appends are acknowledged once written and flushed within ${millis(Math.max(1, d.fsync_ms))} of the first, acks=all too, as in Kafka: a crash of the broker loses none of them. ${stop.sentence}`}
       data-testid="durability"
     >
       <Kv

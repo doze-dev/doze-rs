@@ -6,7 +6,7 @@ use kafka_wire::header::RequestHead;
 
 use super::Broker;
 use crate::quotas::Mutations;
-use crate::{Caller, Listener, Outcome, blocking};
+use crate::{Caller, Listener, Outcome};
 
 impl<F: Fs> Broker<F> {
     /// Handles one request from `caller`, held to no quota (the console's requests, and tests). ApiVersions never gets here:
@@ -40,8 +40,9 @@ impl<F: Fs> Broker<F> {
     ) -> Outcome {
         match request {
             Request::Metadata(r) => {
-                let (answer, wanted) =
-                    blocking::run(|| self.metadata(listener, caller, &r, head.version));
+                // All in memory (the topics, the authorizer): answered where it is. Making the topics a client asked
+                // for is the part that touches the disk, and it hands off on its own (`create_wanted`).
+                let (answer, wanted) = self.metadata(listener, caller, &r, head.version);
                 self.create_wanted(wanted).await;
                 respond(Response::Metadata(answer))
             }

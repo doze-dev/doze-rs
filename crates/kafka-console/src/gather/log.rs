@@ -153,6 +153,7 @@ pub fn view_of(f: LogFacts) -> LogView {
                 kafka_broker::LastStop::Unclean => LogStop::Unclean,
             },
             fsync_ms: f.durability.fsync_ms,
+            fsync_on_ack: f.durability.fsync_on_ack,
             flushed_through: f.durability.flushed_through,
         },
         others: Vec::new(),

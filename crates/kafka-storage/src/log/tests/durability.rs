@@ -61,6 +61,8 @@ fn fsynced(fs: &SimFs, suffix: &str) -> bool {
 fn what_is_read_back_at_open_is_flushed_log_index_and_directory_each_by_itself() {
     // The two files and the directory are three separate claims: a process that restarts before it flushed
     // the index it rewrote must still flush it, or a power cut after the next roll leaves a stale sealed index.
+    // The log and the directory go with the first flush; the index stays owed until the roll or the close (an
+    // acknowledgement never needs it: recovery writes the active segment's index again from the log).
     let (fs, dir, mut log) = fresh(NEVER);
     log.append(&ones(2, 0), NOW, TimestampType::Create).unwrap();
     log.sync().unwrap();
@@ -80,12 +82,24 @@ fn what_is_read_back_at_open_is_flushed_log_index_and_directory_each_by_itself()
         "{flushed:?}"
     );
     assert!(
-        flushed.contains(&(Op::Fsync, "00000000000000000000.index".into())),
+        flushed.contains(&(Op::DirSync, "t-0".into())),
         "{flushed:?}"
     );
     assert!(
-        flushed.contains(&(Op::DirSync, "t-0".into())),
+        !flushed.contains(&(Op::Fsync, "00000000000000000000.index".into())),
         "{flushed:?}"
+    );
+    let before = fs.ops();
+    log.close().unwrap();
+    let closing: Vec<_> = fs
+        .trace()
+        .iter()
+        .skip(before as usize)
+        .map(|(op, p)| (*op, p.file_name().unwrap().to_string_lossy().into_owned()))
+        .collect();
+    assert!(
+        closing.contains(&(Op::Fsync, "00000000000000000000.index".into())),
+        "the close flushes the index that was still owed: {closing:?}"
     );
     // A vouched open owes none of it.
     let fs2 = fs.process_restart();
