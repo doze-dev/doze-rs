@@ -10,6 +10,9 @@ use doze_engine::{Cause, Error};
 
 /// What `logs` reads when the request does not say (Go's `logBacklog`).
 const LOG_BACKLOG: usize = 200;
+/// The most lines one `logs` answer carries, whatever it asks for: the app asks for the default, the CLI for what
+/// `--tail` says. The store keeps 10 MiB per instance, so a run rarely has more; one answer holds them all in memory.
+const LOG_MOST: usize = 10_000;
 
 pub(crate) async fn answer(d: &Daemon, req: &doze_control::Request) -> Response {
     let Some(op) = req.known_op() else {
@@ -77,7 +80,14 @@ async fn status(d: &Daemon) -> Response {
     let e = d.engine();
     let mut views = view::snapshot(e, &d.labels());
     crate::meters::fill(d, &mut views).await;
-    crate::client::fill_paths(d, &mut views);
+    // A `stat` per client: on a blocking thread.
+    let owned = d.clone();
+    let views = tokio::task::spawn_blocking(move || {
+        crate::client::fill_paths(&owned, &mut views);
+        views
+    })
+    .await
+    .unwrap_or_default();
     Response {
         ok: true,
         listen: d.inner.info.listen.clone(),
@@ -194,7 +204,8 @@ async fn logs(d: &Daemon, req: &doze_control::Request) -> Response {
     let n = usize::try_from(req.tail)
         .ok()
         .filter(|n| *n > 0)
-        .unwrap_or(LOG_BACKLOG);
+        .unwrap_or(LOG_BACKLOG)
+        .min(LOG_MOST);
     // Read from disk: on a blocking thread.
     let (store, inst, run) = (e.logs().clone(), name.to_owned(), req.run);
     let tail = match tokio::task::spawn_blocking(move || store.tail(&inst, run, n)).await {

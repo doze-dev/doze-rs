@@ -35,8 +35,11 @@ pub fn main(args: &[String], version: &str) -> ExitCode {
         .and_then(|i| args.get(i + 1))
         .map_or_else(|| PathBuf::from("doze.hcl"), PathBuf::from);
     // Small on purpose: a stack daemon mostly waits (sockets, timers, child pipes), and the default (a worker per core,
-    // 512 blocking threads) left it at ~40 threads. The blocking work is short (loading doze.hcl, a file lock, a glob
-    // walk, reading a log batch), none waits on another, so four run it; more queue a moment.
+    // 512 blocking threads) left it at ~40 threads; the control socket runs on the two workers too (no thread per
+    // client). Four blocking threads take the disk and process-table work: most of it is short (a log batch for a
+    // follow, the journal, a meters reading, a file lock, a glob walk); the long jobs a request starts (an add's config
+    // pass, lint, deleting a data folder) hold at most two of the four (`Daemon::heavy`), so follows and readings
+    // always have room. Past four, jobs queue until one ends.
     let rt = match tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)
         .max_blocking_threads(4)

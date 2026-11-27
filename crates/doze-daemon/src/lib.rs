@@ -50,8 +50,9 @@ pub fn socket_path(data_dir: &Path) -> PathBuf {
     data_dir.join("run").join("doze.admin.sock")
 }
 
-/// How much the control socket takes on: Go's daemon had no caps, so a client that never read, or that opened
-/// connections in a loop, could grow it without end.
+/// How much the control socket takes on: Go's daemon had no caps, so a client that opened connections in a loop, or
+/// requests on one, could grow it without end. A client that stops reading is not cut off (`doze logs -f | less`,
+/// paused): what it holds is bounded by these and the connection's queue.
 #[derive(Debug, Clone, Copy)]
 pub struct Limits {
     /// Open connections. The app holds one or two, each CLI command one while it runs; 128 leaves room for scripts
@@ -60,8 +61,9 @@ pub struct Limits {
     /// Requests and streams one connection runs at once. The app runs a few streams and a handful of requests; the CLI
     /// one at a time. Past it a request is answered with an error at once (a stream as a refused one).
     pub in_flight: usize,
-    /// How long a client may take nothing while frames wait for it before it is disconnected.
-    pub write_stall: Duration,
+    /// How long a new connection has to send its hello before it is closed: silent sockets would otherwise hold
+    /// connection slots for ever. doze-control's client waits as long for the answer ([`doze_control::HELLO_TIMEOUT`]).
+    pub hello: Duration,
 }
 
 impl Default for Limits {
@@ -69,10 +71,13 @@ impl Default for Limits {
         Limits {
             connections: 128,
             in_flight: 64,
-            write_stall: Duration::from_secs(10),
+            hello: doze_control::HELLO_TIMEOUT,
         }
     }
 }
+
+/// Long blocking jobs at once (see `Inner::heavy`); the runtime has four blocking threads.
+const HEAVY: usize = 2;
 
 /// What the status op says about the stack as a whole (Go's `Response` fields of `Status`).
 #[derive(Debug, Clone, Default)]
@@ -103,6 +108,9 @@ pub(crate) struct Inner {
     /// Connections open now.
     pub(crate) open: Arc<AtomicUsize>,
     pub(crate) limits: Limits,
+    /// Long blocking jobs a request can start (an add's config pass, lint, deleting a data folder): two at a time, so
+    /// they never hold all of the runtime's blocking threads that log follows and journal reads need.
+    pub(crate) heavy: Arc<tokio::sync::Semaphore>,
     /// Recent meter readings.
     pub(crate) meters: meters::Ring,
     /// Each module instance, for its data, console and client.
@@ -144,6 +152,7 @@ impl Daemon {
             stopping: AtomicBool::new(false),
             open: Arc::default(),
             limits: Limits::default(),
+            heavy: Arc::new(tokio::sync::Semaphore::new(HEAVY)),
             meters: meters::Ring::default(),
             modules: RwLock::default(),
             live: None,
@@ -248,7 +257,7 @@ impl Daemon {
         loop {
             let accepted = tokio::select! {
                 a = listener.accept() => a,
-                _ = stopped.wait_for(|s| *s) => return,
+                () = stop_asked(&mut stopped) => return,
             };
             if self.inner.stopping.load(Ordering::SeqCst) {
                 return;
@@ -257,14 +266,11 @@ impl Daemon {
                 Ok((r, w)) => {
                     let open = Open::count(&self.inner.open);
                     if open.0 > self.inner.limits.connections {
-                        tracing::warn!(
-                            "control: {} connections open; turning one away",
-                            open.0 - 1
-                        );
-                        tokio::spawn(async move {
-                            session::turn_away(w, open.0 - 1).await;
-                            drop(open);
-                        });
+                        let held = open.0 - 1;
+                        // Its slot goes now, not after telling it why.
+                        drop(open);
+                        tracing::warn!("control: {held} connections open; turning one away");
+                        tokio::spawn(session::turn_away(r, w, held));
                         continue;
                     }
                     let d = self.clone();
@@ -280,6 +286,13 @@ impl Daemon {
                 }
             }
         }
+    }
+}
+
+/// Ends when [`Serving::stop`] is called; never when the [`Serving`] is only dropped (that does not stop it).
+async fn stop_asked(stopped: &mut tokio::sync::watch::Receiver<bool>) {
+    if stopped.wait_for(|s| *s).await.is_err() {
+        std::future::pending::<()>().await;
     }
 }
 
@@ -325,6 +338,23 @@ pub(crate) fn read<T>(m: &RwLock<T>) -> std::sync::RwLockReadGuard<'_, T> {
 
 pub(crate) fn write<T>(m: &RwLock<T>) -> std::sync::RwLockWriteGuard<'_, T> {
     m.write().unwrap_or_else(PoisonError::into_inner)
+}
+
+impl Daemon {
+    /// Runs `job`, a long blocking one, on a blocking thread once one of the [`HEAVY`] places is free; `Err` if it
+    /// panicked.
+    pub(crate) async fn heavy<T: Send + 'static>(
+        &self,
+        job: impl FnOnce() -> T + Send + 'static,
+    ) -> Result<T, String> {
+        let _place = Arc::clone(&self.inner.heavy)
+            .acquire_owned()
+            .await
+            .map_err(|e| e.to_string())?;
+        tokio::task::spawn_blocking(job)
+            .await
+            .map_err(|e| e.to_string())
+    }
 }
 
 /// An add, remove or migrate holding one instance name; dropping it lets the next one in.

@@ -33,18 +33,19 @@ pub(crate) async fn lint(d: &Daemon, path: &str) -> Response {
         ));
     }
     let owned = d.clone();
-    let done = tokio::task::spawn_blocking(move || {
-        owned
-            .inner
-            .live
-            .as_ref()
-            .map(|l| check(l.catalog(), l.config(), l.version()))
-    })
-    .await;
+    let done = d
+        .heavy(move || {
+            owned
+                .inner
+                .live
+                .as_ref()
+                .map(|l| check(l.catalog(), l.config(), l.version()))
+        })
+        .await;
     match done {
         Ok(Some(r)) => r,
         Ok(None) => failed("this daemon cannot lint".into()),
-        Err(err) => failed(err.to_string()),
+        Err(err) => failed(err),
     }
 }
 

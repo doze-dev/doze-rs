@@ -3,9 +3,11 @@
 //! request and stream; `cancel` ends the stream it names.
 //!
 //! Frames reach the client through one writer task fed by a bounded queue ([`OUTBOX`] frames), so they go out whole
-//! and in the order they were queued, and a client that reads slowly holds back only the tasks writing to it (they
-//! wait for room), never a runtime worker. A client that takes nothing for [`crate::Limits::write_stall`] while frames
-//! wait is disconnected: its streams end, its unary requests run on.
+//! and in the order they were queued, and a client that reads slowly (or not at all: `doze logs -f | less`, paused)
+//! holds back only the tasks writing to it, which wait for room; never a runtime worker. It is not disconnected for it:
+//! what one such client can hold is bounded by the queue, [`crate::Limits::in_flight`] and
+//! [`crate::Limits::connections`]. A client that sends no hello within [`crate::Limits::hello`] is closed, so silent
+//! sockets cannot hold the connection slots.
 
 use crate::{Daemon, lock, topics, unary};
 use doze_control::codec::{self, CodecError, Decoder};
@@ -16,7 +18,7 @@ use std::io;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::sync::{Semaphore, mpsc, watch};
+use tokio::sync::{OwnedSemaphorePermit, Semaphore, mpsc, watch};
 
 /// How many frames wait for one client before the tasks writing to it wait too.
 const OUTBOX: usize = 256;
@@ -62,7 +64,7 @@ pub(crate) async fn send(w: &Writer, f: &Frame) -> io::Result<()> {
 /// more: a topic's task can be part-way through a reading (several frames queued with no await between them) when its
 /// stream is cancelled; without this its last frames could follow the `end`, and a client reading one line per
 /// request would take one for the answer to its next request.
-async fn write_out(mut out: WriteHalf, mut rx: mpsc::Receiver<Out>, stall: Duration) {
+async fn write_out(mut out: WriteHalf, mut rx: mpsc::Receiver<Out>) {
     let mut ended: BTreeSet<u64> = BTreeSet::new();
     while let Some(o) = rx.recv().await {
         let line = match o {
@@ -85,20 +87,13 @@ async fn write_out(mut out: WriteHalf, mut rx: mpsc::Receiver<Out>, stall: Durat
                 line
             }
         };
-        match tokio::time::timeout(stall, out.write_all(&line)).await {
-            Ok(Ok(())) => {}
-            Ok(Err(_)) => break,
-            Err(_) => {
-                tracing::warn!(
-                    "control: a client read nothing for {stall:?} with frames waiting; disconnecting it"
-                );
-                break;
-            }
+        if out.write_all(&line).await.is_err() {
+            break;
         }
     }
     // Closing the queue tells the reader and every stream that the client is gone.
     rx.close();
-    let _ = tokio::time::timeout(stall, out.shutdown()).await;
+    let _ = out.shutdown().await;
 }
 
 /// The connection's read half and what it has read but not yet decoded.
@@ -176,33 +171,48 @@ async fn greet(w: &Writer, reader: &mut Reader) -> bool {
     }
 }
 
-/// A connection past the cap: told so in place of the hello's answer, and closed.
-pub(crate) async fn turn_away(mut w: WriteHalf, open: usize) {
+/// How long telling a turned-away client why may take: one short frame into an empty socket, so only a client that
+/// is not there at all waits it out.
+const TURN_AWAY: Duration = Duration::from_millis(200);
+
+/// A connection past the cap: told so in place of the hello's answer, and closed. It holds no connection slot. What the
+/// client sends meanwhile (its hello) is read and dropped for a moment first: closing at once would fail the client's
+/// own write of its hello, before it could read why.
+pub(crate) async fn turn_away(mut r: ReadHalf, mut w: WriteHalf, open: usize) {
     let f = refusal(format!(
         "the daemon is serving {open} control connections, the most it takes; close one (a `doze logs -f`, a second app) and try again"
     ));
     if let Ok(line) = codec::encode(&f) {
-        let _ = tokio::time::timeout(Duration::from_secs(1), w.write_all(&line)).await;
+        let _ = tokio::time::timeout(TURN_AWAY, w.write_all(&line)).await;
     }
-    let _ = tokio::time::timeout(Duration::from_secs(1), w.shutdown()).await;
+    let _ = tokio::time::timeout(TURN_AWAY, w.shutdown()).await;
+    let mut sink = [0u8; 1024];
+    let _ = tokio::time::timeout(TURN_AWAY, async {
+        while matches!(r.read(&mut sink).await, Ok(n) if n > 0) {}
+    })
+    .await;
 }
 
-/// Serves one connection until its client goes (or is disconnected for not reading).
+/// Serves one connection until its client goes.
 pub(crate) async fn serve(d: Daemon, r: ReadHalf, w: WriteHalf) {
     let limits = d.inner.limits;
     let (tx, rx) = mpsc::channel(OUTBOX);
-    let writer = tokio::spawn(write_out(w, rx, limits.write_stall));
+    let writer = tokio::spawn(write_out(w, rx));
     let mut reader = Reader {
         r,
         dec: Decoder::new(),
     };
-    if greet(&tx, &mut reader).await {
+    // A client says hello at once (doze-control's waits HELLO_TIMEOUT for the answer): one that does not is closed.
+    let greeted = tokio::time::timeout(limits.hello, greet(&tx, &mut reader))
+        .await
+        .unwrap_or(false);
+    if greeted {
         let streams: Streams = Arc::default();
         let in_flight = Arc::new(Semaphore::new(limits.in_flight));
         loop {
             let next = tokio::select! {
                 n = reader.next() => n,
-                // The writer gave up on the client: stop reading it too.
+                // The writer could not write to the client: it has gone.
                 () = tx.closed() => None,
             };
             match next {
@@ -252,25 +262,81 @@ async fn dispatch(
         return send(w, &reply(req.id, busy)).await;
     };
     let (d, w) = (d.clone(), w.clone());
-    if req.is_stream() {
-        // An id used again for a new stream writes again.
-        w.send(Out::Reopen(req.id)).await.map_err(|_| gone())?;
-        let (tx, rx) = watch::channel(false);
-        lock(streams).insert(req.id, tx);
-        let streams = Arc::clone(streams);
-        tokio::spawn(async move {
-            topics::run(&d, &w, &req, rx).await;
-            lock(&streams).remove(&req.id);
-            drop(permit);
+    if !req.is_stream() {
+        spawn_unary(w, permit, req.id, move || async move {
+            unary::answer(&d, &req).await
         });
-    } else {
-        tokio::spawn(async move {
-            let response = unary::answer(&d, &req).await;
-            let _ = send(&w, &reply(req.id, response)).await;
-            drop(permit);
-        });
+        return Ok(());
     }
+    let (tx, rx) = watch::channel(false);
+    let taken = {
+        let mut open = lock(streams);
+        let taken = open.contains_key(&req.id);
+        if !taken {
+            open.insert(req.id, tx);
+        }
+        taken
+    };
+    if taken {
+        let r = Response {
+            error: format!(
+                "request id {} is already an open stream on this connection; cancel it, or use another id",
+                req.id
+            ),
+            ..Response::default()
+        };
+        return send(&w, &reply(req.id, r)).await;
+    }
+    // An id used again for a new stream (its last one has ended) writes again.
+    w.send(Out::Reopen(req.id)).await.map_err(|_| gone())?;
+    let streams = Arc::clone(streams);
+    let id = req.id;
+    tokio::spawn(async move {
+        let w2 = w.clone();
+        let ran = caught(async move { topics::run(&d, &w2, &req, rx).await }).await;
+        let last = ran.unwrap_or_else(|error| {
+            Some(Frame {
+                id,
+                end: true,
+                error,
+                ..Frame::default()
+            })
+        });
+        // No longer open before its last frame goes: a client that has read the `end` can use the id again.
+        lock(&streams).remove(&id);
+        if let Some(f) = last {
+            let _ = send(&w, &f).await;
+        }
+        drop(permit);
+    });
     Ok(())
+}
+
+/// Answers a unary request on a task of its own; the permit goes once the answer is queued, whatever happened.
+fn spawn_unary<F, Fut>(w: Writer, permit: OwnedSemaphorePermit, id: u64, answer: F)
+where
+    F: FnOnce() -> Fut + Send + 'static,
+    Fut: std::future::Future<Output = Response> + Send + 'static,
+{
+    tokio::spawn(async move {
+        let response = caught(answer()).await.unwrap_or_else(|error| Response {
+            error,
+            ..Response::default()
+        });
+        let _ = send(&w, &reply(id, response)).await;
+        drop(permit);
+    });
+}
+
+/// Runs `fut` as a task of its own and waits for it; `Err` with what to tell the client if it panicked (a release build
+/// aborts on a panic instead: this is for every other build, tests included).
+async fn caught<T: Send + 'static>(
+    fut: impl std::future::Future<Output = T> + Send + 'static,
+) -> Result<T, String> {
+    tokio::spawn(fut).await.map_err(|e| {
+        tracing::error!("control: a request's handler failed: {e}");
+        "the daemon failed while answering this request (a bug; its log says more)".to_owned()
+    })
 }
 
 pub(crate) fn reply(id: u64, response: Response) -> Frame {
@@ -278,5 +344,52 @@ pub(crate) fn reply(id: u64, response: Response) -> Frame {
         id,
         response: Some(response),
         ..Frame::default()
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::panic)] // test code
+mod tests {
+    use super::*;
+
+    async fn answer_of(rx: &mut mpsc::Receiver<Out>) -> Frame {
+        match rx.recv().await {
+            Some(Out::Frame { line, .. }) => serde_json::from_slice(&line).unwrap(),
+            other => panic!("{other:?}"),
+        }
+    }
+
+    /// A handler that panics is answered with an error, and its permit is let go.
+    #[tokio::test]
+    async fn a_panicking_handler_is_answered_and_lets_its_permit_go() {
+        let room = Arc::new(Semaphore::new(1));
+        let (tx, mut rx) = mpsc::channel(4);
+        let permit = Arc::clone(&room).try_acquire_owned().unwrap();
+        spawn_unary(tx, permit, 7, || async { panic!("a bug") });
+        let f = answer_of(&mut rx).await;
+        assert_eq!(f.id, 7);
+        let r = f.response.unwrap();
+        assert!(!r.ok && r.error.contains("failed while answering"), "{r:?}");
+        let again =
+            tokio::time::timeout(Duration::from_secs(5), Arc::clone(&room).acquire_owned()).await;
+        assert!(again.is_ok(), "the permit was kept");
+    }
+
+    /// A handler that answers with an error lets its permit go too.
+    #[tokio::test]
+    async fn a_failed_request_lets_its_permit_go() {
+        let room = Arc::new(Semaphore::new(1));
+        let (tx, mut rx) = mpsc::channel(4);
+        let permit = Arc::clone(&room).try_acquire_owned().unwrap();
+        spawn_unary(tx, permit, 8, || async {
+            Response {
+                error: "no".into(),
+                ..Response::default()
+            }
+        });
+        assert_eq!(answer_of(&mut rx).await.response.unwrap().error, "no");
+        let again =
+            tokio::time::timeout(Duration::from_secs(5), Arc::clone(&room).acquire_owned()).await;
+        assert!(again.is_ok(), "the permit was kept");
     }
 }

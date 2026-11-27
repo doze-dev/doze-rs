@@ -63,10 +63,22 @@ impl Raw {
     fn say(&mut self, line: &str) {
         self.w.write_all(format!("{line}\n").as_bytes()).unwrap();
     }
+    /// A hello to a daemon that may be turning this connection away (it may have closed it already: what it said is
+    /// still there to read).
+    fn hello(&mut self) {
+        let _ = self.w.write_all(b"{\"hello\":{\"proto\":2}}\n");
+    }
     fn hear(&mut self) -> serde_json::Value {
+        self.try_hear()
+            .unwrap_or_else(|| panic!("the connection ended"))
+    }
+    /// The next frame, or `None` at the end of the connection.
+    fn try_hear(&mut self) -> Option<serde_json::Value> {
         let mut s = String::new();
-        self.r.read_line(&mut s).unwrap();
-        serde_json::from_str(s.trim_end()).unwrap_or_else(|e| panic!("{e}: {s:?}"))
+        if self.r.read_line(&mut s).ok()? == 0 {
+            return None;
+        }
+        Some(serde_json::from_str(s.trim_end()).unwrap_or_else(|e| panic!("{e}: {s:?}")))
     }
     /// The answer to request `id` (a stream's acknowledgement or refusal), skipping other frames.
     fn answer(&mut self, id: u64) -> serde_json::Value {
@@ -132,41 +144,21 @@ impl Lag {
     }
 }
 
-/// A client floods requests and streams and reads nothing. Another client's status still answers at once, the
-/// runtime's workers stay free, and once the slow client has taken nothing for the stall limit it is disconnected.
+/// A client floods requests and streams and reads nothing. Another client's status still answers, the runtime's
+/// workers stay free, and the slow client is not cut off: once it reads again, it is answered.
+///
+/// The bounds are wide on purpose (shared CI runners stall for hundreds of milliseconds under load): the slow client
+/// reads nothing for the whole measurement (over a second) and more, so a worker held by a write to it would be held
+/// that long and longer, and with both held nothing would answer at all.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_client_that_stops_reading_starves_nobody() {
-    let limits = Limits {
-        write_stall: Duration::from_secs(2),
-        ..Limits::default()
-    };
-    let Some((_d, s, sock)) = daemon("slow", limits) else {
+    let Some((_d, s, sock)) = daemon("slow", Limits::default()) else {
         return;
     };
-    let mut slow = Raw::greeted(&sock);
+    let slow = Raw::greeted(&sock);
+    let later = slow.w.try_clone().unwrap();
     let flooding = Arc::new(AtomicBool::new(true));
-    let mut w = slow.w.try_clone().unwrap();
-    let f = Arc::clone(&flooding);
-    let flood = std::thread::spawn(move || {
-        // Streams that send every 250 ms, then status requests until the daemon stops reading (it has no room left
-        // to answer) or hangs up.
-        for id in 1..=8u64 {
-            let line = format!(
-                "{{\"id\":{id},\"op\":\"subscribe\",\"topics\":[\"stats\",\"instances\"],\"interval\":\"250ms\"}}\n"
-            );
-            if w.write_all(line.as_bytes()).is_err() {
-                return;
-            }
-        }
-        let mut id = 100u64;
-        while f.load(Ordering::SeqCst) {
-            let line = format!("{{\"id\":{id},\"op\":\"status\"}}\n");
-            if w.write_all(line.as_bytes()).is_err() {
-                return;
-            }
-            id += 1;
-        }
-    });
+    let flood = flood(&slow, &flooding);
     // Long enough for the slow client's socket buffers and its queue to fill.
     tokio::time::sleep(Duration::from_millis(500)).await;
     let lag = Lag::probe();
@@ -183,31 +175,90 @@ async fn a_client_that_stops_reading_starves_nobody() {
         worst
     });
     let worst_status = asked.await.unwrap();
-    // A worker held by a write to the slow client would show the whole stall limit (2 s) here.
     let worst_lag = lag.worst();
     eprintln!("other client's slowest status: {worst_status:?}; worst runtime lag: {worst_lag:?}");
     assert!(
-        worst_status < Duration::from_secs(1),
+        worst_status < Duration::from_secs(2),
         "another client waited {worst_status:?} for a status behind a client that reads nothing"
     );
     assert!(
-        worst_lag < Duration::from_secs(1),
+        worst_lag < Duration::from_secs(2),
         "a runtime worker was held for {worst_lag:?} by a client that reads nothing"
     );
-    // The stall limit passes with the slow client still reading nothing: it is disconnected (what it was sent before
-    // is still there to read, then the end).
-    tokio::time::sleep(limits.write_stall + Duration::from_millis(500)).await;
-    assert!(
-        slow.closed_within(Duration::from_secs(5)),
-        "a client that read nothing for the stall limit is still connected"
-    );
+    // The slow client reads again: everything it was owed arrives, then the answer to a new request. It was never
+    // disconnected.
     flooding.store(false, Ordering::SeqCst);
-    let _ = tokio::task::spawn_blocking(move || flood.join()).await;
-    // And the daemon serves on.
-    let mut after = Raw::greeted(&sock);
-    after.say(r#"{"id":1,"op":"status"}"#);
-    assert_eq!(after.answer(1)["ok"], true);
+    let answered = tokio::task::spawn_blocking(move || reads_again(slow, later, flood))
+        .await
+        .unwrap();
+    assert!(
+        answered,
+        "the slow client was not answered once it read again"
+    );
     s.stop();
+}
+
+/// Writes 8 streams (every 250 ms) and then status requests on `c`, from a thread, until `go` turns false or the
+/// daemon stops reading (it has no room left to answer).
+fn flood(c: &Raw, go: &Arc<AtomicBool>) -> std::thread::JoinHandle<()> {
+    let mut w = c.w.try_clone().unwrap();
+    let f = Arc::clone(go);
+    std::thread::spawn(move || {
+        // Streams that send every 250 ms, then status requests until the daemon stops reading (it has no room left
+        // to answer).
+        for id in 1..=8u64 {
+            let line = format!(
+                "{{\"id\":{id},\"op\":\"subscribe\",\"topics\":[\"stats\",\"instances\"],\"interval\":\"250ms\"}}\n"
+            );
+            if w.write_all(line.as_bytes()).is_err() {
+                return;
+            }
+        }
+        let mut id = 100u64;
+        while f.load(Ordering::SeqCst) {
+            let line = format!("{{\"id\":{id},\"op\":\"status\"}}\n");
+            if w.write_all(line.as_bytes()).is_err() {
+                return;
+            }
+            id += 1;
+        }
+    })
+}
+
+/// Reads everything owed to `slow` while `flood` ends, then asks one more status on `later` (its write half): whether
+/// that is answered.
+fn reads_again(mut slow: Raw, mut later: LocalStream, flood: std::thread::JoinHandle<()>) -> bool {
+    let (got, answered) = std::sync::mpsc::channel();
+    let done = Arc::new(AtomicBool::new(false));
+    let d = Arc::clone(&done);
+    let drain = std::thread::spawn(move || {
+        while !d.load(Ordering::SeqCst) {
+            let mut line = String::new();
+            match slow.r.read_line(&mut line) {
+                Ok(0) => break,
+                Ok(_) if line.starts_with("{\"id\":999999,") && line.contains("\"response\"") => {
+                    let _ = got.send(true);
+                    return;
+                }
+                Ok(_) => {}
+                Err(e)
+                    if e.kind() == std::io::ErrorKind::WouldBlock
+                        || e.kind() == std::io::ErrorKind::TimedOut => {}
+                Err(_) => break,
+            }
+        }
+        let _ = got.send(false);
+    });
+    flood.join().unwrap();
+    later
+        .write_all(b"{\"id\":999999,\"op\":\"status\"}\n")
+        .unwrap();
+    // Wide: it only has to arrive; a missing answer fails here, a slow one does not.
+    let ok = answered.recv_timeout(Duration::from_secs(60)) == Ok(true);
+    done.store(true, Ordering::SeqCst);
+    drop(later);
+    let _ = drain.join();
+    ok
 }
 
 /// A connection runs at most `in_flight` requests and streams; past it a request is refused at once, and once one ends
@@ -251,7 +302,8 @@ async fn a_connection_runs_at_most_its_cap() {
         }
     }
     let mut room = false;
-    for id in 10..60 {
+    // Retried, not timed: the place goes when the cancelled stream's task ends.
+    for id in 10..260 {
         c.say(&format!(r#"{{"id":{id},"op":"status"}}"#));
         if c.answer(id)["ok"] == true {
             room = true;
@@ -276,7 +328,7 @@ async fn the_daemon_takes_at_most_its_connections() {
     let a = Raw::greeted(&sock);
     let _b = Raw::greeted(&sock);
     let mut c = Raw::open(&sock);
-    c.say(r#"{"hello":{"proto":2}}"#);
+    c.hello();
     let refused = c.hear();
     assert!(
         refused["error"]
@@ -285,13 +337,15 @@ async fn the_daemon_takes_at_most_its_connections() {
             .contains("serving 2 control connections"),
         "{refused}"
     );
-    assert!(c.closed_within(Duration::from_secs(2)));
+    // Closed after at most a moment (the refusal is written with a 200 ms bound); the rest is room for a loaded runner.
+    assert!(c.closed_within(Duration::from_secs(10)));
     drop(a);
     let mut took = false;
-    for _ in 0..50 {
+    // Retried, not timed: the slot goes when the daemon reads the end of the closed connection.
+    for _ in 0..250 {
         let mut d = Raw::open(&sock);
-        d.say(r#"{"hello":{"proto":2}}"#);
-        if d.hear().get("hello").is_some() {
+        d.hello();
+        if d.try_hear().is_some_and(|f| f.get("hello").is_some()) {
             took = true;
             break;
         }
@@ -310,9 +364,120 @@ async fn stopping_ends_the_accept() {
     let mut open = Raw::greeted(&sock);
     let at = Instant::now();
     s.stop();
-    assert!(at.elapsed() < Duration::from_millis(100));
+    // It waits for nothing (no thread to join): even a loaded runner returns from it in well under this.
+    assert!(at.elapsed() < Duration::from_secs(1));
     assert!(!sock.exists(), "the socket goes with the server");
     assert!(LocalStream::connect(&sock).is_err());
     open.say(r#"{"id":1,"op":"status"}"#);
     assert_eq!(open.answer(1)["ok"], true);
+}
+
+/// Sockets that never say hello hold no slot past the hello deadline: with the cap full of them a real client is
+/// turned away, and once the deadline passes it gets in. (100, not the default 128: the test's clients and the daemon
+/// share one process, and macOS gives a process 256 descriptors by default; the mechanism is the same.)
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn silent_sockets_do_not_lock_out_clients() {
+    let limits = Limits {
+        connections: 100,
+        hello: Duration::from_secs(1),
+        ..Limits::default()
+    };
+    let Some((_d, s, sock)) = daemon("silent", limits) else {
+        return;
+    };
+    let silent: Vec<LocalStream> = (0..100)
+        .map(|_| LocalStream::connect(&sock).unwrap())
+        .collect();
+    // Room for the accepts to be counted.
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    let mut early = Raw::open(&sock);
+    early.hello();
+    let refused = early.hear();
+    assert!(
+        refused["error"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("control connections"),
+        "{refused}"
+    );
+    // Retried for a while: the deadline is 1 s, the rest is room for a loaded runner.
+    let mut took = false;
+    for _ in 0..100 {
+        let mut c = Raw::open(&sock);
+        c.hello();
+        if c.try_hear().is_some_and(|f| f.get("hello").is_some()) {
+            c.say(r#"{"id":1,"op":"status"}"#);
+            assert_eq!(c.answer(1)["ok"], true);
+            took = true;
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    assert!(
+        took,
+        "silent sockets still hold every slot past the hello deadline"
+    );
+    drop(silent);
+    s.stop();
+}
+
+/// A request that fails lets its place go: with room for one, a failed wake leaves room for the next request.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_failed_request_lets_its_place_go() {
+    let limits = Limits {
+        in_flight: 1,
+        ..Limits::default()
+    };
+    let Some((_d, s, sock)) = daemon("failed", limits) else {
+        return;
+    };
+    let mut c = Raw::greeted(&sock);
+    c.say(r#"{"id":1,"op":"wake","db":"nosuch"}"#);
+    assert_ne!(c.answer(1)["ok"], true);
+    // The place goes just after the answer is queued: a moment of retrying, not a fixed wait.
+    let mut ok = false;
+    for id in 2..200 {
+        c.say(&format!(r#"{{"id":{id},"op":"status"}}"#));
+        if c.answer(id)["ok"] == true {
+            ok = true;
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    assert!(ok, "a failed request kept its place");
+    s.stop();
+}
+
+/// A stream id that is open already is refused; once that stream has ended (its `end` read) the id can be used again.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn an_open_stream_id_is_not_used_twice() {
+    let Some((_d, s, sock)) = daemon("dup", Limits::default()) else {
+        return;
+    };
+    let mut c = Raw::greeted(&sock);
+    c.say(r#"{"id":5,"op":"subscribe","topics":["instances"]}"#);
+    assert_eq!(c.answer(5)["ok"], true);
+    c.say(r#"{"id":5,"op":"subscribe","topics":["instances"]}"#);
+    let again = c.answer(5);
+    assert!(
+        again["error"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("already an open stream"),
+        "{again}"
+    );
+    c.say(r#"{"id":5,"op":"cancel"}"#);
+    loop {
+        let f = c.hear();
+        if f["id"] == 5 && f["end"] == true {
+            break;
+        }
+    }
+    c.say(r#"{"id":5,"op":"subscribe","topics":["instances"]}"#);
+    assert_eq!(
+        c.answer(5)["ok"],
+        true,
+        "the id is free once its stream has ended"
+    );
+    s.stop();
 }

@@ -189,12 +189,12 @@ pub(crate) async fn add(d: &Daemon, block: &str) -> Response {
     declared.dedup();
     let run_dir = stack.run_dir();
     let (owned, text) = (d.clone(), block.to_owned());
-    let prepared = tokio::task::spawn_blocking(move || {
-        let live = owned.inner.live.as_ref().ok_or_else(String::new)?;
-        prepare(live, &text, &declared, &run_dir)
-    })
-    .await
-    .map_err(|e| e.to_string());
+    let prepared = d
+        .heavy(move || {
+            let live = owned.inner.live.as_ref().ok_or_else(String::new)?;
+            prepare(live, &text, &declared, &run_dir)
+        })
+        .await;
     let p = match prepared.and_then(|r| r) {
         Ok(p) => p,
         Err(err) => return failed(err, ""),
@@ -311,9 +311,7 @@ pub(crate) async fn remove(d: &Daemon, name: &str, wipe: bool) -> Response {
     if wipe {
         // Data folders and logs can be many files: on a blocking thread.
         let (e, name) = (e.clone(), name.to_owned());
-        let wiped = tokio::task::spawn_blocking(move || wipe_all(&e, &name))
-            .await
-            .map_err(|err| err.to_string());
+        let wiped = d.heavy(move || wipe_all(&e, &name)).await;
         if let Err(err) = wiped.and_then(|r| r) {
             return failed(err, "");
         }

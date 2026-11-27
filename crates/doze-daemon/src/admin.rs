@@ -49,10 +49,10 @@ pub(crate) async fn reset(d: &Daemon, name: &str) -> Response {
         return failed(format!("stopping {name:?}: {err}"), "");
     }
     // A data folder can hold many files, and the task record is a file rewritten: on a blocking thread.
-    let (d, name) = (d.clone(), name.to_owned());
-    tokio::task::spawn_blocking(move || wipe(&d, &name))
+    let (owned, name) = (d.clone(), name.to_owned());
+    d.heavy(move || wipe(&owned, &name))
         .await
-        .unwrap_or_else(|err| failed(err.to_string(), ""))
+        .unwrap_or_else(|err| failed(err, ""))
 }
 
 /// Removes `name`'s data and run folders and forgets a task's last run. It blocks.

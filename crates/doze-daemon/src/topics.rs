@@ -20,12 +20,14 @@ const LOG_BACKLOG: i64 = 200;
 /// A topic's outcome: `Err` ends the stream with that error.
 type Done = Result<(), String>;
 
+/// Runs the stream `req` until it ends; the frame that ends it (its refusal, or its `end`), for the caller to send
+/// once the stream is no longer counted as open. `None`: the client went before the acknowledgement.
 pub(crate) async fn run(
     d: &Daemon,
     w: &Writer,
     req: &doze_control::Request,
     end: watch::Receiver<bool>,
-) {
+) -> Option<Frame> {
     let op = req.known_op();
     let interval = if req.interval.is_empty() {
         Ok(STATS_GAP)
@@ -44,8 +46,7 @@ pub(crate) async fn run(
                 error,
                 ..Response::default()
             };
-            let _ = send(w, &reply(req.id, r)).await;
-            return;
+            return Some(reply(req.id, r));
         }
     }
     let ok = Response {
@@ -53,7 +54,7 @@ pub(crate) async fn run(
         ..Response::default()
     };
     if send(w, &reply(req.id, ok)).await.is_err() {
-        return;
+        return None;
     }
     let gap = interval.unwrap_or(STATS_GAP).max(STATS_MIN_GAP);
     let mut ended = end.clone();
@@ -72,13 +73,12 @@ pub(crate) async fn run(
         Err(e) if !*end.borrow() => e,
         _ => String::new(),
     };
-    let last = Frame {
+    Some(Frame {
         id: req.id,
         end: true,
         error,
         ..Frame::default()
-    };
-    let _ = send(w, &last).await;
+    })
 }
 
 async fn subscribe(d: &Daemon, w: &Writer, req: &doze_control::Request, gap: Duration) -> Done {

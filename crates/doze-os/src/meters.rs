@@ -90,7 +90,7 @@ struct Raw {
 /// The roots' meters read without `ps`, or `None` where the system cannot (a Linux without `/proc` or its child lists).
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 async fn in_process(roots: &[u32]) -> Option<BTreeMap<u32, Meters>> {
-    let mut raws = trees(roots)?;
+    let mut raws = trees_off_worker(roots).await?;
     let new_root = roots
         .iter()
         .any(|r| !rate::known(*r) && raws.iter().any(|p| p.pid == *r));
@@ -98,11 +98,22 @@ async fn in_process(roots: &[u32]) -> Option<BTreeMap<u32, Meters>> {
         // A first reading has nothing to compare with: take it as the start, and read again a moment later.
         let _ = rate::rated(raws, std::time::Instant::now());
         tokio::time::sleep(FIRST_LOOK).await;
-        raws = trees(roots)?;
+        raws = trees_off_worker(roots).await?;
     }
     let mut procs = rate::rated(raws, std::time::Instant::now());
     procs.sort_by_key(|p| p.pid);
     Some(of_roots(&procs, roots))
+}
+
+/// [`trees`] on one of the runtime's blocking threads: a walk of the process table is a syscall per process, and the
+/// caller is a runtime worker (a daemon's two supervise every service).
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+async fn trees_off_worker(roots: &[u32]) -> Option<Vec<Raw>> {
+    let roots = roots.to_vec();
+    tokio::task::spawn_blocking(move || trees(&roots))
+        .await
+        .ok()
+        .flatten()
 }
 
 /// Every process under `roots` and the roots themselves, each read once; a parent the reader does not tell is the one
