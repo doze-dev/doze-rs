@@ -17,6 +17,7 @@
 //! - [`detach`]: start the daemon so it outlives its starter (and can still stop engines gently).
 //! - [`foreground`]: run a command in the foreground as a job-control shell does (its signals, the terminal).
 //! - [`local`]: the daemon's control socket as blocking I/O, for clients that run no async runtime.
+//! - [`local_async`]: the same socket served on a tokio runtime (the daemon's side).
 //! - `ui` (feature `ui`): the desktop app's menu-bar item and Dock badge.
 //! - [`browse`]: open a web page in the person's browser.
 //! - [`pty`]: a pseudo-terminal, for tests that must see what a person sees.
@@ -32,6 +33,7 @@ pub mod fs;
 pub mod home;
 pub mod interrupt;
 pub mod local;
+pub mod local_async;
 pub mod meters;
 pub mod net;
 pub mod privilege;

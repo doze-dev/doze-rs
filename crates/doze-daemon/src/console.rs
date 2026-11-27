@@ -117,7 +117,7 @@ struct Out<'a> {
 }
 
 impl Out<'_> {
-    fn emit(&self, mut f: ConsoleFrame) -> Done {
+    async fn emit(&self, mut f: ConsoleFrame) -> Done {
         f.instance.clone_from(&self.name);
         let frame = Frame {
             id: self.id,
@@ -125,7 +125,9 @@ impl Out<'_> {
             console: Some(f),
             ..Frame::default()
         };
-        crate::session::send(self.w, &frame).map_err(|e| e.to_string())
+        crate::session::send(self.w, &frame)
+            .await
+            .map_err(|e| e.to_string())
     }
 }
 
@@ -152,10 +154,12 @@ pub(crate) async fn console(
             id: req.id,
             name: String::new(),
         };
-        return out.emit(ConsoleFrame {
-            error: "the console topic follows exactly one instance".into(),
-            ..ConsoleFrame::default()
-        });
+        return out
+            .emit(ConsoleFrame {
+                error: "the console topic follows exactly one instance".into(),
+                ..ConsoleFrame::default()
+            })
+            .await;
     };
     let out = Out {
         w,
@@ -163,10 +167,12 @@ pub(crate) async fn console(
         name: name.clone(),
     };
     if d.engine().get(name).is_none() {
-        return out.emit(ConsoleFrame {
-            error: format!("instance {name:?} is not declared"),
-            ..ConsoleFrame::default()
-        });
+        return out
+            .emit(ConsoleFrame {
+                error: format!("instance {name:?} is not declared"),
+                ..ConsoleFrame::default()
+            })
+            .await;
     }
     let mi = d.module(name);
     let manifest = match &mi {
@@ -185,7 +191,8 @@ pub(crate) async fn console(
             .unwrap_or_default(),
         state: state_of(d, name),
         ..ConsoleFrame::default()
-    })?;
+    })
+    .await?;
     let (Some(mi), Some(spec)) = (mi.filter(|_| admin), spec.filter(|s| !s.panels.is_empty()))
     else {
         return std::future::pending().await;
@@ -220,11 +227,13 @@ fn stream(
         let mut rows = match mi.tail(&ctx, &panel, &selector).await {
             Ok(s) => s,
             Err(error) => {
-                let _ = out.emit(ConsoleFrame {
-                    panel,
-                    error,
-                    ..ConsoleFrame::default()
-                });
+                let _ = out
+                    .emit(ConsoleFrame {
+                        panel,
+                        error,
+                        ..ConsoleFrame::default()
+                    })
+                    .await;
                 return;
             }
         };
@@ -244,7 +253,7 @@ fn stream(
                     ..ConsoleFrame::default()
                 },
             };
-            if out.emit(f).is_err() {
+            if out.emit(f).await.is_err() {
                 return;
             }
         }
@@ -260,20 +269,24 @@ async fn tables(
 ) -> Done {
     let state = state_of(d, &out.name);
     if !running(d, &out.name) {
-        return out.emit(ConsoleFrame {
-            state,
-            ..ConsoleFrame::default()
-        });
+        return out
+            .emit(ConsoleFrame {
+                state,
+                ..ConsoleFrame::default()
+            })
+            .await;
     }
     let ctx = d.engine().ctx_for(&out.name);
     let res = match mi.resources(&ctx).await {
         Ok(r) => r,
         Err(error) => {
-            return out.emit(ConsoleFrame {
-                state,
-                error,
-                ..ConsoleFrame::default()
-            });
+            return out
+                .emit(ConsoleFrame {
+                    state,
+                    error,
+                    ..ConsoleFrame::default()
+                })
+                .await;
         }
     };
     let declared = mi.declared(&ctx).await;
@@ -287,7 +300,8 @@ async fn tables(
             panel: p.id.clone(),
             rows: table_rows(p, &res, declared.as_ref()),
             ..ConsoleFrame::default()
-        })?;
+        })
+        .await?;
     }
     Ok(())
 }

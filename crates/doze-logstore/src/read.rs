@@ -100,9 +100,25 @@ impl Store {
     pub async fn follow(
         &self,
         instance: &str,
-        mut from: Cursor,
+        from: Cursor,
         mut emit: impl FnMut(Line) -> bool,
     ) -> io::Result<()> {
+        self.follow_async(instance, from, |l| std::future::ready(emit(l)))
+            .await
+    }
+
+    /// [`Store::follow`], handing each line to an emitter that may wait (a writer with a bounded queue in front of a
+    /// slow reader): nothing more is read until it has taken what was.
+    pub async fn follow_async<F, Fut>(
+        &self,
+        instance: &str,
+        mut from: Cursor,
+        mut emit: F,
+    ) -> io::Result<()>
+    where
+        F: FnMut(Line) -> Fut,
+        Fut: std::future::Future<Output = bool>,
+    {
         loop {
             // Taken before reading, so a line written between the read and the wait still wakes this follower.
             let mut wait = self.waiter(instance);
@@ -115,7 +131,7 @@ impl Store {
                         .map_err(io::Error::other)??;
                 let n = lines.len();
                 for l in lines {
-                    if !emit(l) {
+                    if !emit(l).await {
                         return Ok(());
                     }
                 }

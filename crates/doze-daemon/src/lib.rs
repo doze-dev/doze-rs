@@ -6,9 +6,11 @@
 //! view the wire carries ([`view`]), `doze __daemon` itself ([`entry`]) and its lifecycle from outside ([`ctl`]). What the engine does not know about an instance (its engine name, version, kind,
 //! endpoint words) comes from the config as [`Labels`]; the daemon never reads doze.hcl itself.
 //!
-//! Connections are threads, as in the fixture daemon: a request runs on its own thread, which waits on the engine
-//! through the runtime's handle. A unary request runs to its end even if its client goes (Go ran them on the daemon's
-//! context); a stream ends with its connection or its `cancel`.
+//! The control channel runs on the daemon's runtime, not on threads of its own: the accept loop, each connection, and
+//! each request and stream are tasks, so the daemon's thread count does not grow with its clients ([`Limits`] caps
+//! what one client can start). Work that blocks (removing a data folder, reading a log or the journal from disk) goes
+//! to the runtime's blocking threads. A unary request runs to its end even if its client goes (Go ran them on the
+//! daemon's context); a stream ends with its connection or its `cancel`.
 
 mod admin;
 mod blocks;
@@ -35,7 +37,7 @@ mod wire;
 pub use view::Labels;
 
 use doze_engine::Engine;
-use doze_os::local::LocalListener;
+use doze_os::local_async::Listener;
 use std::collections::BTreeMap;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -46,6 +48,30 @@ use std::time::Duration;
 /// Where a stack's daemon listens (Go's `ControlSocketPath`): `<data_dir>/run/doze.admin.sock`.
 pub fn socket_path(data_dir: &Path) -> PathBuf {
     data_dir.join("run").join("doze.admin.sock")
+}
+
+/// How much the control socket takes on: Go's daemon had no caps, so a client that never read, or that opened
+/// connections in a loop, could grow it without end.
+#[derive(Debug, Clone, Copy)]
+pub struct Limits {
+    /// Open connections. The app holds one or two, each CLI command one while it runs; 128 leaves room for scripts
+    /// running `doze` in parallel. Past it a connection is answered with an error in place of the hello and closed.
+    pub connections: usize,
+    /// Requests and streams one connection runs at once. The app runs a few streams and a handful of requests; the CLI
+    /// one at a time. Past it a request is answered with an error at once (a stream as a refused one).
+    pub in_flight: usize,
+    /// How long a client may take nothing while frames wait for it before it is disconnected.
+    pub write_stall: Duration,
+}
+
+impl Default for Limits {
+    fn default() -> Limits {
+        Limits {
+            connections: 128,
+            in_flight: 64,
+            write_stall: Duration::from_secs(10),
+        }
+    }
 }
 
 /// What the status op says about the stack as a whole (Go's `Response` fields of `Status`).
@@ -74,7 +100,9 @@ pub(crate) struct Inner {
     pub(crate) rt: tokio::runtime::Handle,
     pub(crate) socket: PathBuf,
     pub(crate) stopping: AtomicBool,
-    pub(crate) conns: AtomicUsize,
+    /// Connections open now.
+    pub(crate) open: Arc<AtomicUsize>,
+    pub(crate) limits: Limits,
     /// Recent meter readings.
     pub(crate) meters: meters::Ring,
     /// Each module instance, for its data, console and client.
@@ -89,7 +117,8 @@ pub(crate) struct Inner {
 #[derive(Debug)]
 pub struct Serving {
     daemon: Daemon,
-    accept: Mutex<Option<std::thread::JoinHandle<()>>>,
+    accept: Mutex<Option<tokio::task::JoinHandle<()>>>,
+    stop: tokio::sync::watch::Sender<bool>,
 }
 
 impl Daemon {
@@ -113,7 +142,8 @@ impl Daemon {
             rt: tokio::runtime::Handle::current(),
             socket,
             stopping: AtomicBool::new(false),
-            conns: AtomicUsize::new(0),
+            open: Arc::default(),
+            limits: Limits::default(),
             meters: meters::Ring::default(),
             modules: RwLock::default(),
             live: None,
@@ -129,6 +159,15 @@ impl Daemon {
     pub fn with_modules(mut self, modules: entry::Modules) -> Daemon {
         if let Some(inner) = Arc::get_mut(&mut self.inner) {
             inner.modules = RwLock::new(modules);
+        }
+        self
+    }
+
+    /// How much its control socket takes on. Before [`Daemon::serve`] and before it is cloned.
+    #[must_use]
+    pub fn with_limits(mut self, limits: Limits) -> Daemon {
+        if let Some(inner) = Arc::get_mut(&mut self.inner) {
+            inner.limits = limits;
         }
         self
     }
@@ -179,43 +218,84 @@ impl Daemon {
     }
 
     /// Binds the socket (a leftover file at the path is replaced, as Go's `NewServer` did; its folder is made 0700)
-    /// and accepts connections on a thread of their own.
+    /// and accepts connections on a task of the daemon's runtime.
     pub fn serve(&self) -> io::Result<Serving> {
         if let Some(dir) = self.inner.socket.parent() {
             doze_os::fs::private_dir(dir)?;
         }
         let _ = std::fs::remove_file(&self.inner.socket);
-        let listener = LocalListener::bind(&self.inner.socket)?;
-        let d = self.clone();
-        let accept = std::thread::Builder::new()
-            .name("doze-accept".into())
-            .spawn(move || d.accept_loop(&listener))?;
+        let listener = {
+            let _in = self.inner.rt.enter();
+            Listener::bind(&self.inner.socket)?
+        };
+        let (stop, stopped) = tokio::sync::watch::channel(false);
+        let accept = self
+            .inner
+            .rt
+            .spawn(self.clone().accept_loop(listener, stopped));
         Ok(Serving {
             daemon: self.clone(),
             accept: Mutex::new(Some(accept)),
+            stop,
         })
     }
 
-    fn accept_loop(&self, listener: &LocalListener) {
-        while !self.inner.stopping.load(Ordering::SeqCst) {
-            match listener.accept() {
-                Ok(stream) if !self.inner.stopping.load(Ordering::SeqCst) => {
-                    let d = self.clone();
-                    let id = self.inner.conns.fetch_add(1, Ordering::SeqCst);
-                    let spawned = std::thread::Builder::new()
-                        .name("doze-conn".into())
-                        .spawn(move || session::serve(&d, id, stream));
-                    if let Err(err) = spawned {
-                        tracing::warn!("control: a connection could not be served: {err}");
+    async fn accept_loop(
+        self,
+        listener: Listener,
+        mut stopped: tokio::sync::watch::Receiver<bool>,
+    ) {
+        loop {
+            let accepted = tokio::select! {
+                a = listener.accept() => a,
+                _ = stopped.wait_for(|s| *s) => return,
+            };
+            if self.inner.stopping.load(Ordering::SeqCst) {
+                return;
+            }
+            match accepted {
+                Ok((r, w)) => {
+                    let open = Open::count(&self.inner.open);
+                    if open.0 > self.inner.limits.connections {
+                        tracing::warn!(
+                            "control: {} connections open; turning one away",
+                            open.0 - 1
+                        );
+                        tokio::spawn(async move {
+                            session::turn_away(w, open.0 - 1).await;
+                            drop(open);
+                        });
+                        continue;
                     }
+                    let d = self.clone();
+                    tokio::spawn(async move {
+                        session::serve(d, r, w).await;
+                        drop(open);
+                    });
                 }
-                Ok(_) => break,
                 Err(err) => {
                     tracing::warn!("control: accept: {err}");
-                    std::thread::sleep(Duration::from_millis(50));
+                    // Out of descriptors, most likely: wait a moment rather than spin.
+                    tokio::time::sleep(Duration::from_millis(50)).await;
                 }
             }
         }
+    }
+}
+
+/// One open connection, counted while it lives.
+struct Open(usize, Arc<AtomicUsize>);
+
+impl Open {
+    /// Counts one more; `.0` is how many are open with it.
+    fn count(open: &Arc<AtomicUsize>) -> Open {
+        Open(open.fetch_add(1, Ordering::SeqCst) + 1, Arc::clone(open))
+    }
+}
+
+impl Drop for Open {
+    fn drop(&mut self) {
+        self.1.fetch_sub(1, Ordering::SeqCst);
     }
 }
 
@@ -225,10 +305,11 @@ impl Serving {
     pub fn stop(&self) {
         let inner = &self.daemon.inner;
         inner.stopping.store(true, Ordering::SeqCst);
-        // The accept is blocking: one connection of our own wakes it to see the flag.
-        let _ = doze_os::local::LocalStream::connect(&inner.socket);
+        // The accept task sees it at once (and is aborted besides, in case its runtime is not running it): the
+        // listener closes when the task is dropped, and the path goes now, so no new client finds it.
+        let _ = self.stop.send(true);
         if let Some(t) = lock(&self.accept).take() {
-            let _ = t.join();
+            t.abort();
         }
         let _ = std::fs::remove_file(&inner.socket);
     }
