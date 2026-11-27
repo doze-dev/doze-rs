@@ -10,7 +10,7 @@ import type { CallRecord } from "../../api/types/CallRecord";
 import { clientName, who } from "../../people";
 import { CardSkeleton, CodeBlock, Section } from "../card";
 import { Result } from "../live/outcome";
-import { ADDRESS } from "./address";
+import { ADDRESS, addressLabel } from "./address";
 import { heardSince, probe } from "./check";
 
 type Row = { call: CallRecord | null };
@@ -25,7 +25,7 @@ export function CheckCard({ a }: { a: About }) {
   const heard = h ? heardSince(h, since) : null;
   const names = new Map((h?.callers ?? []).map((c) => [c.principal.key, c]));
   const columns: DataColumn<Row>[] = [
-    { id: "address", header: "Address", size: 150, min: 120, enableSorting: false, accessorFn: () => ADDRESS.label, cell: (c) => <span className="font-medium text-bright">{c.getValue<string>()}</span> },
+    { id: "address", header: "Address", size: 150, min: 120, enableSorting: false, accessorFn: () => addressLabel(a.endpoint), cell: (c) => <span className="font-medium text-bright">{c.getValue<string>()}</span> },
     { id: "time", header: "Last call", size: 130, min: 120, enableSorting: false, meta: { mono: true }, accessorFn: (r) => (r.call ? clockMsUtc(r.call.at_ms) : ""), cell: (c) => c.getValue<string>() || <span className="font-sans text-muted-foreground">Waiting for a call</span> },
     {
       id: "caller",
