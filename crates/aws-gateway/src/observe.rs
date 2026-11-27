@@ -58,6 +58,9 @@ pub struct Finished<'a> {
     pub took: Duration,
     /// IAM in soft mode found it would refuse this request and let it through ([`crate::Config::would_deny`]).
     pub would_be_denied: bool,
+    /// The identity policy that allowed the request, when IAM is on and one did ([`crate::Config::would_deny`]); none for a request
+    /// IAM refused, one the account root made, and one only a resource-based policy allowed.
+    pub allowed_by: Option<AllowedBy<'a>>,
     /// The request's `User-Agent` header as sent (an SDK names itself and its version there); empty when it had none. The
     /// observer keeps what it needs of it: the gateway neither reads nor stores it.
     pub user_agent: &'a str,
@@ -75,82 +78,24 @@ pub struct Finished<'a> {
     pub lab: Option<LabNote<'a>>,
 }
 
+/// The identity policy that let a request through.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AllowedBy<'a> {
+    /// The policy's name.
+    pub policy: &'a str,
+    /// Where it is attached, as IAM's `PolicySourceType` words it: `aws-managed`, `user-managed`, `user`, `group` or `role`.
+    pub kind: &'a str,
+}
+
 /// The most bytes of an error message the observer is told.
 pub const MOST_MESSAGE: usize = 240;
 
 mod did;
+mod flight;
 
 pub use did::Did;
 pub(crate) use did::{output, output_json};
-
-/// The requests in flight, so a refusal IAM's soft mode lets through can be marked on the request it was for ([`crate::Config::would_deny`]).
-///
-/// IAM is told only the caller and the action, not which request asked, so a refusal is matched by the caller's key and region,
-/// then by the operation (`sqs:SendMessage` to `SendMessage`). When the caller has one request in flight it is that one, whatever
-/// the action is called (S3's `ListObjectsV2` asks for `s3:ListBucket`); when it has several, those whose operation is the
-/// action's are marked; when none is, none is (a guess would mark a call that was allowed).
-#[derive(Debug, Default)]
-pub struct WouldDeny(Mutex<Vec<Arc<Seen>>>);
-
-impl WouldDeny {
-    /// Soft mode let `access_key_id`, signed for `region`, do `action` (`sqs:SendMessage`), which its policies refuse.
-    pub fn let_through(&self, access_key_id: &str, region: &str, action: &str) {
-        let operation = action.split_once(':').map_or(action, |(_, op)| op);
-        let flight = self.0.lock().unwrap_or_else(PoisonError::into_inner);
-        let mine: Vec<&Arc<Seen>> = flight
-            .iter()
-            .filter(|s| {
-                let n = s.notes();
-                n.access_key_id == access_key_id && n.region == region
-            })
-            .collect();
-        let named: Vec<&&Arc<Seen>> = mine
-            .iter()
-            .filter(|s| s.notes().action == operation)
-            .collect();
-        if named.is_empty() {
-            if let [only] = mine.as_slice() {
-                only.notes().would_be_denied = true;
-            }
-            return;
-        }
-        for s in named {
-            s.notes().would_be_denied = true;
-        }
-    }
-
-    /// The id of the request `access_key_id`, signed for `region`, is being answered now, when it has exactly one in flight: what
-    /// caused a call between services made for that caller on a task the request's own does not reach (a service's actor). With
-    /// none in flight, or several, `None`: a guess could name the wrong one.
-    #[must_use]
-    pub fn request_of(&self, access_key_id: &str, region: &str) -> Option<String> {
-        let flight = self.0.lock().unwrap_or_else(PoisonError::into_inner);
-        let mut mine = flight.iter().filter(|s| {
-            let n = s.notes();
-            n.access_key_id == access_key_id && n.region == region
-        });
-        let only = mine.next()?;
-        if mine.next().is_some() {
-            return None;
-        }
-        let id = only.notes().request_id.clone();
-        (!id.is_empty()).then_some(id)
-    }
-
-    fn enter(&self, seen: &Arc<Seen>) {
-        self.0
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .push(Arc::clone(seen));
-    }
-
-    fn leave(&self, seen: &Arc<Seen>) {
-        self.0
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .retain(|s| !Arc::ptr_eq(s, seen));
-    }
-}
+pub use flight::WouldDeny;
 
 /// What the pipeline has learnt about the request in hand.
 #[derive(Debug, Default)]
@@ -175,6 +120,8 @@ struct Notes {
     code: Cow<'static, str>,
     message: String,
     would_be_denied: bool,
+    /// The identity policy that allowed the request, and its kind ([`WouldDeny::allowed_by`]).
+    allowed_by: Option<(String, String)>,
     summary: Summary,
     detail: String,
     /// The Lab rule that touched the request, and what it did.
@@ -346,6 +293,13 @@ pub(crate) fn begin(shared: &Shared, id: &RequestId, parts: &mut Parts) -> Optio
     Some(Instant::now())
 }
 
+/// The policy that allowed the request, unless the answer is an access denial: another check of the same request refused it, and a
+/// policy that allowed one thing it did must not be named for a call that failed for want of another.
+fn allowed_by<'a>(notes: &'a Notes, code: &str) -> Option<AllowedBy<'a>> {
+    let (policy, kind) = notes.allowed_by.as_ref()?;
+    (!code.starts_with("AccessDenied")).then_some(AllowedBy { policy, kind })
+}
+
 /// Tells the observer about a request [`begin`] started watching, now that its answer is made.
 pub(crate) fn end<B: hyper::body::Body>(
     shared: &Shared,
@@ -400,6 +354,7 @@ pub(crate) fn end<B: hyper::body::Body>(
         code,
         took: started.elapsed(),
         would_be_denied: notes.would_be_denied,
+        allowed_by: allowed_by(&notes, code),
         user_agent: parts
             .headers
             .get(http::header::USER_AGENT)

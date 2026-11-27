@@ -48,6 +48,31 @@ impl Service for FakeSqs {
                     "sqs:ListQueues",
                 );
             }
+            // An identity policy allowed these two: the first policy told stands. A later check refused `DeleteQueue` all the same.
+            if let Some(flight) = &self.0
+                && matches!(
+                    TABLES.op(call.op).unwrap().name,
+                    "GetQueueUrl" | "DeleteQueue"
+                )
+            {
+                let who = &call.caller;
+                let action = format!("sqs:{}", TABLES.op(call.op).unwrap().name);
+                flight.allowed_by(
+                    &who.access_key_id,
+                    &who.region,
+                    &action,
+                    "PowerUserAccess",
+                    "aws-managed",
+                );
+                flight.allowed_by(&who.access_key_id, &who.region, &action, "second", "user");
+            }
+            if TABLES.op(call.op).unwrap().name == "DeleteQueue" {
+                return Err(ApiError::new(
+                    400,
+                    "AccessDeniedException",
+                    "a later check refused it",
+                ));
+            }
             match TABLES.op(call.op).unwrap().name {
                 "ListQueues" => Ok(Output {
                     arena: aws_schema::arena::Arena::new(),
@@ -73,6 +98,7 @@ struct Told {
     code: String,
     request_id: String,
     would_be_denied: bool,
+    allowed_by: Option<(String, String)>,
     message: String,
     answer_bytes: Option<u32>,
     resource: String,
@@ -92,6 +118,9 @@ impl Observer for Tape {
             code: call.code.to_owned(),
             request_id: call.request_id.to_owned(),
             would_be_denied: call.would_be_denied,
+            allowed_by: call
+                .allowed_by
+                .map(|a| (a.policy.to_owned(), a.kind.to_owned())),
             message: call.message.to_owned(),
             answer_bytes: call.answer_bytes,
             resource: call.resource.to_owned(),
@@ -308,5 +337,36 @@ async fn a_call_the_model_refuses_still_says_what_it_named() {
     assert_eq!(told[0].action, "CreateQueue");
     assert_eq!(told[0].resource, "pick lists!", "{:?}", told[0]);
     assert_eq!(told[1].resource, "q");
+    running.shutdown().await;
+}
+
+#[tokio::test]
+async fn a_call_an_identity_policy_allowed_says_which_and_a_refused_one_says_nothing() {
+    let flight = Arc::new(WouldDeny::default());
+    let (running, addr, tape) = start_with(true, Some(flight.clone())).await;
+    // Allowed by a policy, then answered an error of the service's own (the queue is missing): IAM's yes still stands. The first
+    // policy told is the one kept.
+    let (missing, _) = call(addr, "AmazonSQS.GetQueueUrl", "sqs", r#"{"QueueName":"q"}"#).await;
+    // A call no policy was told for.
+    let (listed, _) = call(addr, "AmazonSQS.ListQueues", "sqs", "{}").await;
+    // A call a policy allowed and a later check refused: the answer is an access denial, and no policy is named.
+    let (refused, _) = call(addr, "AmazonSQS.DeleteQueue", "sqs", r#"{"QueueUrl":"q"}"#).await;
+    assert_eq!((missing, listed, refused), (400, 200, 400));
+    let told = tape.0.lock().unwrap().clone();
+    assert_eq!(
+        told.iter()
+            .map(|t| (t.action, t.allowed_by.clone()))
+            .collect::<Vec<_>>(),
+        [
+            (
+                "GetQueueUrl",
+                Some(("PowerUserAccess".to_owned(), "aws-managed".to_owned()))
+            ),
+            ("ListQueues", None),
+            ("DeleteQueue", None),
+        ]
+    );
+    // Told of a caller with nothing in flight: marks nothing and does not panic.
+    flight.allowed_by("AKIDEXAMPLE", "eu-west-1", "sqs:ListQueues", "p", "user");
     running.shutdown().await;
 }

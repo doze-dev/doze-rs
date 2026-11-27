@@ -188,6 +188,10 @@ pub struct CallRecord {
     pub outcome: Outcome,
     /// `--iam soft` found the caller's policies refuse this call and let it through: under `--iam enforce` it would be `denied`.
     pub would_be_denied: bool,
+    /// The identity policy that allowed the call under `--iam soft` or `enforce`, with where it is attached; `null` for a call no
+    /// identity policy allowed (the account root, a resource-based policy, a call IAM refused), and always `null` under `--iam off`,
+    /// which asks nothing.
+    pub allowed_by: Option<AllowedBy>,
     /// From the request's head being read to its answer being made, in microseconds.
     pub duration_us: u32,
     /// The id the answer carried (`x-amzn-RequestId`); empty for a call between services, which has no answer on the wire.
@@ -212,6 +216,17 @@ pub struct CallRecord {
     pub summary: Option<String>,
     /// The Lab rule that touched this call (it was delayed, failed or dropped on purpose); `null` for a call no rule touched.
     pub lab: Option<LabTag>,
+}
+
+/// The policy that let a call through.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct AllowedBy {
+    /// The policy's name (`PowerUserAccess`).
+    pub policy: String,
+    /// Where it is attached, as IAM's `PolicySourceType` words it: `aws-managed` and `user-managed` for a managed policy, `user`,
+    /// `group` or `role` for an inline one (the entity that holds it is not recorded).
+    pub kind: String,
 }
 
 /// What made a call between services.
@@ -247,6 +262,13 @@ impl CallRecord {
             error_code: some(&call.code),
             outcome: Outcome::of(call.status, &call.code),
             would_be_denied: call.would_be_denied,
+            allowed_by: call.extra.as_ref().and_then(|e| {
+                let kind = e.allowed_kind.filter(|_| !e.allowed_by.is_empty())?;
+                Some(AllowedBy {
+                    policy: e.allowed_by.to_string(),
+                    kind: kind.word().to_owned(),
+                })
+            }),
             duration_us: call.took_us,
             request_id: call.request_id.to_string(),
             via: call.via.as_ref().map(|v| CallVia {

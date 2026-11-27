@@ -18,6 +18,8 @@ pub const MOST_CODE: usize = 96;
 pub const MOST_MESSAGE: usize = 120;
 /// See [`MOST_REQUEST_ID`]: `Unhandled`, `Handled`.
 pub const MOST_FUNCTION_ERROR: usize = 16;
+/// See [`MOST_REQUEST_ID`]: the name of the policy that allowed a call (IAM's own limit for a policy name).
+pub const MOST_POLICY: usize = 128;
 /// See [`MOST_REQUEST_ID`]. An S3 key can be 1024 bytes; the head of it says which object.
 pub const MOST_RESOURCE: usize = 256;
 /// See [`MOST_REQUEST_ID`]: each of the three texts of a call between services ([`Via`]).
@@ -31,6 +33,7 @@ pub const MOST_WIRE_TEXT: usize = MOST_REQUEST_ID
     + crate::agent::MOST
     + MOST_MESSAGE
     + MOST_FUNCTION_ERROR
+    + MOST_POLICY
     + std::mem::size_of::<Extra>();
 /// The most a call between services holds beside its slot: it has no request id of its own, and a [`Via`].
 pub const MOST_BUS_TEXT: usize = MOST_CALLER

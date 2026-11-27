@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { CommandPalette, type PaletteGroup, type PaletteItem } from "@doze/ui/components/app/command-palette";
 import { copyText } from "@doze/ui/components/app/copy";
 import { ThemeSwitch } from "@doze/ui/components/app/theme-menu";
+import { CrumbShape } from "@doze/ui/components/app/page-header";
 import { TopBar, topBarChip } from "@doze/ui/components/app/top-bar";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarRail } from "@doze/ui/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@doze/ui/components/ui/tooltip";
@@ -15,6 +16,7 @@ import { useAbout } from "../api/queries";
 import { useCatalogue, useResourcesIndex } from "../api/resources";
 import { subscriptionLabel } from "../pages/resources/sns/sub-model";
 import { iconOf } from "../pages/resources/model";
+import { useGroupShape } from "../kit/crumbs";
 import { isActive, RECENTS_KEY, SPACES, type SpacePath } from "../nav";
 import { iamWords } from "../words";
 import { Logo, Wordmark } from "./brand";
@@ -124,6 +126,7 @@ export function Shell() {
   const [palette, setPalette] = useState(false);
   const [sidebar, setSidebar] = useSidebarOpen();
   const navigate = useNavigate();
+  const shape = useGroupShape();
   // Where the focus goes back when the palette closes: what had it when the palette opened, else the top bar's trigger.
   const opener = useRef<HTMLElement | null>(null);
   const trigger = () => document.querySelector<HTMLElement>("[data-testid=palette-trigger]");
@@ -203,7 +206,9 @@ export function Shell() {
           <ThemeSwitch />
         </TopBar>
         <main id="main" tabIndex={-1} className="mx-auto w-full max-w-[1600px] min-w-0 px-6 pt-7 pb-20 outline-none lg:px-10 xl:px-12" data-testid="page">
-          <Outlet />
+          <CrumbShape.Provider value={shape}>
+            <Outlet />
+          </CrumbShape.Provider>
         </main>
         <CommandPalette
           open={palette}

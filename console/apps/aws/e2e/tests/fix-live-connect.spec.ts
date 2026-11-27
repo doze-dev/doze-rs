@@ -123,7 +123,7 @@ test("Home does not say a placeholder version, and the Activities list ends its 
   await page.goto(`${server.console}/resources/stepfunctions/activities`);
   await expect(page.locator("h1").first()).toHaveText("Activities");
   // The service's crumb comes from the catalogue, a moment after the title in a browser that is slow to read it.
-  await expect(page.getByRole("navigation", { name: "Breadcrumb" }).locator("li")).toHaveCount(3);
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" }).locator("li")).toHaveCount(4);
   await expectCrumbsEnd(page, ["Step Functions", "Activities"]);
 });
 

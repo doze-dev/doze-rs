@@ -80,3 +80,18 @@ export function serviceTitle(name: string | null, titles: ReadonlyMap<string, st
   if (name === null) return null;
   return titles.get(name) ?? name;
 }
+
+/** What `allowed by <policy>` says of where the policy is attached: IAM's `PolicySourceType`, in words. The entity that holds an
+ * inline policy is not recorded, so a user's, a group's and a role's say only which kind they are. */
+export const POLICY_KIND: Record<string, string> = {
+  "aws-managed": "an AWS managed policy",
+  "user-managed": "a customer managed policy",
+  user: "an inline policy of the user",
+  group: "an inline policy of one of the user's groups",
+  role: "an inline policy of the role",
+};
+
+/** The sentence under a call's `allowed by` words: which policy let it through and what kind it is, in the order IAM reads them. */
+export function allowedBySentence(by: { policy: string; kind: string }): string {
+  return `Allowed by ${by.policy}, ${POLICY_KIND[by.kind] ?? by.kind}: the first policy that allowed it, reading the caller's own inline policies, then its attached ones, then each group's.`;
+}

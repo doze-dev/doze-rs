@@ -91,6 +91,10 @@ impl Mode {
 /// Told when soft mode lets through a request that would have been refused: the caller and the action (`sqs:SendMessage`).
 pub(crate) type WouldDeny = Arc<dyn Fn(&Caller, &str) + Send + Sync>;
 
+/// Told when a request is allowed by an identity policy: the caller, the action (`sqs:SendMessage`), and the policy's name and kind
+/// (`PowerUserAccess`, `aws-managed`).
+pub(crate) type AllowedBy = Arc<dyn Fn(&Caller, &str, &str, &str) + Send + Sync>;
+
 /// The mode, shared by the bus and read by whoever decides.
 #[derive(Debug, Default)]
 pub(crate) struct ModeCell(AtomicU8);
@@ -138,6 +142,23 @@ impl Peers {
         let tell = self.would_deny.read().ok().and_then(|slot| slot.clone());
         if let Some(tell) = tell {
             tell(caller, action);
+        }
+    }
+
+    /// Asks to be told of every request an identity policy allowed, with the policy's name and kind (the console's Live record says
+    /// `allowed by PowerUserAccess`). Unset, the default, nothing is told and a request pays one empty read of the slot.
+    pub fn on_allowed_by(&self, tell: impl Fn(&Caller, &str, &str, &str) + Send + Sync + 'static) {
+        if let Ok(mut slot) = self.allowed_by.write() {
+            *slot = Some(Arc::new(tell));
+        }
+    }
+
+    /// An identity policy named `policy` (of `kind`: `aws-managed`, `user-managed`, `user`, `group` or `role`) allowed `caller` to do
+    /// `action`: tells whoever asked to be told. Called by the authorizer, never with IAM off.
+    pub fn allowed_by(&self, caller: &Caller, action: &str, policy: &str, kind: &str) {
+        let tell = self.allowed_by.read().ok().and_then(|slot| slot.clone());
+        if let Some(tell) = tell {
+            tell(caller, action, policy, kind);
         }
     }
 

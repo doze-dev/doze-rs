@@ -56,16 +56,22 @@ export function FlowStrip({ groups, className }: { groups: readonly FlowGroup[];
 /** The distinct callers of `calls` that made one of `actions`, newest first, as people read them (an IAM user's name, a client such
  * as `AWS CLI`, `Lambda function send-email`); this console's own calls are left out. At most `most`. */
 export function useFeeders(calls: readonly CallRecord[], actions: readonly string[], most = 4): string[] {
+  const seen = useFeedersAt(calls, actions, most);
+  return useMemo(() => seen.map((f) => f.who), [seen]);
+}
+
+/** {@link useFeeders} with when each one last made the call (`at`, in ms): for a sentence that says whether it is going on or was. */
+export function useFeedersAt(calls: readonly CallRecord[], actions: readonly string[], most = 4): { who: string; at: number }[] {
   const principals = usePrincipals(useMemo(() => namedKeys(calls), [calls]));
   const about = useAbout().data;
   return useMemo(() => {
     const titles = new Map((about?.services ?? []).map((s) => [s.name, s.title]));
     const names = new Map((principals.data?.principals ?? []).map((p) => [p.key, p]));
-    const seen: string[] = [];
+    const seen: { who: string; at: number }[] = [];
     for (const c of calls) {
       if (!c.action || !actions.includes(c.action) || isConsole(c)) continue;
-      const label = callerWords(c, titles, names).label;
-      if (label !== "–" && !seen.includes(label)) seen.push(label);
+      const who = callerWords(c, titles, names).label;
+      if (who !== "–" && !seen.some((f) => f.who === who)) seen.push({ who, at: c.at_ms });
     }
     return seen.slice(0, most);
   }, [calls, actions, most, about, principals.data]);

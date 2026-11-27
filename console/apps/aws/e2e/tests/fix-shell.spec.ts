@@ -172,3 +172,35 @@ test("a JSON field that is not JSON yet is no member of the call, Save is off, a
   await expect(page.getByTestId("call-panel-code")).not.toContainText("Policy", { timeout: 6_000 });
   await expect(page.getByTestId("policy-json-format")).toHaveCount(0);
 });
+
+test("a service's group is a crumb: Resources, its group, the service; the group opens the index at that heading and marks it", async ({ page }) => {
+  cli(["sqs", "create-queue", "--queue-name", "grouped-q"]);
+  const crumbs = page.getByRole("navigation", { name: "Breadcrumb" });
+  const texts = async () => (await crumbs.locator("li").allInnerTexts()).map((s) => s.trim());
+  await go(page, "/resources/sqs/queues/grouped-q", "grouped-q");
+  await expect.poll(texts).toEqual(["Resources", "Messaging and events", "SQS", "Queues", "grouped-q"]);
+  // The group is a link, to the index at that group.
+  await expect(crumbs.getByRole("link", { name: "Messaging and events", exact: true })).toHaveAttribute("href", "/resources?group=Messaging+and+events");
+  // A list, and a form, of another group's service.
+  await go(page, "/resources/s3/buckets", "General purpose buckets");
+  await expect.poll(texts).toEqual(["Resources", "Storage and data", "S3"]);
+  await go(page, "/resources/ssm/parameters", "Parameter Store");
+  await expect.poll(async () => (await texts()).slice(0, 3)).toEqual(["Resources", "Config and secrets", "SSM Parameter Store"]);
+  // Access has no group heading to land on: its crumbs are as they were.
+  await go(page, "/resources/iam/users", "Users");
+  await expectCrumbsEnd(page, ["Access", "IAM", "Users"]);
+  expect(await texts()).toEqual(["Access", "IAM", "Users"]);
+
+  // Following the crumb: the index, the group's heading marked and in view, the other headings not marked.
+  await go(page, "/resources/sqs/queues/grouped-q", "grouped-q");
+  await crumbs.getByRole("link", { name: "Messaging and events", exact: true }).click();
+  await expect(page.locator("h1").first()).toHaveText("Resources");
+  await expect(page).toHaveURL(/\/resources\?group=Messaging\+and\+events$/);
+  const picked = page.getByTestId("group-group-messaging-and-events");
+  await expect(picked).toHaveAttribute("data-picked", "true");
+  await expect(page.locator("[data-picked]")).toHaveCount(1);
+  await expect(picked.getByRole("heading", { name: "Messaging and events" })).toBeInViewport();
+  // A page that does not name a group stays as it was.
+  await go(page, "/resources", "Resources");
+  await expect(page.locator("[data-picked]")).toHaveCount(0);
+});

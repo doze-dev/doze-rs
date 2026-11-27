@@ -33,6 +33,7 @@ fn wire(key: &'static str, signing: &'static str, action: &'static str) -> Finis
         code: "",
         took: Duration::from_micros(900),
         would_be_denied: false,
+        allowed_by: None,
         user_agent: "",
         message: "",
         function_error: "",

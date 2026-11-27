@@ -3,7 +3,7 @@ import type { CallRecord } from "../../api/types/CallRecord";
 import { looks } from "./needs-look";
 
 let seq = 0;
-const call = (p: Partial<CallRecord>): CallRecord => ({ seq: ++seq, at_ms: 1, service: "sqs", api: "SQS", action: "SendMessage", resource: null, member: null, caller: "AKIA1", region: "us-east-1", status: 200, error_code: null, outcome: "ok", would_be_denied: false, duration_us: 1, request_id: "r", via: null, sdk: null, message: null, function_error: null, answer_bytes: null, summary: null, lab: null, ...p });
+const call = (p: Partial<CallRecord>): CallRecord => ({ seq: ++seq, at_ms: 1, service: "sqs", api: "SQS", action: "SendMessage", resource: null, member: null, caller: "AKIA1", region: "us-east-1", status: 200, error_code: null, outcome: "ok", would_be_denied: false, allowed_by: null, duration_us: 1, request_id: "r", via: null, sdk: null, message: null, function_error: null, answer_bytes: null, summary: null, lab: null, ...p });
 
 test("one chip a kind, the newest of it, with how many there are; a call that went well has none", () => {
   const calls = [

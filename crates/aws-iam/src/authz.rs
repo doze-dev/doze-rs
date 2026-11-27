@@ -5,7 +5,10 @@
 //! issued is its user; anything else (`test`, a key from the command line) is the account root, which is allowed everything.
 //! Soft mode never asks the actor for a key that IAM cannot have issued, so an account with no identities costs nothing.
 
-use aws_iam_policy::{Context, Decision, Document, Layer, Policies, Request, Subject, Verdict};
+mod words;
+use words::{allowed_by, identity_policy, why_refused};
+
+use aws_iam_policy::{Context, Decision, Document, Policies, Request, Subject, Verdict};
 use aws_peers::{Mode, Need};
 use aws_wire::ApiError;
 use aws_wire::service::Caller;
@@ -86,6 +89,7 @@ impl Core {
                     resource: need.resource.clone(),
                     decision: "allowed",
                     reason: "the account root is allowed everything".into(),
+                    by: None,
                     at_ms: now,
                 }));
                 return Ok(());
@@ -112,6 +116,7 @@ impl Core {
                 reason: why
                     .clone()
                     .unwrap_or_else(|| allowed_by(&principal, &decision)),
+                by: identity_policy(&principal, &decision).map(|s| (s.id.clone(), s.kind)),
                 at_ms: self.now_ms(),
             });
             let Some(why) = why else {
@@ -329,61 +334,6 @@ fn mfa_context(c: &mut Context, mfa_ms: Option<i64>, now_ms: i64) {
 fn tags<'a>(c: &mut Context, pairs: impl Iterator<Item = (&'a String, &'a String)>) {
     for (k, v) in pairs {
         c.set(&format!("aws:PrincipalTag/{k}"), v.clone());
-    }
-}
-
-/// The end of AWS's sentence for a refusal (after who, what and on what): which layer said no.
-fn why_refused(p: &Principal, need: &Need, d: &Decision) -> String {
-    let action = &need.action;
-    if d.verdict == Verdict::ExplicitDeny {
-        let layer = match d.denied_by() {
-            Some(Layer::Boundary) => "a permissions boundary",
-            Some(Layer::Session) => "a session policy",
-            Some(Layer::Resource) => "a resource-based policy",
-            _ => "an identity-based policy",
-        };
-        format!("with an explicit deny in {layer}")
-    } else {
-        let allowed = |l: Layer| {
-            d.matched
-                .iter()
-                .any(|m| m.layer == l && m.effect == aws_iam_policy::Effect::Allow)
-        };
-        let missing = if !allowed(Layer::Identity) {
-            "identity-based policy"
-        } else if need.gate && !allowed(Layer::Resource) {
-            "resource-based policy"
-        } else if !p.boundary.is_empty() && !allowed(Layer::Boundary) {
-            "permissions boundary"
-        } else {
-            "session policy"
-        };
-        format!("because no {missing} allows the {action} action")
-    }
-}
-
-/// For the access log: the statement that let a request through.
-fn allowed_by(p: &Principal, d: &Decision) -> String {
-    let Some(m) = d
-        .matched
-        .iter()
-        .find(|m| m.effect == aws_iam_policy::Effect::Allow)
-    else {
-        return "allowed".into();
-    };
-    let source = match m.layer {
-        Layer::Identity => p.identity.sources.get(m.document),
-        Layer::Boundary => p.boundary.sources.get(m.document),
-        Layer::Session => p.session.as_ref().and_then(|s| s.sources.get(m.document)),
-        Layer::Resource => None,
-    };
-    let statement = m
-        .sid
-        .clone()
-        .unwrap_or_else(|| format!("statement {}", m.statement + 1));
-    match source {
-        Some(s) => format!("allowed by {statement} of {} ({})", s.id, s.kind),
-        None => format!("allowed by {statement} of the resource-based policy"),
     }
 }
 

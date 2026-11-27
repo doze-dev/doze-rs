@@ -3,7 +3,7 @@ import { CopyButton } from "@doze/ui/components/app/copy-button";
 import { StatusDot } from "@doze/ui/components/app/status-dot";
 import type { About } from "../../api/types/About";
 import { CodeBlock, Section } from "../card";
-import { ADDRESS, hostOf } from "./address";
+import { addressLabel, hostOf } from "./address";
 import { CheckCard } from "./connect-check";
 import { credsFor, envBlock } from "./snippets";
 import { urlShapes } from "./url-shapes";
@@ -87,7 +87,7 @@ export function Overview({ a, goTo }: { a: About; goTo: (tab: "code" | "services
         <div className="grid gap-6 md:grid-cols-2">
           <div className={panel} data-testid="connect-ip">
             <div className="flex items-center justify-between gap-4">
-              <h3 className={h3}>{ADDRESS.label}</h3>
+              <h3 className={h3}>{addressLabel(a.endpoint)}</h3>
               <StatusDot tone="ok">Listening</StatusDot>
             </div>
             <div className="mt-5 flex items-center gap-4">

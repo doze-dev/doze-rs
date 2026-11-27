@@ -100,7 +100,7 @@ export function HomePage() {
 
       <div className="mb-10 grid gap-6 lg:grid-cols-2">
         <WhereCard a={a} />
-        <ConnectedCard home={home} now={now} />
+        <ConnectedCard home={home} now={now} endpoint={a?.endpoint} />
       </div>
 
       <AwakeSection activity={h?.activity} idleSecs={h?.idle_secs} now={now} />

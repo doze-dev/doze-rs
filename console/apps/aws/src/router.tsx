@@ -7,7 +7,7 @@ import { NotFoundPage } from "./pages/not-found";
 // Live's address (the drawer of a call, the view, the filters): a small module of its own, so the router does not pull Live in.
 import { liveSearch } from "./pages/live/search";
 import { labSearch } from "./pages/lab/search";
-import { oneSearch, resourceSearch } from "./pages/resources/search";
+import { indexSearch, oneSearch, resourceSearch } from "./pages/resources/search";
 import { Shell } from "./shell/shell";
 
 const root = createRootRoute({ component: Shell, notFoundComponent: NotFoundPage });
@@ -19,7 +19,7 @@ const live = createRoute({ getParentRoute: () => root, path: "/live", validateSe
 // Resources is a chunk of its own too. `/resources/<service>/<x>` is a kind's list, or what Live's "Open" links to
 // (`/resources/sqs/orders?m=QueueUrl`): the space resolves which.
 const resourcesChunk = () => import("./pages/resources/routes");
-const resources = createRoute({ getParentRoute: () => root, path: "/resources", component: lazyRouteComponent(unlessLeaving(() => import("./pages/resources/index-page")), "ResourcesPage") });
+const resources = createRoute({ getParentRoute: () => root, path: "/resources", validateSearch: indexSearch, component: lazyRouteComponent(unlessLeaving(() => import("./pages/resources/index-page")), "ResourcesPage") });
 const service = createRoute({ getParentRoute: () => root, path: "/resources/$service", component: lazyRouteComponent(unlessLeaving(resourcesChunk), "ServicePage") });
 const second = createRoute({ getParentRoute: () => root, path: "/resources/$service/$second", validateSearch: resourceSearch, component: lazyRouteComponent(unlessLeaving(resourcesChunk), "SecondPage") });
 const resource = createRoute({ getParentRoute: () => root, path: "/resources/$service/$kind/$name", validateSearch: oneSearch, component: lazyRouteComponent(unlessLeaving(resourcesChunk), "OnePage") });

@@ -6,7 +6,7 @@ import type { About } from "../../api/types/About";
 import type { HomeView } from "../../api/types/HomeView";
 import { ago, clientName, who } from "../../people";
 import { Card, CardSkeleton, CopyRow } from "../card";
-import { ADDRESS } from "./address";
+import { addressLabel } from "./address";
 
 const HINT = "Check that doze-aws is still running, then try again. Nothing was changed.";
 
@@ -17,7 +17,7 @@ export function WhereCard({ a }: { a: About | undefined }) {
       {a ? (
         // grid-cols-1: a track of minmax(0, 1fr), so a long value is cut with an ellipsis instead of pushing Copy out of the card.
         <div className="grid grid-cols-1">
-          <CopyRow label={ADDRESS.label} value={a.endpoint} testId="endpoint" />
+          <CopyRow label={addressLabel(a.endpoint)} value={a.endpoint} testId="endpoint" />
           <CopyRow label="As an environment variable" value={`AWS_ENDPOINT_URL=${a.endpoint}`} testId="endpoint-env" />
         </div>
       ) : (
@@ -29,7 +29,7 @@ export function WhereCard({ a }: { a: About | undefined }) {
 
 /** Is my app connected: the app that called newest, which client it used, and when. The address it reached is the one this
  * instance has; a name beside it is not guessed. */
-export function ConnectedCard({ home, now }: { home: { data: HomeView | undefined; isError: boolean; error: unknown; isFetching: boolean; refetch: () => unknown }; now: number }) {
+export function ConnectedCard({ home, now, endpoint }: { endpoint?: string; home: { data: HomeView | undefined; isError: boolean; error: unknown; isFetching: boolean; refetch: () => unknown }; now: number }) {
   const h = home.data;
   const first = h?.callers[0];
   const w = first ? who(first.principal) : null;
@@ -45,7 +45,7 @@ export function ConnectedCard({ home, now }: { home: { data: HomeView | undefine
           <div className="grid grid-cols-1">
             <div className="flex items-center gap-4 pb-1" data-testid="connected-caller" data-key={first.principal.key}>
               <div className="min-w-0 flex-1">
-                <div className="text-[13px] text-muted-foreground">{ADDRESS.label}</div>
+                <div className="text-[13px] text-muted-foreground">{addressLabel(endpoint)}</div>
                 <div className="mt-1" data-testid="connected-heard">
                   <StatusDot tone="ok">
                     <span title={w.title}>
@@ -69,7 +69,7 @@ export function ConnectedCard({ home, now }: { home: { data: HomeView | undefine
         </div>
       ) : (
         <div data-testid="connected" data-state="no">
-          <div className="text-[13px] text-muted-foreground">{ADDRESS.label}</div>
+          <div className="text-[13px] text-muted-foreground">{addressLabel(endpoint)}</div>
           <div className="mt-1">
             <StatusDot tone="idle">Waiting for the first call</StatusDot>
           </div>

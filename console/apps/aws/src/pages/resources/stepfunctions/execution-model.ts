@@ -3,6 +3,7 @@
 import type { AslState, Definition } from "./graph";
 import { statesOf } from "./graph";
 import type { Step } from "./history";
+import { ago } from "../../../people";
 import { taskResource, taskTarget } from "./model";
 
 /** `0.18 s`, `1.2 s`, `16 min 36 s`, `1 h 2 min`. */
@@ -73,8 +74,23 @@ export function retryFor(state: AslState | undefined, error: string | undefined)
 /** How an execution that is no longer running stopped, after "when the execution". */
 const ENDED: Record<string, string> = { ABORTED: "was stopped", TIMED_OUT: "timed out", FAILED: "failed" };
 
-/** What the teaching line under a step says, as the boards say it. */
-export function stepNote(def: Definition | undefined, step: Pick<Step, "name" | "status" | "error" | "types">, opts: { status: string; redrivable: boolean; pollers: string[]; }): { text: string; names: string[] } | null {
+/** The newest poll of an activity the Live record holds: who made it and when (ms). */
+export type Poll = { who: string; at: number };
+
+/** A poll within this long of the page's clock is going on; an older one is only a fact about the past. */
+export const POLLING_MS = 60_000;
+
+/** Who polls an activity, as the Live record can say it. The record keeps what happened and not what is going on, so the present tense
+ * (`fulfilment (py) polls pack-order;`) is for a run in progress and a poll in the last minute of the page's clock; any other says when it
+ * was (`pack-order was last polled by fulfilment (py) 4 min ago;`). Nothing for an activity no one has polled. */
+export function pollClause(poll: Poll | null, now: number, running: boolean, activity: string): string {
+  if (!poll) return "";
+  if (running && now - poll.at <= POLLING_MS) return ` ${poll.who} polls ${activity};`;
+  return ` ${activity} was last polled by ${poll.who} ${ago(poll.at, now)};`;
+}
+
+/** What the teaching line under a step says, as the boards say it. `poll` is the newest GetActivityTask for the step's activity, and `now` the page's clock. */
+export function stepNote(def: Definition | undefined, step: Pick<Step, "name" | "status" | "error" | "types">, opts: { status: string; redrivable: boolean; poll: Poll | null; now: number }): { text: string; names: string[] } | null {
   const state = statesOf(def)[step.name];
   const names = [step.name];
   if (step.status === "running" && state && taskResource(state.Resource)?.activity) {
@@ -82,13 +98,15 @@ export function stepNote(def: Definition | undefined, step: Pick<Step, "name" | 
     // The board draws a run in progress, in the present. A run that is no longer running left this step in progress: it says what was happening, in the past.
     const live = opts.status === "RUNNING";
     const beat = typeof state.HeartbeatSeconds === "number" ? ` With HeartbeatSeconds ${state.HeartbeatSeconds} the worker ${live ? "must" : "had to"} call SendTaskHeartbeat within that time.` : "";
-    const poll = opts.pollers[0] ? ` ${opts.pollers[0]} ${live ? "polls" : "polled"} ${activity};` : "";
+    const poll = pollClause(opts.poll, opts.now, live, activity);
     const limit = typeof def?.TimeoutSeconds === "number" ? def.TimeoutSeconds.toLocaleString("en-US") : null;
     const timeout = limit ? `${poll ? "" : " "}the machine's own timeout of ${limit} seconds ${live ? "still applies" : "applied"}.` : "";
     const lead = live
       ? `${step.name} is an activity task. It stays in progress until a worker calls GetActivityTask for ${activity}, then answers with SendTaskSuccess or SendTaskFailure.`
       : `${step.name} is an activity task. It was waiting for a worker to call GetActivityTask for ${activity} and answer with SendTaskSuccess or SendTaskFailure when the execution ${ENDED[opts.status] ?? "stopped running"}.`;
-    return { text: `${lead}${beat}${poll}${poll || timeout ? ` ${timeout}`.trimEnd() : ""}`.trim(), names: [...names, activity] };
+    // A poll said without the timeout after it ends the sentence, not a clause.
+    const text = `${lead}${beat}${poll}${poll || timeout ? ` ${timeout}`.trimEnd() : ""}`.trim().replace(/;$/, ".");
+    return { text, names: [...names, activity] };
   }
   if (step.status === "failed" && state) {
     const rule = retryFor(state, step.error);

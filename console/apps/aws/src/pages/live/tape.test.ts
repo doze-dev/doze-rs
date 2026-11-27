@@ -3,7 +3,7 @@ import type { CallRecord } from "../../api/types/CallRecord";
 import type { CallsPage } from "../../api/types/CallsPage";
 import { admit, EMPTY, findCall, newestSeq, reduce, retryDelayMs, type Tape } from "./tape";
 
-const call = (seq: number): CallRecord => ({ seq, at_ms: 1_800_000_000_000 + seq, service: "sqs", api: "SQS", action: "SendMessage", resource: null, member: null, caller: "test", region: "us-east-1", status: 200, error_code: null, outcome: "ok", would_be_denied: false, duration_us: 100, request_id: `r-${seq}`, via: null, sdk: null, message: null, function_error: null, answer_bytes: null, summary: null, lab: null });
+const call = (seq: number): CallRecord => ({ seq, at_ms: 1_800_000_000_000 + seq, service: "sqs", api: "SQS", action: "SendMessage", resource: null, member: null, caller: "test", region: "us-east-1", status: 200, error_code: null, outcome: "ok", would_be_denied: false, allowed_by: null, duration_us: 100, request_id: `r-${seq}`, via: null, sdk: null, message: null, function_error: null, answer_bytes: null, summary: null, lab: null });
 
 /** A page of the calls numbered `seqs` (oldest first, as the server sends them). */
 function page(seqs: number[], more: Partial<CallsPage> = {}, capacity = 1024): CallsPage {

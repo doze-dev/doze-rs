@@ -33,6 +33,9 @@ pub(crate) struct Seen {
     pub(crate) decision: &'static str,
     /// Why: the statement that allowed, or the refusal's reason.
     pub(crate) reason: String,
+    /// The identity policy that held the Allow statement that let it through, with its kind: told to the bus for the Live record
+    /// ([`aws_peers::Peers::allowed_by`]) and not kept in the log.
+    pub(crate) by: Option<(String, &'static str)>,
     pub(crate) at_ms: i64,
 }
 
@@ -52,7 +55,8 @@ pub(crate) struct AccessLog {
 }
 
 impl AccessLog {
-    pub(crate) fn record(&mut self, seen: Seen) {
+    pub(crate) fn record(&mut self, mut seen: Seen) {
+        seen.by = None;
         let key = (
             seen.principal.clone(),
             seen.action.clone(),
@@ -174,6 +178,7 @@ mod tests {
             resource: resource.into(),
             decision: "allowed",
             reason: String::new(),
+            by: None,
             at_ms,
         }
     }

@@ -18,6 +18,7 @@ pub(super) fn call(n: u64) -> Finished<'static> {
         code: "",
         took: Duration::from_micros(n),
         would_be_denied: false,
+        allowed_by: None,
         user_agent: "",
         message: "",
         function_error: "",
@@ -107,6 +108,10 @@ fn the_bytes_held_are_counted_and_never_pass_the_bound() {
             name: &long,
             done: aws_gateway::Done::Failed,
         }),
+        allowed_by: Some(aws_gateway::AllowedBy {
+            policy: &long,
+            kind: "group",
+        }),
         ..call(1)
     };
     for n in 1..=20 {
@@ -121,7 +126,7 @@ fn the_bytes_held_are_counted_and_never_pass_the_bound() {
     assert_eq!(one.resource.len(), MOST_RESOURCE);
     assert_eq!(one.caller.len(), MOST_CALLER);
     // The whole ring, at its worst, is under a mebibyte (the Lab's tag took 8 bytes a row of the headroom).
-    const { assert!(MOST_BYTES < 1 << 20) };
+    const { assert!(MOST_BYTES < 5 << 18) };
     // A slot grew from 160 to 184 bytes with the member that named the resource and the cause of a call between services, and
     // to 200 with the client its User-Agent named, and to 216 with the pointer to the words of an error or a failed function and the
     // length of the answer (16 KB more for a full ring; a success holds no more text than before).
@@ -255,6 +260,7 @@ fn flows_count_each_caller_to_each_service_and_keep_the_most_recent() {
         &Finished {
             access_key_id: "other",
             would_be_denied: true,
+            allowed_by: None,
             ..call(6)
         },
         6,

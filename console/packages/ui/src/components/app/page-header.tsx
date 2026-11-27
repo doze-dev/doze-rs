@@ -1,9 +1,13 @@
 import { Link } from "@tanstack/react-router";
 import { ChevronRightIcon } from "lucide-react";
-import { Fragment, useEffect, useRef, useState } from "react";
+import { createContext, Fragment, useContext, useEffect, useRef, useState } from "react";
 import { cn } from "../../lib/utils";
 
 export type Crumb = { label: string; to: string };
+
+/** What an app does to every page's trail before it is drawn (the aws console puts a service's group between Resources and the service). The default
+ * leaves the trail as the page made it. */
+export const CrumbShape = createContext<(crumbs: Crumb[]) => Crumb[]>((c) => c);
 
 /** Whether the page has scrolled under the title row (a 1px mark above it has left the area below the top bar, 52px). */
 function useStuck() {
@@ -32,7 +36,9 @@ function useStuck() {
  * page are never out of reach. Nothing is drawn twice and nothing changes size on the way: the row is sticky in place, and only the line
  * under it appears once the page is under it. The header element itself is `display: contents`, so the row is sticky in the page and not
  * in the few lines of the header. */
-export function PageHeader({ title, sub, crumbs = [], actions, refresh, mono = false, titleExtra, belowCrumbs }: { title: string; sub?: React.ReactNode; crumbs?: Crumb[]; actions?: React.ReactNode; refresh?: React.ReactNode; mono?: boolean; /** Beside the h1: the badges of a resource (its type, its state). */ titleExtra?: React.ReactNode; /** Between the breadcrumb and the title: a wizard's steps. */ belowCrumbs?: React.ReactNode }) {
+export function PageHeader({ title, sub, crumbs: given = [], actions, refresh, mono = false, titleExtra, belowCrumbs }: { title: string; sub?: React.ReactNode; crumbs?: Crumb[]; actions?: React.ReactNode; refresh?: React.ReactNode; mono?: boolean; /** Beside the h1: the badges of a resource (its type, its state). */ titleExtra?: React.ReactNode; /** Between the breadcrumb and the title: a wizard's steps. */ belowCrumbs?: React.ReactNode }) {
+  const shape = useContext(CrumbShape);
+  const crumbs = shape(given);
   const top = crumbs.length > 0 || Boolean(refresh);
   const side = actions;
   const [mark, stuck] = useStuck();

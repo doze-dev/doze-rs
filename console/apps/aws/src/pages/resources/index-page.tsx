@@ -1,5 +1,5 @@
-import { Link } from "@tanstack/react-router";
-import { createElement, useCallback, useState } from "react";
+import { Link, useSearch } from "@tanstack/react-router";
+import { createElement, useCallback, useEffect, useState } from "react";
 import { ErrorBlock } from "@doze/ui/components/app/alert";
 import { PageHeader } from "@doze/ui/components/app/page-header";
 import { RefreshControl } from "@doze/ui/components/app/refresh-control";
@@ -12,6 +12,7 @@ import type { KindCount } from "../../api/types/KindCount";
 import type { ResourceService } from "../../api/types/ResourceService";
 import { StateMark } from "../home/state-mark";
 import { iconOf } from "./model";
+import { groupId } from "./search";
 
 import { HINT } from "../../kit";
 export { HINT };
@@ -85,6 +86,12 @@ export function ResourcesPage() {
     if (g) g[1].push(s);
     else groups.push([s.group, [s]]);
   }
+  // `?group=`: a breadcrumb's group links here. The page opens at that heading (once the groups are drawn) and the heading is marked.
+  const picked = (useSearch({ strict: false }) as { group?: string }).group;
+  const drawn = index.data !== undefined;
+  useEffect(() => {
+    if (picked && drawn) document.getElementById(groupId(picked))?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, [picked, drawn]);
   return (
     <>
       <PageHeader
@@ -114,8 +121,8 @@ export function ResourcesPage() {
       ) : (
         <div data-testid="resources-index">
           {groups.map(([group, services]) => (
-            <section key={group} className="mb-10" aria-labelledby={`group-${group}`}>
-              <h2 id={`group-${group}`} className="text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright">
+            <section key={group} id={groupId(group)} className="mb-10 scroll-mt-24" aria-labelledby={`${groupId(group)}-h`} data-testid={`group-${groupId(group)}`} data-picked={group === picked || undefined}>
+              <h2 id={`${groupId(group)}-h`} className={cn("-ml-3 border-l-2 border-transparent pl-3 text-[17px] leading-6 font-semibold tracking-[-0.01em] text-bright transition-colors", group === picked && "border-primary")}>
                 {group}
               </h2>
               <div className="mt-4 grid gap-6 md:grid-cols-2 xl:grid-cols-3">

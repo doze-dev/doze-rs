@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { authWords, iamWords, OUTCOMES, outcomeSentence, serviceTitle, WOULD_BE_DENIED } from "./words";
+import { allowedBySentence, authWords, iamWords, OUTCOMES, outcomeSentence, POLICY_KIND, serviceTitle, WOULD_BE_DENIED } from "./words";
 
 test("each IAM mode has its chip and its sentence, and an unknown one is shown as it is", () => {
   expect(iamWords("off").chip).toBe("IAM off");
@@ -43,4 +43,13 @@ test("a service is named by its title when the build has it, else by the name th
   expect(serviceTitle("stepfunctions", titles)).toBe("Step Functions");
   expect(serviceTitle("bedrock", titles)).toBe("bedrock");
   expect(serviceTitle(null, titles)).toBeNull();
+});
+
+test("a call's allowing policy is named with what kind it is, in IAM's order of reading", () => {
+  expect(Object.keys(POLICY_KIND).sort()).toEqual(["aws-managed", "group", "role", "user", "user-managed"]);
+  const s = allowedBySentence({ policy: "PowerUserAccess", kind: "aws-managed" });
+  expect(s).toContain("Allowed by PowerUserAccess, an AWS managed policy");
+  expect(s).toContain("then each group's");
+  // A kind this console does not know is said as it came, not dropped.
+  expect(allowedBySentence({ policy: "x", kind: "odd" })).toContain("Allowed by x, odd");
 });

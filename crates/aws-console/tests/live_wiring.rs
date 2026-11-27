@@ -33,6 +33,7 @@ fn wire(signing: &'static str) -> Finished<'static> {
         code: "",
         took: Duration::from_micros(900),
         would_be_denied: false,
+        allowed_by: None,
         user_agent: "",
         message: "",
         function_error: "",
