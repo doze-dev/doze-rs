@@ -36,6 +36,10 @@ impl ModuleInstance {
     /// Whether its module offers `block`: the capability bit, and a protocol minor agreed with it that has the call (a
     /// 2.1 module with a stray bit is never woken for a block it cannot answer).
     pub async fn has_block(&self, block: Block) -> Result<bool, String> {
+        // Without the bit it cannot be offered, whatever minor is agreed: no reason to start the module to hear so.
+        if self.lacks(block.method().capability()) {
+            return Ok(false);
+        }
         let m = self.pool.get(&self.key).await.map_err(|e| e.describe())?;
         Ok(m.offers(block.method()))
     }

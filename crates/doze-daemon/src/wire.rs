@@ -39,7 +39,17 @@ impl crate::front::Targets for Targets {
             let d = self.daemon()?;
             let mi = d.module(instance)?;
             let live = d.inner.live.as_ref()?;
-            let module = live.catalog().module_of(mi.key()).await?;
+            let catalog = live.catalog();
+            // What it declares is static: a module that does not take its clients (kafka) is not started on every
+            // connection to hear so. Only one that does is asked for its process, to hand the connection to.
+            let declared = catalog
+                .manifest(mi.key())
+                .map(|m| m.caps)
+                .or_else(|| catalog.pool.manifest(mi.key()).map(|m| m.caps));
+            if declared.is_some_and(|c| c & caps::WIRE == 0) {
+                return None;
+            }
+            let module = catalog.module_of(mi.key()).await?;
             if module.manifest.caps & caps::WIRE == 0 {
                 return None;
             }

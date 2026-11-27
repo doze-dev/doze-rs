@@ -13,12 +13,14 @@ pub(crate) const SIDE: &str = "side";
 
 /// Whether this copy of the module is the supervised one (its file is named `…-supervised`).
 pub(crate) fn supervised() -> bool {
+    named("-supervised")
+}
+
+/// Whether this copy of the program's file name ends with `suffix` (a copy the daemon's tests made to vary it).
+pub(crate) fn named(suffix: &str) -> bool {
     std::env::current_exe()
         .ok()
-        .and_then(|p| {
-            p.file_stem()
-                .map(|s| s.to_string_lossy().ends_with("-supervised"))
-        })
+        .and_then(|p| p.file_stem().map(|s| s.to_string_lossy().ends_with(suffix)))
         .unwrap_or(false)
 }
 

@@ -259,6 +259,23 @@ impl ModuleInstance {
         })
     }
 
+    /// Its module's manifest: as its last hello said it when the module has run, else from starting it.
+    async fn known_manifest(&self) -> Result<Arc<doze_module_proto::msg::hello::Manifest>, String> {
+        if let Some(m) = self.pool.manifest(&self.key) {
+            return Ok(m);
+        }
+        let m = self.pool.get(&self.key).await.map_err(|e| e.describe())?;
+        Ok(Arc::new(m.manifest.clone()))
+    }
+
+    /// Whether its module is known not to offer capability `cap` (its last hello lacked it). Never starts it: a
+    /// question about what a module declares is no reason to run one.
+    fn lacks(&self, cap: u64) -> bool {
+        self.pool
+            .manifest(&self.key)
+            .is_some_and(|m| cap != 0 && m.caps & cap == 0)
+    }
+
     async fn with_toolchain(&self, ctx: &PlanCtx) -> Result<WithToolchain, String> {
         let i = self.instance(ctx);
         let toolchain = i
@@ -294,6 +311,9 @@ impl Structure for ModuleInstance {
 
     fn converge<'a>(&'a self, ctx: &'a PlanCtx) -> BoxFuture<'a, Result<(), String>> {
         Box::pin(async move {
+            if self.lacks(doze_module_proto::msg::hello::caps::CONVERGE) {
+                return Ok(());
+            }
             let m = self.pool.get(&self.key).await.map_err(|e| e.describe())?;
             let caps = m.manifest.caps;
             if caps & doze_module_proto::msg::hello::caps::CONVERGE == 0 {
@@ -310,6 +330,9 @@ impl Structure for ModuleInstance {
         removed: &'a [Object],
     ) -> BoxFuture<'a, Result<(), String>> {
         Box::pin(async move {
+            if self.lacks(doze_module_proto::msg::hello::caps::PRUNE) {
+                return Ok(());
+            }
             let m = self.pool.get(&self.key).await.map_err(|e| e.describe())?;
             if m.manifest.caps & doze_module_proto::msg::hello::caps::PRUNE == 0 {
                 return Ok(());
