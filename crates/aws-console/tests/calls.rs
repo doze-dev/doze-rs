@@ -65,7 +65,7 @@ async fn calls_are_paged_by_a_cursor_oldest_first() {
         serde_json::json!({
             "seq": 1, "at_ms": 1_000, "service": "sqs", "api": "SQS", "action": "CreateQueue", "resource": null,
             "member": null, "caller": "test", "region": "us-east-1", "status": 200, "error_code": null, "outcome": "ok",
-            "would_be_denied": false, "duration_us": 1_500, "request_id": "0c6f3a52-7a8b-4c1d-9e2f-000000000000",
+            "would_be_denied": false, "allowed_by": null, "duration_us": 1_500, "request_id": "0c6f3a52-7a8b-4c1d-9e2f-000000000000",
             "via": null, "sdk": "boto3 1.34.69", "message": null, "function_error": null, "answer_bytes": null, "summary": null, "lab": null,
         })
     );
@@ -358,4 +358,44 @@ async fn a_publish_made_by_the_console_counts_its_deliveries_too() {
             (&Value::Null, &Value::from("0c6f3a52-uuid")),
         ]
     );
+}
+
+#[tokio::test]
+async fn a_call_an_identity_policy_allowed_says_which_policy_and_of_what_kind() {
+    let s = state(8, &[]);
+    let app = app(&s);
+    for (action, by) in [
+        ("SendMessage", Some(("PowerUserAccess", "aws-managed"))),
+        ("ReceiveMessage", Some(("queue-writer", "user-managed"))),
+        ("DeleteMessage", Some(("inline", "user"))),
+        // A kind IAM does not have, and a call nothing named: no policy is claimed.
+        ("PurgeQueue", Some(("odd", "something-else"))),
+        ("ListQueues", None),
+    ] {
+        s.recorder.record(
+            &Finished {
+                allowed_by: by.map(|(policy, kind)| aws_gateway::AllowedBy { policy, kind }),
+                ..sqs_call(action, 200, "")
+            },
+            1,
+        );
+    }
+    let (_, page) = json(&app, get("/api/v1/calls")).await;
+    let calls = page["calls"].as_array().unwrap();
+    assert_eq!(
+        calls[0]["allowed_by"],
+        serde_json::json!({"policy": "PowerUserAccess", "kind": "aws-managed"})
+    );
+    assert_eq!(
+        calls[1]["allowed_by"],
+        serde_json::json!({"policy": "queue-writer", "kind": "user-managed"})
+    );
+    assert_eq!(
+        calls[2]["allowed_by"],
+        serde_json::json!({"policy": "inline", "kind": "user"})
+    );
+    assert_eq!(calls[3]["allowed_by"], Value::Null);
+    assert_eq!(calls[4]["allowed_by"], Value::Null);
+    // Its words are the call's own: a call with a summary keeps both.
+    assert_eq!(calls[0]["error_code"], Value::Null);
 }

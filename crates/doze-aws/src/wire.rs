@@ -245,6 +245,13 @@ fn live_on_the_bus(
             told.let_through(&caller.access_key_id, &caller.region, action);
         });
     }
+    // Under `--iam off` nothing asks IAM, so nothing is told and the record names no policy.
+    if iam_mode(cfg) != aws_peers::Mode::Off {
+        let told = Arc::clone(&flight);
+        peers.on_allowed_by(move |caller, action, policy, kind| {
+            told.allowed_by(&caller.access_key_id, &caller.region, action, policy, kind);
+        });
+    }
     gw.would_deny = Some(flight);
 }
 

@@ -7,7 +7,7 @@ import { lineId, lines } from "./repeats";
 import { nameIn, resourceHref, resourceName, resourceShown } from "./resource";
 import { callerOf, consoleShown, filtering, isConsole, liveSearch, matches } from "./search";
 
-const call = (seq: number, more: Partial<CallRecord> = {}): CallRecord => ({ seq, at_ms: 1_800_000_000_000 + seq, service: "sqs", api: "SQS", action: "SendMessage", resource: "orders", member: "QueueName", caller: "AKIA1", region: "us-east-1", status: 200, error_code: null, outcome: "ok", would_be_denied: false, duration_us: 100, request_id: `r-${seq}`, via: null, sdk: null, message: null, function_error: null, answer_bytes: null, summary: null, lab: null, ...more });
+const call = (seq: number, more: Partial<CallRecord> = {}): CallRecord => ({ seq, at_ms: 1_800_000_000_000 + seq, service: "sqs", api: "SQS", action: "SendMessage", resource: "orders", member: "QueueName", caller: "AKIA1", region: "us-east-1", status: 200, error_code: null, outcome: "ok", would_be_denied: false, allowed_by: null, duration_us: 100, request_id: `r-${seq}`, via: null, sdk: null, message: null, function_error: null, answer_bytes: null, summary: null, lab: null, ...more });
 const via = (by: string, request_id: string | null = null, name: string | null = null) => ({ by, request_id, name });
 
 describe("Live's address", () => {

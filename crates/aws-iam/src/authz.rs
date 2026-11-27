@@ -12,7 +12,7 @@ use aws_wire::service::Caller;
 
 use crate::accesslog::Seen;
 use crate::core::Core;
-use crate::gather::Docs;
+use crate::gather::{Docs, Source};
 use crate::model::{Entity, Kind};
 use crate::session::{Session, SessionKind, TokenFault};
 
@@ -86,6 +86,7 @@ impl Core {
                     resource: need.resource.clone(),
                     decision: "allowed",
                     reason: "the account root is allowed everything".into(),
+                    by: None,
                     at_ms: now,
                 }));
                 return Ok(());
@@ -112,6 +113,7 @@ impl Core {
                 reason: why
                     .clone()
                     .unwrap_or_else(|| allowed_by(&principal, &decision)),
+                by: identity_policy(&principal, &decision).map(|s| (s.id.clone(), s.kind)),
                 at_ms: self.now_ms(),
             });
             let Some(why) = why else {
@@ -360,6 +362,20 @@ fn why_refused(p: &Principal, need: &Need, d: &Decision) -> String {
         };
         format!("because no {missing} allows the {action} action")
     }
+}
+
+/// The identity policy that let a request through: the first Allow statement that matched in the identity layer, in the order the
+/// principal's policies are evaluated (see [`Core::policies_of`]). `None` for a refusal, and for a request only a resource-based
+/// policy or a session allowed (no identity policy did).
+fn identity_policy<'a>(p: &'a Principal, d: &Decision) -> Option<&'a Source> {
+    if !d.allowed() {
+        return None;
+    }
+    let m = d
+        .matched
+        .iter()
+        .find(|m| m.layer == Layer::Identity && m.effect == aws_iam_policy::Effect::Allow)?;
+    p.identity.sources.get(m.document)
 }
 
 /// For the access log: the statement that let a request through.

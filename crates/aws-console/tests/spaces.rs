@@ -41,6 +41,7 @@ fn wire<'a>(
         code: "",
         took: Duration::from_micros(900),
         would_be_denied: false,
+        allowed_by: None,
         user_agent: ua,
         message: "",
         function_error: "",
@@ -85,6 +86,7 @@ async fn refused_worker(w: &World) -> String {
     for _ in 0..2 {
         let refused = Finished {
             would_be_denied: true,
+            allowed_by: None,
             ..wire(&key, "sqs", "ListQueues", "aws-cli/2.15.30")
         };
         w.state.recorder.record(&refused, 1);
@@ -379,7 +381,7 @@ async fn settings_without_the_data_engine_say_so_and_refuse_a_reset() {
     assert_eq!(view["reset"], false);
     assert_eq!(view["data_bytes"], Value::Null);
     assert!(view["data_error"].as_str().unwrap().contains("data engine"));
-    assert!(view["ring_most_bytes"].as_u64().unwrap() < 1 << 20);
+    assert!(view["ring_most_bytes"].as_u64().unwrap() < 5 << 18);
     let (status, refused) = w
         .send("POST", "/api/v1/settings/reset", &json!({"dry_run": true}))
         .await;

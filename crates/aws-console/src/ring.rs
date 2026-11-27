@@ -6,7 +6,7 @@
 //! no reader a call wakes nobody.
 //!
 //! What it holds is bounded too. A record is [`RECORD_BYTES`] in the ring plus its text, which is at most [`MOST_TEXT`]:
-//! [`MOST_BYTES`] in all when every record is as long as it may be (about 0.9 MB), and about 0.25 MB for ordinary calls (a 36-byte
+//! [`MOST_BYTES`] in all when every record is as long as it may be (about 1.2 MB), and about 0.25 MB for ordinary calls (a 36-byte
 //! request id, a 20-byte key, a region, no resource). The ring is empty until the first call and grows to its capacity; it is
 //! never allocated ahead.
 //!
@@ -27,7 +27,7 @@ use aws_peers::{BusCall, CallWatcher};
 use tokio::sync::watch;
 
 use call::cut;
-pub use call::{Call, Extra, Lab, LabDid, Via};
+pub use call::{Call, Extra, Lab, LabDid, PolicyKind, Via};
 pub use fan::Publishing;
 pub use flows::{FLOWS, Flow};
 pub use limits::*;
@@ -148,6 +148,7 @@ impl Recorder {
             extra: (!call.message.is_empty()
                 || !call.function_error.is_empty()
                 || !call.did.detail.is_empty()
+                || call.allowed_by.is_some()
                 || call.lab.is_some())
             .then(|| {
                 Box::new(Extra {
@@ -160,6 +161,10 @@ impl Recorder {
                         MOST_MESSAGE,
                     ),
                     function_error: cut(call.function_error, MOST_FUNCTION_ERROR),
+                    allowed_by: call
+                        .allowed_by
+                        .map_or_else(Box::default, |a| cut(a.policy, MOST_POLICY)),
+                    allowed_kind: call.allowed_by.and_then(|a| PolicyKind::of(a.kind)),
                     lab: call.lab.and_then(|l| {
                         Lab::new(
                             l.rule,
@@ -406,3 +411,5 @@ impl CallWatcher for Recorder {
 mod tests;
 #[cfg(test)]
 mod tests_lab;
+#[cfg(test)]
+mod tests_policy;

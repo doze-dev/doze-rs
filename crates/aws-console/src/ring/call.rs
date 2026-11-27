@@ -62,7 +62,7 @@ pub enum LabDid {
 }
 
 /// The Lab rule that touched a call: kept on its row, never folded into another. The rule's name is not kept here (a ring row is
-/// bounded to under a mebibyte in all): the API asks the table for it. Eight bytes: the rule's number, and what it did packed into a
+/// bounded: about 1.2 MB at the most in all): the API asks the table for it. Eight bytes: the rule's number, and what it did packed into a
 /// number of milliseconds (a wait) or one of two values no wait reaches (an error, a closed connection).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Lab {
@@ -115,6 +115,10 @@ pub struct Extra {
     pub function_error: Box<str>,
     /// The Lab rule that touched the call.
     pub lab: Option<Lab>,
+    /// The name of the identity policy that allowed the call (`PowerUserAccess`), empty when none did or IAM was off.
+    pub allowed_by: Box<str>,
+    /// Where that policy is attached; `None` with an empty `allowed_by`.
+    pub allowed_kind: Option<PolicyKind>,
 }
 
 /// What made a call between services.
@@ -148,8 +152,53 @@ impl Call {
             + self.via.as_ref().map_or(0, |v| v.bytes())
             + self.sdk.len()
             + self.extra.as_ref().map_or(0, |e| {
-                std::mem::size_of::<Extra>() + e.message.len() + e.function_error.len()
+                std::mem::size_of::<Extra>()
+                    + e.message.len()
+                    + e.function_error.len()
+                    + e.allowed_by.len()
             })
+    }
+}
+
+/// Where the policy that allowed a call is attached, as IAM's `PolicySourceType` words it. One byte in the record.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PolicyKind {
+    /// A managed policy AWS keeps (`PowerUserAccess`).
+    AwsManaged,
+    /// A managed policy of the account.
+    UserManaged,
+    /// An inline policy of a user.
+    User,
+    /// An inline policy of a group.
+    Group,
+    /// An inline policy of a role.
+    Role,
+}
+
+impl PolicyKind {
+    /// The kind IAM named (`aws-managed`); `None` for any other word.
+    #[must_use]
+    pub fn of(word: &str) -> Option<Self> {
+        Some(match word {
+            "aws-managed" => Self::AwsManaged,
+            "user-managed" => Self::UserManaged,
+            "user" => Self::User,
+            "group" => Self::Group,
+            "role" => Self::Role,
+            _ => return None,
+        })
+    }
+
+    /// IAM's word for it.
+    #[must_use]
+    pub const fn word(self) -> &'static str {
+        match self {
+            Self::AwsManaged => "aws-managed",
+            Self::UserManaged => "user-managed",
+            Self::User => "user",
+            Self::Group => "group",
+            Self::Role => "role",
+        }
     }
 }
 

@@ -148,6 +148,7 @@ impl Shared {
                 resource: need.resource,
                 decision: "allowed",
                 reason: "the account root is allowed everything".into(),
+                by: None,
                 at_ms: now,
             }));
             return Ok(());
@@ -162,6 +163,7 @@ impl Shared {
         {
             Ok(Answer::Authorize(verdict, seen)) => {
                 self.tell_let_through(caller, &verdict, &seen);
+                self.tell_allowed_by(caller, &verdict, &seen);
                 self.record(seen);
                 verdict
             }
@@ -202,6 +204,20 @@ impl Shared {
         }
         for s in seen.iter().filter(|s| s.decision != "allowed") {
             peers.would_deny(caller, &s.action);
+        }
+    }
+
+    /// Every question of the request was answered yes, and an identity policy gave the first: the bus is told which, for whoever marks
+    /// the request (the console). A request refused, or let through by soft mode against the policies, is told nothing here.
+    fn tell_allowed_by(&self, caller: &Caller, verdict: &Result<(), ApiError>, seen: &[Seen]) {
+        let Some(peers) = self.peers.as_ref() else {
+            return;
+        };
+        if verdict.is_err() || seen.iter().any(|s| s.decision != "allowed") {
+            return;
+        }
+        if let Some((s, (policy, kind))) = seen.iter().find_map(|s| s.by.as_ref().map(|b| (s, b))) {
+            peers.allowed_by(caller, &s.action, policy, kind);
         }
     }
 
