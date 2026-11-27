@@ -16,7 +16,7 @@
 // The whole-workspace gates always run (fmt, clippy with every feature set CI lints, the workspace tests, rustdoc, the generated
 // and catalogued files, supply chain, the Windows type-check, the path lint); the expensive suites run when the diff against
 // origin/main reaches what they cover (tools/prepush/plan.ts). Linux runs in the Lima VM `doze-ubuntu` (PREPUSH_VM), after the
-// Mac's gates, never beside them: a loaded host makes the signal tests flaky and the 4 GiB VM needs the memory to itself.
+// Mac's gates, never beside them: a loaded host makes the signal tests flaky (doze-cli's SIGINT tests at load ~22) and the VM's links need the memory.
 //
 // Exit: 0 every gate passed (warnings allowed), 1 a gate failed, 3 a partial run (--only, --no-vm, or the VM missing), 2 usage.
 // The proof log is <git common dir>/prepush/<sha>.log (inside .git: never committed, survives `just clean`, shared by worktrees).
@@ -66,6 +66,10 @@ const env: Record<string, string> = {
   // ci.yml's `env:` for every job.
   RUSTFLAGS: "-D warnings",
   CARGO_TERM_COLOR: "never",
+  // No debug info in test builds: one full run built 95 GB of target/debug with it (2026-11-27), and the console-e2e step builds
+  // doze-aws this way anyway, so the two now share one build. Panics still say file and line; a backtrace has no line numbers
+  // (run the failing test by hand for those).
+  CARGO_PROFILE_DEV_DEBUG: "0",
   NO_COLOR: "1",
 };
 
@@ -80,9 +84,14 @@ const HEAD = sh("git", ["rev-parse", "HEAD"]);
 const dirty = sh("git", ["status", "--porcelain", "--untracked-files=no"]) !== "";
 const logDir = resolve(root, sh("git", ["rev-parse", "--git-common-dir"]), "prepush");
 mkdirSync(logDir, { recursive: true });
-const LOG = join(logDir, `${HEAD}${dirty ? "-dirty" : ""}.log`);
-writeFileSync(LOG, `prepush ${HEAD}${dirty ? " (working tree with uncommitted changes)" : ""} at ${new Date().toISOString()}\n`);
-const log = (s: string) => appendFileSync(LOG, s.endsWith("\n") ? s : s + "\n");
+// A partial run (--only) is no proof: it gets a name of its own, so it never overwrites a full run's log.
+const LOG = join(logDir, `${HEAD}${dirty ? "-dirty" : ""}${ONLY ? `-only-${Date.now()}` : ""}.log`);
+// --plan writes nothing (a run of the same sha may be writing this file).
+const PLAN_ONLY = flag("--plan");
+if (!PLAN_ONLY) writeFileSync(LOG, `prepush ${HEAD}${dirty ? " (working tree with uncommitted changes)" : ""} at ${new Date().toISOString()}\n`);
+const log = (s: string) => {
+  if (!PLAN_ONLY) appendFileSync(LOG, s.endsWith("\n") ? s : s + "\n");
+};
 const say = (s: string) => {
   console.log(s);
   log(s);
@@ -336,8 +345,15 @@ async function main() {
   if (!stop()) {
     if (sel("modules")) {
       const token = ghToken();
+      const shm = shmShortage();
       if (!token) skip("modules.sh", "NOT RUN: no GitHub token (gh auth login) for doze-binaries' engine downloads", "mac", "fail");
-      else await gate("modules.sh", [{ cmd: ".github/ci/modules.sh aarch64-apple-darwin", env: { GH_TOKEN: token, RUNNER_TEMP: join(TARGET, "prepush/runner") } }], { timeoutMin: 60 });
+      else if (shm) skip("modules.sh", `NOT RUN: ${shm}`, "mac", "fail");
+      else {
+        // modules.sh downloads every engine again each run (--clobber), so its folder is not kept.
+        const runner = join(TARGET, "prepush/runner");
+        await gate("modules.sh", [{ cmd: ".github/ci/modules.sh aarch64-apple-darwin", env: { GH_TOKEN: token, RUNNER_TEMP: runner } }], { timeoutMin: 60 });
+        rmSync(runner, { recursive: true, force: true });
+      }
     } else skip("modules.sh", "nothing it covers changed");
   }
 
@@ -382,7 +398,9 @@ async function main() {
     if (fuzzSteps.length === 0) skip("fuzz", "no fuzzed crate is reached by the diff");
     else {
       const cmds = fuzzSteps.map((s) => ({ ...asCmd(s), cmd: s.run!.replaceAll("-max_total_time=30", `-max_total_time=${FUZZ_SECONDS}`), env: { RUSTUP_TOOLCHAIN: "nightly" } }));
+      const before = new Set(sh("git", ["status", "--porcelain", "--untracked-files=all"]).split("\n"));
       await gate("fuzz", cmds, { timeoutMin: 120, note: `${fuzzSteps.length} steps, ${FUZZ_SECONDS} s a target (CI 30 s)` });
+      restoreFuzzLeftovers(before);
     }
   }
 
@@ -393,6 +411,39 @@ async function main() {
   skip("windows os.sh", "tests on windows-latest and windows-11-arm (incl. the elevated names setup test) need Windows", "-", "n/a");
   skip("x86_64 linux", "check/os/modules on ubuntu x86_64: the VM is arm64; x86_64-only failures show only in CI", "-", "n/a");
   skip("signing", "Developer ID signing and notarization need the secrets: the bundle here is ad hoc", "-", "n/a");
+}
+
+/**
+ * macOS gives postgres 32 SysV shared memory segments (kern.sysv.shmmni), and a postgres that is killed leaves its segment
+ * behind; once they are gone every initdb fails with "No space left on device" (seen here 2026-11-27: 27 of 32 leaked). Says so
+ * before modules.sh spends minutes failing, with the cleanup that touches only segments nothing is attached to.
+ */
+function shmShortage(): string | null {
+  if (process.platform !== "darwin") return null;
+  try {
+    const max = Number(sh("sysctl", ["-n", "kern.sysv.shmmni"]));
+    const rows = sh("ipcs", ["-mo"]).split("\n").filter((l) => l.startsWith("m "));
+    const unattached = rows.filter((l) => l.trim().split(/\s+/)[6] === "0").length;
+    if (max - rows.length >= 6) return null;
+    return `SysV shared memory is nearly full on this Mac (${rows.length} of ${max} segments, ${unattached} with nothing attached: leaks from killed postgres processes), so postgres cannot start. Not the code. To free the unattached ones: ipcs -mo | awk '$1=="m" && $7==0 {print $2}' | xargs -n1 ipcrm -m`;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * cargo fuzz rewrites a fuzz crate's Cargo.lock when it is stale (eight were, 2026-11-27) and a crate without a .gitignore for
+ * corpus/ leaves its corpus in the tree. CI's runner throws both away; here they would dirty the tree `just push` checks, so what
+ * the fuzz gate changed under crates/<name>/fuzz is put back (said in the log; the stale lockfiles are worth a commit of their own).
+ */
+function restoreFuzzLeftovers(before: Set<string>) {
+  const after = sh("git", ["status", "--porcelain", "--untracked-files=all"]).split("\n").filter(Boolean);
+  const fresh = after.filter((l) => !before.has(l) && /^.. crates\/[^/]+\/fuzz\//.test(l));
+  const modified = fresh.filter((l) => l.startsWith(" M")).map((l) => l.slice(3));
+  const untracked = fresh.filter((l) => l.startsWith("??")).map((l) => l.slice(3));
+  if (modified.length) sh("git", ["checkout", "--", ...modified]);
+  for (const u of untracked) rmSync(join(root, u), { force: true });
+  if (fresh.length) say(`  fuzz: put back ${modified.length} changed files (stale fuzz lockfiles: ${modified.join(", ") || "none"}) and ${untracked.length} new corpus files`);
 }
 
 function hasCmd(c: string): boolean {
@@ -530,7 +581,12 @@ async function e2eGate() {
     if (stop2()) return;
     const cmds = [
       { cmd: `bunx --bun playwright install ${browser}`, cwd: join(root, "console/apps/aws"), label: `playwright install ${browser}` },
-      ...runs.map((s) => ({ ...asCmd(s), cmd: s.run!.replaceAll("${{ matrix.browser }}", browser) })),
+      // CI=true as on the runner: the configs then allow CI's one retry, so the verdict is CI's (a retried pass is printed
+      // "flaky" in the log, never hidden). Without it a local crash CI would retry fails here (Firefox "Page crashed", 2026-11-27).
+      ...runs.map((s) => {
+        const cmd = s.run!.replaceAll("${{ matrix.browser }}", browser);
+        return { ...asCmd(s), cmd, label: cmd, env: { CI: "true" } };
+      }),
     ];
     await gate(`console-e2e ${browser}`, cmds, { timeoutMin: 90 });
   }
@@ -562,7 +618,7 @@ async function linuxGates(p: Plan) {
   const t0 = Date.now();
   say(`▸ linux (${VM}): sending the tree`);
   const tgz = join(tmpdir(), `prepush-${process.pid}.tgz`);
-  const sent = await run(`git ls-files -z -co --exclude-standard | tar -czf ${tgz} --null -T - && limactl copy ${tgz} ${VM}:/tmp/prepush-src.tgz`, { timeoutMin: 10 });
+  const sent = await run(`git ls-files -z -co --exclude-standard | COPYFILE_DISABLE=1 tar --no-mac-metadata --no-xattrs -czf ${tgz} --null -T - && limactl copy ${tgz} ${VM}:/tmp/prepush-src.tgz`, { timeoutMin: 10 });
   rmSync(tgz, { force: true });
   if (sent.code !== 0) {
     for (const g of chosen) record({ id: g, where: "vm", status: "fail", secs: 0, note: "could not copy the tree into the VM" });
