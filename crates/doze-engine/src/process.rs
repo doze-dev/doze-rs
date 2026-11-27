@@ -281,11 +281,26 @@ impl ProcessSpec {
     }
 }
 
+/// doze's own variables that name a file (the authority's root and bundle): given only while the file is there.
+pub const FILE_VARS: [&str; 4] = [
+    "DOZE_CA_FILE",
+    "NODE_EXTRA_CA_CERTS",
+    "SSL_CERT_FILE",
+    "REQUESTS_CA_BUNDLE",
+];
+
 /// Adds doze's own variables (`extra`) to `env`, what a process is given on top of doze's environment (Go's
 /// `envWithExtra`). A variable the block chose on purpose wins (an app pointing `REQUESTS_CA_BUNDLE` at a corporate
 /// bundle keeps it); one that merely repeats what doze itself inherited is replaced, as an inherited one is.
+///
+/// A variable in [`FILE_VARS`] whose file is gone when the process starts is not given at all (`doze trust --remove` or
+/// `dns-setup --uninstall` took the authority away after the daemon started): a client pointed at a missing store
+/// fails every https call, where without the variable it keeps its own.
 pub fn with_extra(env: &mut BTreeMap<String, String>, extra: &BTreeMap<String, String>) {
     for (k, v) in extra {
+        if FILE_VARS.contains(&k.as_str()) && !Path::new(v).is_file() {
+            continue;
+        }
         let chosen = env
             .get(k)
             .is_some_and(|own| std::env::var(k).ok().as_deref() != Some(own.as_str()));

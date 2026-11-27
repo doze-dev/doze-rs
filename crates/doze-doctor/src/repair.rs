@@ -14,6 +14,9 @@ use doze_names::setup::{Plan, Shell};
 use doze_names::trust_store::domain_routed;
 use std::time::Duration;
 
+/// How the repair names the authority in what it cannot do.
+const AUTHORITY: &str = "the certificate authority";
+
 /// Which part of the machine a part of the repair sets up.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
@@ -64,9 +67,7 @@ pub fn plan(m: &Machine, stack: Option<&StackDomains>) -> Repair {
     if let Some(stack) = stack.filter(|s| !s.domains.is_empty()) {
         let auth = Authority::probe(m.home());
         if let Some(why) = &auth.broken {
-            cannot.push(format!(
-                "the certificate authority: {why} (doze trust --rotate)"
-            ));
+            cannot.push(format!("{AUTHORITY}: {why} (doze trust --rotate)"));
         }
         let ca = auth
             .ca
@@ -85,6 +86,13 @@ pub fn plan(m: &Machine, stack: Option<&StackDomains>) -> Repair {
     // https for the zone, unless the domains' part trusts the authority already (the same root, one line).
     let domains_trust = request.as_ref().is_some_and(|r| r.ca.is_some());
     let mut make_ca = None;
+    // A broken authority serves no name, domain or not: said even for a stack without domains, never "nothing to do".
+    if !m.zone_off
+        && !cannot.iter().any(|c| c.starts_with(AUTHORITY))
+        && let crate::https::Https::Broken(why) = crate::https::Https::probe(m)
+    {
+        cannot.push(format!("{AUTHORITY}: {why} (doze trust --rotate)"));
+    }
     if !domains_trust && let Some((plan, make)) = crate::https::plan(m) {
         if make {
             make_ca = Some(doze_names::ca::ca_dir(m.home()));

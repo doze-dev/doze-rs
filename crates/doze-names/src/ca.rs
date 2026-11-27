@@ -123,7 +123,8 @@ impl Ca {
         }
         doze_os::fs::private_dir(dir)?;
         let _lock = doze_os::fs::lock(&dir.join(".lock"))?;
-        if let Some(ca) = Ca::probe(dir)? {
+        // Under the lock already: the plain look (`probe` would wait on the lock this process holds).
+        if let Some(ca) = Ca::probe_once(dir)? {
             return Ok(ca);
         }
         Ca::create(dir, read_previous(dir))
@@ -131,7 +132,21 @@ impl Ca {
 
     /// The authority under `dir` without making one: `None` when there is none, an error when one is there and
     /// cannot be used (unreadable, or expiring within a leaf's life), which `doze trust --rotate` fixes.
+    ///
+    /// One of the pair without the other is an authority being made (or rotated) by another process, which writes
+    /// both under the folder's lock: the look is made again under that lock, once the writer is done, rather than
+    /// calling a half-written authority broken.
     pub fn probe(dir: &Path) -> Result<Option<Ca>, Error> {
+        let (crt, key) = (dir.join(ROOT_CRT), dir.join(ROOT_KEY));
+        let lock = dir.join(".lock");
+        if crt.exists() != key.exists() && lock.exists() {
+            let _held = doze_os::fs::lock(&lock)?;
+            return Ca::probe_once(dir);
+        }
+        Ca::probe_once(dir)
+    }
+
+    fn probe_once(dir: &Path) -> Result<Option<Ca>, Error> {
         let (crt, key) = (
             std::fs::read_to_string(dir.join(ROOT_CRT)),
             std::fs::read_to_string(dir.join(ROOT_KEY)),

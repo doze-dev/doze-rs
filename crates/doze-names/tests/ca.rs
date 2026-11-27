@@ -18,6 +18,29 @@ fn scratch(tag: &str) -> PathBuf {
     d
 }
 
+/// A look that lands while another process is between writing the key and the root waits for it (both are written
+/// under the folder's lock) and sees the whole authority, never a broken one.
+#[test]
+fn a_half_written_authority_is_looked_at_again_once_its_writer_is_done() {
+    let made = scratch("half-src");
+    let src = Ca::load_or_create(&made).unwrap();
+    let dir = scratch("half");
+    std::fs::create_dir_all(&dir).unwrap();
+    let writing = doze_os::fs::lock(&dir.join(".lock")).unwrap();
+    std::fs::copy(made.join("root.key"), dir.join("root.key")).unwrap();
+    let look = {
+        let dir = dir.clone();
+        std::thread::spawn(move || Ca::probe(&dir).map(|c| c.map(|c| c.fingerprint())))
+    };
+    std::thread::sleep(std::time::Duration::from_millis(150));
+    assert!(!look.is_finished(), "the look waits for the writer");
+    std::fs::copy(made.join("root.crt"), dir.join("root.crt")).unwrap();
+    drop(writing);
+    assert_eq!(look.join().unwrap().unwrap(), Some(src.fingerprint()));
+    let _ = std::fs::remove_dir_all(&made);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 #[test]
 fn made_once_read_back_and_keys_as_go_writes_them() {
     let dir = scratch("made");

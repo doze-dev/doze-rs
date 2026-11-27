@@ -123,6 +123,30 @@ fn nothing_set_up_is_repaired_by_the_zone_install() {
     );
 }
 
+/// A broken authority serves no name: with no domain declared the repair still says it cannot fix it and how, rather
+/// than "nothing to do", and plans no trust of it; doctor's https line names the rotation.
+#[test]
+fn a_broken_authority_without_domains_is_said_not_passed_over() {
+    let dir = tempfile::tempdir().unwrap();
+    let m = machine(dir.path());
+    let ca = m.home().join("ca");
+    std::fs::create_dir_all(&ca).unwrap();
+    std::fs::write(ca.join("root.crt"), "not a certificate").unwrap();
+    std::fs::write(ca.join("root.key"), "not a key").unwrap();
+    let r = plan(&m, None);
+    assert!(
+        r.cannot
+            .iter()
+            .any(|c| c.starts_with("the certificate authority")
+                && c.ends_with("(doze trust --rotate)")),
+        "{:?}",
+        r.cannot
+    );
+    assert!(r.parts.iter().all(|p| p.kind != Kind::Https));
+    let https = crate::https::check(&m).unwrap();
+    assert_eq!(https.fix.as_deref(), Some(crate::FIX_ROTATE));
+}
+
 #[test]
 fn a_zone_switched_off_needs_nothing() {
     let dir = tempfile::tempdir().unwrap();

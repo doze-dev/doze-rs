@@ -70,14 +70,9 @@ impl Routes {
     /// to be routed. One the machine still routes is kept with no claimant, so [`Routes::stale`] reports it until the
     /// route is removed; one never routed is forgotten.
     ///
-    /// A project in the system's temporary folder is refused when the home is not in it too: that is a test's or a
-    /// fixture's project run against the person's real home, and its domains would be routed machine-wide (a fixture's
-    /// `dev.acme.com` once landed in a real record this way). Folders whose doze.hcl is gone leave every entry here.
+    /// A deleted project (its folder missing while the folder it was in is there) leaves every entry here; one that
+    /// only cannot be seen now (an unmounted volume, a checkout in progress) is kept.
     pub fn record(&self, dir: &str, domains: &[String]) -> Result<(), Error> {
-        if throwaway(&self.home, dir) {
-            return Err(Error::Throwaway(dir.to_owned()));
-        }
-        let home = self.home.clone();
         let want: BTreeSet<String> = route_domains(domains)
             .into_iter()
             .filter(|d| valid_domain(d).is_ok())
@@ -85,7 +80,7 @@ impl Routes {
         let routed = self.routed;
         self.update(|rs| {
             rs.retain(|d, dirs| {
-                dirs.retain(|x| x != dir && claims(&home, x));
+                dirs.retain(|x| x != dir && !gone(x));
                 !dirs.is_empty() || want.contains(d) || routed(d)
             });
             for d in want {
@@ -166,36 +161,61 @@ impl Routes {
 impl Routes {
     /// Whether one of the folders still claims its routes ([`claims`]).
     fn declared(&self, dirs: &[String]) -> bool {
-        dirs.iter().any(|d| claims(&self.home, d))
+        dirs.iter().any(|d| claims(d))
+    }
+
+    /// The routes recorded for a project in the system's temporary folder while this home is not in it: a test's or a
+    /// fixture's run against the person's home (a fixture's `dev.acme.com` once landed in a real record this way).
+    /// Said by doctor as a leftover with the command that removes it, never dropped silently: a person may keep a
+    /// project there on purpose. `(domain, folder)`, sorted.
+    pub fn temporary(&self) -> Vec<(String, String)> {
+        if under_temp(&self.home) {
+            return Vec::new();
+        }
+        self.read()
+            .into_iter()
+            .flat_map(|(d, dirs)| dirs.into_iter().map(move |x| (d.clone(), x)))
+            .filter(|(_, x)| under_temp(Path::new(x)) && claims(x))
+            .collect()
     }
 }
 
-/// Whether a recorded folder may still mean its routes: it has a doze.hcl, and it is not a throwaway folder in a real
-/// home (one recorded before [`Routes::record`] refused them is treated as gone, so its route goes as stale).
-fn claims(home: &Path, dir: &str) -> bool {
-    Path::new(dir).join("doze.hcl").is_file() && !throwaway(home, dir)
+/// Whether a recorded folder may still mean its routes: it holds a config doze would load (any `*.hcl`: `-c` takes
+/// another name than doze.hcl). Only a folder that is certainly gone or certainly holds none stops claiming: one that
+/// cannot be read now (permissions, a volume being mounted) still claims, so no route is removed on a passing error.
+fn claims(dir: &str) -> bool {
+    match std::fs::metadata(dir) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => false,
+        Err(_) => true,
+        Ok(m) if !m.is_dir() => false,
+        Ok(_) => std::fs::read_dir(dir).map_or(true, |entries| {
+            entries.flatten().any(|e| {
+                e.path().extension().is_some_and(|x| x == "hcl")
+                    && e.file_type().is_ok_and(|t| t.is_file() || t.is_symlink())
+            })
+        }),
+    }
 }
 
-/// The system's temporary folder, as named and with links resolved (macOS: `/var/folders/…` is
+/// Whether a recorded folder is gone for good, so [`Routes::record`] may drop it: it does not exist while the folder
+/// it was in does (a deleted project). A missing parent too reads as an unmounted volume or a checkout in progress,
+/// and the entry is kept.
+fn gone(dir: &str) -> bool {
+    let path = Path::new(dir);
+    matches!(std::fs::symlink_metadata(path), Err(e) if e.kind() == std::io::ErrorKind::NotFound)
+        && path.parent().is_some_and(Path::is_dir)
+}
+
+/// Whether `p` is in the system's temporary folder (as named, and with links resolved: macOS's `/var/folders/…` is
 /// `/private/var/folders/…`, and project folders are recorded resolved).
-fn temp_roots() -> Vec<PathBuf> {
+fn under_temp(p: &Path) -> bool {
     let t = std::env::temp_dir();
-    let mut out = vec![t.clone()];
-    if let Ok(c) = t.canonicalize()
-        && c != t
-    {
-        out.push(c);
-    }
-    out
-}
-
-/// Whether `dir` is in the system's temporary folder while `home` is not: a test's or a fixture's project reaching
-/// the person's real home.
-pub(crate) fn throwaway(home: &Path, dir: &str) -> bool {
-    let roots = temp_roots();
-    let under = |p: &Path| roots.iter().any(|t| p.starts_with(t));
-    let home_resolved = home.canonicalize().unwrap_or_else(|_| home.to_path_buf());
-    under(Path::new(dir)) && !under(home) && !under(&home_resolved)
+    let roots = [Some(t.clone()), t.canonicalize().ok()];
+    let resolved = p.canonicalize().ok();
+    roots
+        .iter()
+        .flatten()
+        .any(|root| p.starts_with(root) || resolved.as_ref().is_some_and(|r| r.starts_with(root)))
 }
 
 #[cfg(test)]
@@ -203,10 +223,10 @@ pub(crate) fn throwaway(home: &Path, dir: &str) -> bool {
 mod tests {
     use super::*;
 
-    fn project(root: &Path, name: &str) -> String {
+    fn project(root: &Path, name: &str, file: &str) -> String {
         let dir = root.join(name);
         std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(dir.join("doze.hcl"), "stack = \"x\"\n").unwrap();
+        std::fs::write(dir.join(file), "stack = \"x\"\n").unwrap();
         dir.canonicalize().unwrap().display().to_string()
     }
 
@@ -218,36 +238,26 @@ mod tests {
     }
 
     #[test]
-    fn a_throwaway_project_never_reaches_a_real_home() {
-        let tmp = scratch("real");
-        let acme = project(&tmp, "work/acme");
-        // A home outside the temporary folder stands for the person's real ~/.doze. Nothing is written to it: the
-        // refusal comes before the file is touched.
-        let real = Path::new("/nonexistent-doze-home-for-a-test");
-        let routes = Routes::with_check(real, |_| false);
-        let err = routes.record(&acme, &["dev.acme.com".into()]).unwrap_err();
-        assert!(matches!(err, Error::Throwaway(_)), "{err}");
-        assert!(err.to_string().contains("temporary folder"), "{err}");
-        assert!(!real.exists());
-        // A test's own home in the temporary folder records its projects as before.
+    fn a_project_under_any_config_name_keeps_its_route_and_a_deleted_one_goes() {
+        let tmp = scratch("claims");
         let home = tmp.join("home");
-        let routes = Routes::with_check(&home, |_| false);
-        routes.record(&acme, &["dev.acme.com".into()]).unwrap();
-        assert_eq!(routes.claimants("dev.acme.com"), vec![acme.clone()]);
-        let _ = std::fs::remove_dir_all(&tmp);
-    }
-
-    #[test]
-    fn recording_drops_folders_that_are_gone_and_a_throwaway_entry_reads_as_stale() {
-        let tmp = scratch("gone");
-        let home = tmp.join("home");
-        let (a, b) = (project(&tmp, "a"), project(&tmp, "b"));
         let routes = Routes::with_check(&home, |d| d == "old.test");
+        // `-c stack.hcl`: no doze.hcl, still a project doze loads.
+        let other = project(&tmp, "other", "stack.hcl");
+        let a = project(&tmp, "a", "doze.hcl");
+        routes.record(&other, &["other.test".into()]).unwrap();
         routes
             .record(&a, &["a.test".into(), "old.test".into()])
             .unwrap();
         std::fs::remove_dir_all(&a).unwrap();
-        routes.record(&b, &["b.test".into()]).unwrap();
+        routes
+            .record(&project(&tmp, "b", "doze.hcl"), &["b.test".into()])
+            .unwrap();
+        assert_eq!(
+            routes.claimants("other.test"),
+            vec![other.clone()],
+            "another project's record keeps it"
+        );
         let text = std::fs::read_to_string(routes.path()).unwrap();
         assert!(
             !text.contains(&a),
@@ -262,13 +272,58 @@ mod tests {
             vec!["old.test".to_string()],
             "a routed one stays, stale"
         );
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
 
-        // An entry written before the refusal (a fixture's folder in a real home) counts as gone.
-        assert!(throwaway(
-            Path::new("/nonexistent-doze-home-for-a-test"),
-            &b
-        ));
-        assert!(!throwaway(&home, &b));
+    #[test]
+    fn a_folder_that_cannot_be_seen_now_is_never_pruned() {
+        let tmp = scratch("unmounted");
+        let home = tmp.join("home");
+        // As an unmounted volume reads: the folder and its parent are both missing.
+        let away = tmp.join("Volumes/ext/shop").display().to_string();
+        std::fs::create_dir_all(&home).unwrap();
+        std::fs::write(home.join(FILE), format!("{{\"shop.test\": [{away:?}]}}\n")).unwrap();
+        let routes = Routes::with_check(&home, |_| true);
+        routes
+            .record(&project(&tmp, "b", "doze.hcl"), &["b.test".into()])
+            .unwrap();
+        let text = std::fs::read_to_string(routes.path()).unwrap();
+        assert!(text.contains(&away), "kept while it cannot be seen: {text}");
+        assert!(!gone(&away));
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn a_temporary_project_in_a_real_home_is_a_leftover_not_dropped() {
+        let tmp = scratch("temporary");
+        let acme = project(&tmp, "work/acme", "doze.hcl");
+        // An entry as the Go fixture left it: a temporary project in a home outside the temporary folder.
+        let real = std::env::current_dir()
+            .unwrap()
+            .join(".routes-temporary-test-home");
+        let routes = Routes::with_check(&real, |_| true);
+        assert!(!under_temp(&real));
+        std::fs::create_dir_all(&real).unwrap();
+        std::fs::write(
+            real.join(FILE),
+            format!("{{\"dev.acme.com\": [{acme:?}]}}\n"),
+        )
+        .unwrap();
+        assert_eq!(
+            routes.temporary(),
+            vec![("dev.acme.com".to_string(), acme.clone())]
+        );
+        assert!(
+            routes.stale().is_empty(),
+            "it still claims its route: said, not removed"
+        );
+        assert_eq!(routes.claimants("dev.acme.com"), vec![acme.clone()]);
+        let _ = std::fs::remove_dir_all(&real);
+        // A test's own home in the temporary folder has no such leftover.
+        let home = tmp.join("home");
+        let routes = Routes::with_check(&home, |_| false);
+        routes.record(&acme, &["dev.acme.com".into()]).unwrap();
+        assert!(routes.temporary().is_empty());
         let _ = std::fs::remove_dir_all(&tmp);
     }
 }

@@ -32,6 +32,7 @@ const PROBE: &str = r#"app "probe" {
   watch = ["src/*.txt"]
   env = {
     REDIS = module.redis.address
+    REQUESTS_CA_BUNDLE = "/corp/bundle.pem"
   }
 }
 "#;
@@ -122,9 +123,12 @@ async fn larder_runs_in_the_engine() {
 
     let planner = |i: &Instance| -> Arc<dyn Planner> { Arc::new(StandIn { port: i.port }) };
     let tls = home.join(".doze/tls");
+    std::fs::create_dir_all(&tls).unwrap();
+    std::fs::write(tls.join("ca.pem"), "root").unwrap();
+    std::fs::write(tls.join("bundle.pem"), "roots and root").unwrap();
     let w = Wiring {
         planner: &planner,
-        extra_env: ca_env(&tls.join("ca.pem"), &tls.join("bundle.pem")),
+        extra_env: ca_env(&tls.join("ca.pem"), Some(&tls.join("bundle.pem"))),
         fetch: None,
     };
     let stack = to_stack(&cfg, &w);
@@ -168,6 +172,14 @@ async fn larder_runs_in_the_engine() {
     assert!(env.lines().any(|l| l == "REDIS=127.0.0.1:6379"), "{env}");
     let ca = format!("DOZE_CA_FILE={}", tls.join("ca.pem").display());
     assert!(env.lines().any(|l| l == ca), "{env}");
+    // doze's own variables reach the process, and one the block's env sets keeps the block's value.
+    let bundle = format!("SSL_CERT_FILE={}", tls.join("bundle.pem").display());
+    assert!(env.lines().any(|l| l == bundle), "{env}");
+    assert!(
+        env.lines()
+            .any(|l| l == "REQUESTS_CA_BUNDLE=/corp/bundle.pem"),
+        "{env}"
+    );
     assert!(
         e.get("orders").is_some_and(|i| !i.state.running()),
         "nothing else was woken"

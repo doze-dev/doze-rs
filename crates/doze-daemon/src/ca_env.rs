@@ -3,8 +3,9 @@
 //! `https://<x>.<stack>.doze` must trust the authority too: every stack with names gets it, not only one with a domain.
 //! The authority is made here when there is none (files only). `SSL_CERT_FILE` and `REQUESTS_CA_BUNDLE` replace a
 //! client's store rather than add to it, so they get the bundle (the machine's roots and the doze root), never the doze
-//! root alone, and public https keeps working. A variable the block sets itself wins (`doze_engine::process::
-//! with_extra`).
+//! root alone, and public https keeps working; with no system roots to bundle they are left unset. A variable the block
+//! sets itself wins, and one naming a file that is gone when a process starts is not given (`doze_engine::process::
+//! with_extra`; doze-config's larder test runs it end to end).
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -32,10 +33,13 @@ fn for_home(home: &Path) -> BTreeMap<String, String> {
         }
     };
     match ca.ensure_bundle() {
-        Ok(bundle) => doze_config::stack::ca_env(&ca.root_path(), &bundle),
+        Ok(bundle) => doze_config::stack::ca_env(&ca.root_path(), Some(&bundle)),
         Err(e) => {
-            eprintln!("doze daemon: names: could not write the trust bundle: {e}");
-            BTreeMap::new()
+            // Node still adds the root; the clients whose store a bundle replaces keep their own.
+            eprintln!(
+                "doze daemon: names: no trust bundle ({e}); SSL_CERT_FILE and REQUESTS_CA_BUNDLE left unset"
+            );
+            doze_config::stack::ca_env(&ca.root_path(), None)
         }
     }
 }
@@ -67,36 +71,26 @@ mod tests {
         let root = home.join("ca/root.crt").display().to_string();
         assert_eq!(env["DOZE_CA_FILE"], root);
         assert_eq!(env["NODE_EXTRA_CA_CERTS"], root, "node adds to its store");
-        let bundle = &env["SSL_CERT_FILE"];
+        let Some(bundle) = env.get("SSL_CERT_FILE") else {
+            // A system with no roots to bundle (a bare container): the two that replace a store are left unset.
+            assert!(!env.contains_key("REQUESTS_CA_BUNDLE"), "{env:?}");
+            assert!(
+                std::env::consts::OS != "macos",
+                "macOS always has its roots"
+            );
+            let _ = std::fs::remove_dir_all(&home);
+            return;
+        };
         assert_ne!(bundle, &root, "never the doze root alone");
         assert_eq!(&env["REQUESTS_CA_BUNDLE"], bundle);
         let text = std::fs::read_to_string(bundle).unwrap();
         let ours = std::fs::read_to_string(&root).unwrap();
         assert!(text.contains(ours.trim()), "the bundle holds the doze root");
-        if cfg!(target_os = "macos") {
-            assert!(
-                text.matches("-----BEGIN CERTIFICATE-----").count() > 1,
-                "and the machine's own roots"
-            );
-        }
+        let others = text.replace(ours.trim(), "");
+        assert!(
+            others.contains("-----BEGIN CERTIFICATE-----"),
+            "and at least one root that is not doze's"
+        );
         let _ = std::fs::remove_dir_all(&home);
-    }
-
-    #[test]
-    fn a_variable_the_block_sets_keeps_its_value() {
-        let mut env = BTreeMap::from([(
-            "REQUESTS_CA_BUNDLE".to_owned(),
-            "/corp/bundle.pem".to_owned(),
-        )]);
-        let extra = BTreeMap::from([
-            (
-                "REQUESTS_CA_BUNDLE".to_owned(),
-                "/doze/bundle.pem".to_owned(),
-            ),
-            ("SSL_CERT_FILE".to_owned(), "/doze/bundle.pem".to_owned()),
-        ]);
-        doze_engine::process::with_extra(&mut env, &extra);
-        assert_eq!(env["REQUESTS_CA_BUNDLE"], "/corp/bundle.pem");
-        assert_eq!(env["SSL_CERT_FILE"], "/doze/bundle.pem");
     }
 }

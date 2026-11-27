@@ -195,6 +195,31 @@ fn only_a_fronted_app_may_sleep() {
 
 /// Go's `TestAProcessesOwnVariableWinsOverDozesAndAnInheritedOneDoesNot`: doze's variables replace what a process
 /// merely inherited and yield to what it was given on purpose.
+/// The authority's files went after the daemon started (`doze trust --remove`, `dns-setup --uninstall`): a process
+/// started then is not pointed at a store that is gone, and one still there is given as before.
+#[test]
+fn a_doze_file_variable_whose_file_is_gone_is_not_given() {
+    let dir = tmp("gone-ca");
+    let root = dir.join("root.crt");
+    std::fs::write(&root, "pem").unwrap();
+    let gone = dir.join("bundle.pem").display().to_string();
+    let extra: BTreeMap<String, String> = [
+        ("NODE_EXTRA_CA_CERTS", root.display().to_string()),
+        ("SSL_CERT_FILE", gone.clone()),
+        ("REQUESTS_CA_BUNDLE", gone),
+    ]
+    .into_iter()
+    .map(|(k, v)| (k.to_string(), v))
+    .collect();
+    let mut env = BTreeMap::new();
+    with_extra(&mut env, &extra);
+    assert_eq!(
+        env.keys().map(String::as_str).collect::<Vec<_>>(),
+        ["NODE_EXTRA_CA_CERTS"]
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 #[test]
 fn a_chosen_variable_wins_over_dozes_and_an_inherited_one_does_not() {
     let inherited = std::env::var("PATH").unwrap();

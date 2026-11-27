@@ -4,7 +4,7 @@
 //! every public https host; the bundle keeps them whole.
 
 use crate::Error;
-use crate::ca::{Ca, write_atomic};
+use crate::ca::{Ca, ca_err, write_atomic};
 use crate::trust_store::{CA_COMMON_NAME, platform_roots_pem};
 use std::path::PathBuf;
 use x509_cert::Certificate;
@@ -104,6 +104,16 @@ fn system_roots_pem() -> String {
         .unwrap_or_default()
 }
 
+/// The files the system's roots are read from, whose change makes a bundle out of date.
+fn roots_sources() -> &'static [&'static str] {
+    if cfg!(target_os = "macos") {
+        // Apple's curated file, and the System keychain an administrator trusts roots in.
+        &["/etc/ssl/cert.pem", "/Library/Keychains/System.keychain"]
+    } else {
+        &BUNDLE_FILES
+    }
+}
+
 fn same_file(a: &std::path::Path, b: &std::path::Path) -> bool {
     match (std::fs::canonicalize(a), std::fs::canonicalize(b)) {
         (Ok(a), Ok(b)) => a == b,
@@ -132,15 +142,32 @@ impl Ca {
         &self,
         inherited: Option<&std::path::Path>,
     ) -> Result<PathBuf, Error> {
+        self.bundle_with(&system_roots_pem(), inherited)
+    }
+
+    /// [`Ca::bundle_from`] with the system's roots given (a test stands in for a system that has none).
+    pub(crate) fn bundle_with(
+        &self,
+        system: &str,
+        inherited: Option<&std::path::Path>,
+    ) -> Result<PathBuf, Error> {
         let _lock = doze_os::fs::lock(&self.dir.join(".lock"))?;
         let root = std::fs::read_to_string(self.root_path())?;
         let mut out = String::new();
-        without_doze_roots(&system_roots_pem(), &mut out);
+        without_doze_roots(system, &mut out);
         if let Some(inherited) = inherited
             && !same_file(inherited, &self.bundle_path())
             && let Ok(extra) = std::fs::read_to_string(inherited)
         {
             without_doze_roots(&extra, &mut out);
+        }
+        if pem_blocks(&out).is_empty() {
+            // A bundle of the doze root alone would cut every client given it off from public https: none is written,
+            // and the clients keep their own stores.
+            return Err(ca_err(
+                "no system roots found to put beside the doze root (no bundle file, or the keychain could not be \
+                 read): SSL_CERT_FILE is not set",
+            ));
         }
         out.push_str(&root);
         let path = self.bundle_path();
@@ -148,14 +175,21 @@ impl Ca {
         Ok(path)
     }
 
-    /// [`Ca::bundle`], unless a bundle at least as new as the root is there already: for a surface run often (`doze
-    /// env` in a shell hook) that must point at a bundle but need not rewrite it each time.
+    /// [`Ca::bundle`], unless a bundle at least as new as the root and as every file the system's roots come from is
+    /// there already: for a surface run often (`doze env` in a shell hook) that must point at a bundle but need not
+    /// rewrite it each time. A system's roots updated since are folded in again.
     pub fn ensure_bundle(&self) -> Result<PathBuf, Error> {
-        let modified = |p: PathBuf| std::fs::metadata(p).and_then(|m| Ok((m.modified()?, m.len())));
-        if let (Ok((b, size)), Ok((r, _))) =
-            (modified(self.bundle_path()), modified(self.root_path()))
+        let modified =
+            |p: &std::path::Path| std::fs::metadata(p).and_then(|m| Ok((m.modified()?, m.len())));
+        // A bundle no bigger than the root is the root alone (an older doze wrote one on a system without roots): never
+        // kept, since it cuts its clients off from public https.
+        if let (Ok((b, size)), Ok((r, root_len))) =
+            (modified(&self.bundle_path()), modified(&self.root_path()))
             && b >= r
-            && size > 0
+            && size > root_len + 64
+            && roots_sources()
+                .iter()
+                .all(|src| modified(std::path::Path::new(src)).map_or(true, |(m, _)| b >= m))
         {
             return Ok(self.bundle_path());
         }

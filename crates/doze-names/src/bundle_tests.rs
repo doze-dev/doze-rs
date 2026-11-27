@@ -118,3 +118,23 @@ fn pem_blocks_keep_each_block_whole_and_drop_what_is_between() {
         ]
     );
 }
+
+/// A system with no roots to bundle (a bare container, a keychain that cannot be read): no bundle of the doze root
+/// alone is written, and an old one of the root alone is not kept.
+#[test]
+fn no_system_roots_writes_no_bundle_of_the_doze_root_alone() {
+    let dir = scratch("no-roots");
+    let ca = Ca::load_or_create(&dir).unwrap();
+    assert!(ca.bundle_with("", None).is_err());
+    assert!(!ca.bundle_path().exists());
+    // As an older doze left it: the root alone, newer than the root.
+    std::fs::copy(ca.root_path(), ca.bundle_path()).unwrap();
+    if let Ok(path) = ca.ensure_bundle() {
+        let text = std::fs::read_to_string(path).unwrap();
+        assert!(
+            pem_blocks(&text).len() > 1,
+            "rewritten with the system's roots"
+        );
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}

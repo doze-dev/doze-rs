@@ -46,9 +46,6 @@ pub enum Error {
     Privileged { what: String, why: std::io::Error },
     /// Setup cannot be done here, or cannot start: says why and changes nothing.
     Setup(String),
-    /// A project in the system's temporary folder, refused by a home that is not in it (a test or a fixture reaching
-    /// the person's real home).
-    Throwaway(String),
     /// Reading or writing the registry failed.
     Io(std::io::Error),
 }
@@ -96,11 +93,6 @@ impl fmt::Display for Error {
             }
             Error::Privileged { what, why } => write!(f, "setup ({what}): {why}"),
             Error::Setup(why) => write!(f, "setup: {why}"),
-            Error::Throwaway(dir) => write!(
-                f,
-                "{dir} is in the system's temporary folder and the doze home is not: a test's or a fixture's \
-                 project; its domains are not recorded (set DOZE_HOME to a temporary home for it)"
-            ),
             Error::Io(e) => write!(f, "the names registry: {e}"),
         }
     }
