@@ -233,6 +233,7 @@ fn task(c: &Command) -> doze_engine::tasks::TaskSpec {
         env: c.env.clone(),
         env_file: (!c.env_file.is_empty()).then(|| PathBuf::from(&c.env_file)),
         inputs: c.inputs.clone(),
+        outputs: c.outputs.clone(),
         manual: c.manual,
         timeout: None,
     }

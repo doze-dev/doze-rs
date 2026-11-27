@@ -357,9 +357,7 @@ fn register(
         live.log = Some(log);
         live.supervised = p.supervised;
         live.health = p.plan.processes.first().and_then(|q| q.ready.clone());
-        if let Some(old) = live.watcher.take() {
-            old.abort();
-        }
+        // The previous start's watching ends as it drops.
         live.watcher =
             crate::watch::restarter(e, &svc.name, &crate::tasks::watch_sets(&e.stack(), svc));
         r

@@ -52,7 +52,11 @@ pub fn main(args: &[String], version: &str) -> ExitCode {
     if args.iter().any(|a| a == LINT_ARG) {
         return crate::lint::main(&rt, &config, version);
     }
-    match rt.block_on(run(&config, version)) {
+    let ran = rt.block_on(run(&config, version));
+    // Dropping the runtime would wait for every blocking task to end; one stuck in the kernel (a read nothing will
+    // answer) would keep a stopped daemon alive for ever. The engine has shut down by now: give stragglers a moment.
+    rt.shutdown_timeout(std::time::Duration::from_secs(5));
+    match ran {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("doze daemon: {e}");
@@ -342,10 +346,13 @@ async fn run(config: &Path, version: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Stops module processes nothing has called for a while, now and then.
+/// Stops module processes nothing has called for a while: sleeps until the first could be due (the pool's idle limit
+/// with none running), not on a fixed 30 s tick. The floor keeps a pass that stops nothing from repeating at once.
 async fn reap_modules(catalog: Arc<Catalog>) {
+    const FLOOR: std::time::Duration = std::time::Duration::from_secs(1);
     loop {
-        tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+        let wait = catalog.pool.next_reap().await.max(FLOOR);
+        tokio::time::sleep(wait).await;
         catalog.pool.reap_idle().await;
     }
 }

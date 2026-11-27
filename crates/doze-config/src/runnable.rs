@@ -48,6 +48,7 @@ static TASK: Spec = Spec {
         opt("env", Ty::StrMap),
         opt("env_file", Ty::Str),
         opt("inputs", Ty::StrList),
+        opt("outputs", Ty::StrList),
         opt("manual", Ty::Bool),
     ],
     blocks: &[],

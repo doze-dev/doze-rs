@@ -183,3 +183,35 @@ fn many_double_stars_against_a_deep_path_answer_at_once() {
         started.elapsed()
     );
 }
+
+/// A FIFO among the inputs is matched but never read: a read would wait for a writer that may never come, and
+/// with it the task's stop and the daemon's exit.
+#[cfg(unix)]
+#[test]
+fn a_fifo_input_is_not_read() {
+    let t = tempfile::tempdir().unwrap();
+    let dir = t.path();
+    write(dir, "a.sql", "create table a;");
+    let made = std::process::Command::new("mkfifo")
+        .arg(dir.join("b.sql"))
+        .status();
+    if !made.is_ok_and(|s| s.success()) {
+        return;
+    }
+    let (h, n) = hash(dir, &pats(&["*.sql"]));
+    assert_eq!(n, 2);
+    assert_eq!(
+        h,
+        hash(dir, &pats(&["a.sql"])).0,
+        "skipped, as an unreadable file is"
+    );
+}
+
+/// An abandoned hash gives up before reading on: a large input is not read to its end for nobody.
+#[test]
+fn an_abandoned_hash_gives_up() {
+    let t = tempfile::tempdir().unwrap();
+    write(t.path(), "a.sql", "create table a;");
+    let abandon = std::sync::atomic::AtomicBool::new(true);
+    assert_eq!(hash_unless(t.path(), &pats(&["*.sql"]), &abandon), None);
+}

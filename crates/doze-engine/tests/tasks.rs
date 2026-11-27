@@ -384,49 +384,6 @@ async fn a_task_stopped_after_its_command_ended_still_journals_its_end() {
     e.shutdown().await;
 }
 
-/// A stop while a task is still deciding whether it has to run (its inputs are being read; here a FIFO no one writes
-/// holds the read) ends the start at once: nothing runs, nothing is journalled or recorded, it is asleep, and the waiter
-/// hears why (E2 audit 3, N1 and N10). Needs `mkfifo`, so it is skipped where there is none.
-#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn a_task_stopped_while_it_decides_ends_at_once_and_says_why() {
-    let d = Dir::new("taskdecide");
-    let (fifo, ran) = (d.file("in.fifo"), d.file("ran"));
-    // Git Bash on Windows has a `mkfifo` that makes a file a read does not wait on: no FIFO there.
-    let made = std::process::Command::new("mkfifo").arg(&fifo).status();
-    if !made.is_ok_and(|s| s.success()) || std::env::consts::OS == "windows" {
-        return;
-    }
-    let mut ts = task(&d, &["append", &ran.to_string_lossy()]);
-    ts.inputs = vec!["in.fifo".into()];
-    let e = Engine::builder("t", d.path())
-        .service(Service::task("seed", ts))
-        .build()
-        .unwrap();
-    let waking = {
-        let e = e.clone();
-        tokio::spawn(async move { e.wake("seed", Cause::Command).await })
-    };
-    tokio::time::sleep(Duration::from_millis(400)).await;
-    let stopped =
-        tokio::time::timeout(Duration::from_secs(3), e.stop("seed", Cause::Command)).await;
-    let woke = tokio::time::timeout(Duration::from_secs(3), waking).await;
-    // Let the blocked read go, whatever happened.
-    let _ = std::fs::OpenOptions::new().write(true).open(&fifo);
-    stopped
-        .expect("the stop does not wait for the read")
-        .unwrap();
-    let woke = woke.expect("the start ends at once").unwrap();
-    assert_eq!(
-        woke.unwrap_err().to_string(),
-        "seed was stopped while it was starting"
-    );
-    assert_eq!(lines(&ran), 0, "it never ran");
-    assert!(journal(&d).is_empty(), "{:?}", journal(&d));
-    assert_eq!(e.task_record("seed"), None);
-    assert_eq!(e.get("seed").unwrap().state, State::Reaped);
-    e.shutdown().await;
-}
-
 /// `doze task` runs the command once even when the state file cannot be read or written: the run is counted by the
 /// machine, not seen in the record (E2 audit 4; Go's `setTaskRecord` logs and the call succeeds).
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]

@@ -1,8 +1,10 @@
 //! Readiness and liveness probes (Go's `internal/health`): one check of a [`Ready`], and the wait that gates a start.
 //!
-//! The wait probes at once, then backs off from 10 ms to 100 ms, so a backend ready in 30 ms is seen in about 30 ms (a
-//! whole interval after the first miss put a one-second floor under every wake in Go once). A process with no check
-//! must still be running after 750 ms.
+//! The wait probes at once, then every 10 ms for the first half second (a connect to a loopback port that is not
+//! listening yet costs microseconds), then backs off to 100 ms; a check that runs a command or reads the log backs off
+//! from the start. A whole interval after the first miss put a one-second floor under every wake in Go once; the
+//! doubling that replaced it still saw a backend ready in 35 ms only at 70 ms, its next step: half of that wake. A
+//! process with no check must still be running after 750 ms.
 
 use crate::logs::RunLog;
 use crate::pidfile::Pids;
@@ -13,6 +15,8 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 /// The first wait after a failed probe; it doubles up to [`MAX_BACKOFF`].
 const FIRST_BACKOFF: Duration = Duration::from_millis(10);
 const MAX_BACKOFF: Duration = Duration::from_millis(100);
+/// How long a cheap check (a connect, a GET) keeps to [`FIRST_BACKOFF`] before backing off.
+const FAST_FOR: Duration = Duration::from_millis(500);
 /// How long a process with no check must stay up.
 pub const LIVENESS_GRACE: Duration = Duration::from_millis(750);
 /// One probe's own limit.
@@ -72,7 +76,8 @@ pub async fn wait_ready(
             Err(NotReady::ExitedImmediately)
         };
     };
-    let deadline = Instant::now() + budget;
+    let started = Instant::now();
+    let deadline = started + budget;
     let mut wait = FIRST_BACKOFF;
     loop {
         if !alive() {
@@ -85,7 +90,10 @@ pub async fn wait_ready(
             return Err(NotReady::Timeout(budget));
         }
         tokio::time::sleep(wait).await;
-        wait = (wait * 2).min(MAX_BACKOFF);
+        let cheap = matches!(ready, Ready::Tcp(_) | Ready::Http(_) | Ready::Socket(_));
+        if !cheap || started.elapsed() >= FAST_FOR {
+            wait = (wait * 2).min(MAX_BACKOFF);
+        }
     }
 }
 

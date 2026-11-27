@@ -151,6 +151,11 @@ impl Machine {
         fx
     }
 
+    /// When [`Machine::reap`] next has something to stop, if nothing else changes first.
+    pub fn next_reap(&self) -> Option<std::time::Instant> {
+        self.table.next_reap(self.idle)
+    }
+
     /// Stops everything, cancelling starts and restarts.
     pub fn stop_all(&mut self, cause: Cause) -> Vec<Effect> {
         let names: Vec<String> = self

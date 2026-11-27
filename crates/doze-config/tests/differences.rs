@@ -29,6 +29,8 @@
 //! 11. The shape pass's stand-in for a module has each variable something reads from its `env`
 //!     (`module.db.env.DATABASE_URL`), as "". Go's had an empty `env`, so such a read failed the
 //!     shape pass; the Rust CLI reads every doze.hcl through it while the daemon answers the values.
+//! 12. A `task` may list `outputs`, paths its run makes (a built program): one that is missing runs
+//!     the task again though its inputs did not change. Go had no such attribute.
 
 #![allow(
     clippy::unwrap_used,
@@ -413,4 +415,29 @@ fn a_source_parses_on_its_own() {
     let e = parse("app \"w\" {", "doze.hcl", &o, false).unwrap_err();
     assert!(e.is_invalid());
     assert!(Path::new(&c.home).ends_with(".doze"));
+}
+
+#[test]
+fn a_task_lists_the_outputs_it_makes() {
+    let c = load_one(
+        "task-outputs",
+        "task \"build\" {\n  run = \"go build -o .doze/bin/api ./api\"\n  inputs = [\"api/**/*.go\"]\n  outputs = [\".doze/bin/api\"]\n}\n",
+        &Fixtures,
+    )
+    .unwrap();
+    assert_eq!(c.tasks[0].outputs, [".doze/bin/api"]);
+    let e = load_one(
+        "task-outputs-type",
+        "task \"build\" {\n  run = \"x\"\n  outputs = 3\n}\n",
+        &Fixtures,
+    )
+    .unwrap_err();
+    assert!(e.is_invalid(), "{}", summary(&e));
+    // Checked as written: a glob or `~` would never be there, and the task would run on every start.
+    for (out, says) in [("bin/*", "is a pattern"), ("~/bin/api", "starts with ~")] {
+        let src = format!("task \"build\" {{\n  run = \"x\"\n  outputs = [\"{out}\"]\n}}\n");
+        let e = load_one("task-outputs-bad", &src, &Fixtures).unwrap_err();
+        let all = format!("{e:?}");
+        assert!(all.contains(says), "{out}: {all}");
+    }
 }
