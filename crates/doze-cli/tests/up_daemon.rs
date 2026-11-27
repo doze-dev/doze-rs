@@ -262,10 +262,18 @@ fn sync_stops_only_the_daemon_it_started() {
 
 /// `doze run` as a person's IDE meets it: a SIGINT sent to doze alone (`kill -INT <doze>`, an IDE's stop) reaches the
 /// command, once, and doze exits with the command's code. Before, doze took it and the command never heard it.
+///
+/// The command is `sh` counting its SIGINTs and exiting with 40 + the count. It waits in the `wait` builtin on a
+/// background `sleep`, which a trapped signal always breaks off; a loop of foreground `sleep`s would not do, as bash
+/// 3.2 (macOS's `sh`) can drop a trapped SIGINT that lands between reaping one and putting its trap back (see
+/// doze-os's `tests/foreground.rs`). doze starts as the daemon does (`spawn_detached_child`: a session of its own, the
+/// stop signals at their defaults): started with `std::process::Command` alone, it would inherit the test's SIGINT
+/// disposition, and a test run as a background job of a script (`cargo test … &`, as parallel runs under load are)
+/// has SIGINT ignored. doze then starts the command ignoring it too, as a shell's job does, the trap cannot be set,
+/// and the test failed with 40 every time.
 #[cfg(unix)]
 #[test]
 fn a_sigint_sent_to_doze_run_alone_reaches_the_command() {
-    use std::os::unix::process::CommandExt;
     if !setup::sockets() {
         return;
     }
@@ -278,27 +286,25 @@ fn a_sigint_sent_to_doze_run_alone_reaches_the_command() {
     let key = doze_projects::StackKey::for_config(&sb.home(), &sb.project().join("doze.hcl"));
     let mark = sb.root.join("ready");
     let script = format!(
-        "n=0; trap 'n=$((n+1))' INT; : > '{}'; i=0; while [ $i -lt 50 ]; do sleep 0.1; i=$((i+1)); done; exit $((40+n))",
+        "n=0; trap 'n=$((n+1))' INT; sleep 5 & : > '{}'; until wait; do :; done; exit $((40+n))",
         mark.display()
     );
-    let mut doze = std::process::Command::new(env!("CARGO_BIN_EXE_doze"))
-        .args(["run", "--", "/bin/sh", "-c", &script])
+    let mut cmd = std::process::Command::new(env!("CARGO_BIN_EXE_doze"));
+    cmd.args(["run", "--", "/bin/sh", "-c", &script])
         .current_dir(sb.project())
         .env("DOZE_HOME", sb.home())
         .env("DOZE_ZONE", "off")
         .env("DOZE_NO_UPDATE_NOTIFIER", "1")
-        .stdin(std::process::Stdio::null())
-        .process_group(0)
-        .spawn()
-        .unwrap();
+        .stdin(std::process::Stdio::null());
+    let mut doze = doze_os::detach::spawn_detached_child(cmd).unwrap();
     let t0 = std::time::Instant::now();
     while !mark.exists() && t0.elapsed() < std::time::Duration::from_secs(20) {
         std::thread::sleep(std::time::Duration::from_millis(20));
     }
     let pid = doze_projects::daemon_pid(&key).map(|p| p.pid);
     let _reap = Reap(pid);
+    // The mark is enough: the command writes it once its trap is set, and doze's handlers are in before it starts.
     assert!(mark.exists(), "the command never started");
-    std::thread::sleep(std::time::Duration::from_millis(100));
     let doze_pid = doze.id().to_string();
     let _ = std::process::Command::new("kill")
         .args(["-INT", &doze_pid])

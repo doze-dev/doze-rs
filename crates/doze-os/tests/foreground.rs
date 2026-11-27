@@ -37,9 +37,26 @@ fn mark(tag: &str) -> PathBuf {
 }
 
 /// The helper as doze (each test puts it in a group or session of its own, so the test's group is never signalled).
+/// It starts with SIGINT at its default whatever the test was started with: a test run as a background job of a
+/// script (`cargo test … &`) has SIGINT ignored, doze would then start the command ignoring it too (as a shell's job
+/// does), its trap could not be set, and every test here failed with 40.
 fn doze(mark: &Path) -> Command {
+    doze_running(&script(mark))
+}
+
+/// The helper as doze running `script`, with SIGINT at its default (as [`doze`]).
+#[allow(unsafe_code)]
+fn doze_running(script: &str) -> Command {
     let mut c = Command::new(common::HELPER);
-    c.arg("foreground").arg(script(mark));
+    c.arg("foreground").arg(script);
+    let hook = || {
+        // SAFETY: signal with SIG_DFL installs no handler and is async-signal-safe.
+        unsafe { libc::signal(libc::SIGINT, libc::SIG_DFL) };
+        Ok(())
+    };
+    // SAFETY: the hook runs in the child between fork and exec and makes one signal call: no allocation, no locks,
+    // async-signal-safe.
+    unsafe { c.pre_exec(hook) };
     c
 }
 
@@ -120,10 +137,8 @@ fn the_command_reads_the_terminal() {
 #[allow(unsafe_code)]
 fn on_terminal(mark: &Path, script: &str, keys: &[u8]) -> std::process::ExitStatus {
     let pty = doze_os::pty::open().unwrap();
-    let mut cmd = Command::new(common::HELPER);
-    cmd.arg("foreground")
-        .arg(script)
-        .stdin(pty.terminal.try_clone().unwrap())
+    let mut cmd = doze_running(script);
+    cmd.stdin(pty.terminal.try_clone().unwrap())
         .stdout(pty.terminal.try_clone().unwrap())
         .stderr(pty.terminal.try_clone().unwrap());
     let hook = || {
