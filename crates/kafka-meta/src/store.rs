@@ -12,6 +12,7 @@ mod quotas;
 mod registry;
 mod schemas;
 mod shares;
+mod together;
 mod tokens;
 mod topics;
 mod txns;
@@ -93,7 +94,8 @@ pub enum FileMode {
 }
 
 /// The broker's metadata. Reads are served from memory; a write is durable (flushed) before it returns, and
-/// a crash at any point leaves it done or not done, never half. Writes are one at a time.
+/// a crash at any point leaves it done or not done, never half. Writes are one at a time, except that offset commits and
+/// share-partition states that arrive together share one transaction and one flush (`store/together.rs`).
 #[derive(Debug)]
 pub struct MetaStore {
     db: Store,
@@ -105,6 +107,8 @@ pub struct MetaStore {
     /// cannot both pass their checks.
     write: Mutex<()>,
     ids: Mutex<producer_ids::Block>,
+    /// The writes waiting to share the next flush.
+    together: together::Together,
 }
 
 impl MetaStore {
@@ -141,6 +145,7 @@ impl MetaStore {
             shared,
             write: Mutex::new(()),
             ids: Mutex::new(producer_ids::Block::default()),
+            together: together::Together::default(),
         })
     }
 

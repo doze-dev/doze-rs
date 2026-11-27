@@ -6,8 +6,10 @@
 use kafka_wire::ids::{GroupId, PartitionId, TopicName};
 use redb::{ReadableDatabase, ReadableTable, TableError, WriteTransaction};
 
+use super::together::{Applied, Txn, Write};
 use super::{MetaStore, SHARE_STATES, lock};
 use crate::MetaError;
+use crate::offsets::Committed;
 use crate::share::ShareState;
 
 type StatesTable = redb::ReadOnlyTable<&'static [u8], &'static [u8]>;
@@ -76,6 +78,9 @@ impl MetaStore {
     /// is past the topic's partitions) is not stored: checked under the lock topic changes take, so a state cannot land
     /// after its topic was deleted. Returns, for each, whether it was stored.
     ///
+    /// Writes that arrive together (the acknowledgements of other share-partitions, offset commits) share one
+    /// transaction and one flush (`store/together.rs`); each is answered once its own is flushed.
+    ///
     /// # Errors
     /// A failed write, in which case nothing was stored.
     pub fn set_share_states(
@@ -83,29 +88,51 @@ impl MetaStore {
         group: &GroupId,
         states: &[ShareStateWrite<'_>],
     ) -> Result<Vec<bool>, MetaError> {
-        let _one_at_a_time = lock(&self.write);
-        let stored: Vec<bool> = states
+        let states = states
             .iter()
-            .map(|(topic, partition, _)| {
-                self.topic(topic)
-                    .is_some_and(|t| partition.get() < t.partitions.get())
+            .map(|(topic, partition, state)| ((*topic).clone(), *partition, (*state).clone()))
+            .collect();
+        let done = self.together(Write::ShareStates {
+            group: group.clone(),
+            states,
+        })?;
+        Ok(done.iter().map(|c| *c == Committed::Stored).collect())
+    }
+
+    /// Applies one write of states in the transaction of its batch, under the lock topic changes take. Judged and
+    /// encoded before anything is written, so a write refused alone writes nothing.
+    pub(super) fn apply_share_states(
+        &self,
+        txn: &mut Txn<'_>,
+        group: &GroupId,
+        states: &[(TopicName, PartitionId, ShareState)],
+    ) -> Applied {
+        let outcomes: Vec<Committed> = states
+            .iter()
+            .map(|(topic, partition, _)| match self.topic(topic) {
+                Some(t) if partition.get() < t.partitions.get() => Committed::Stored,
+                _ => Committed::UnknownTopicOrPartition,
             })
             .collect();
-        if !stored.contains(&true) {
-            return Ok(stored);
+        if !outcomes.contains(&Committed::Stored) {
+            return Ok(Ok(outcomes));
         }
-        let txn = self.begin()?;
-        {
-            let mut table = txn.open_table(SHARE_STATES)?;
-            for ((topic, partition, state), keep) in states.iter().zip(&stored) {
-                if *keep {
-                    let record = state.encode()?;
-                    table.insert(key(group, topic, *partition).as_slice(), record.as_slice())?;
-                }
-            }
+        let kept = || {
+            states
+                .iter()
+                .zip(&outcomes)
+                .filter(|(_, o)| **o == Committed::Stored)
+        };
+        let records: Result<Vec<Vec<u8>>, MetaError> = kept().map(|(s, _)| s.2.encode()).collect();
+        let records = match records {
+            Ok(r) => r,
+            Err(e) => return Ok(Err(e)),
+        };
+        let mut table = txn.begun()?.open_table(SHARE_STATES)?;
+        for (((topic, partition, _), _), record) in kept().zip(&records) {
+            table.insert(key(group, topic, *partition).as_slice(), record.as_slice())?;
         }
-        txn.commit()?;
-        Ok(stored)
+        Ok(Ok(outcomes))
     }
 
     /// The state of one partition of a share group, if it has one.

@@ -1770,6 +1770,21 @@ the runner does (issue #36 saw the same). A line of a measurement plus 5% sits i
 The line is now the median plus 5% plus the run-to-run spread of the medians: 7,404 x 1.05 + 728 = **8,502 KB**. A real rise still
 shows: the next lean idle line moves only with a measured median over several runs, and the spread is added again.
 
+## Offset commits share a flush (2026-11-27)
+
+Each OffsetCommit that changed something used to be its own durable redb commit: one transaction and one flush, one at a
+time behind the metadata store's write lock. Now commits that arrive together, from any groups and connections, share one
+transaction and one flush (`kafka-meta/src/store/together.rs`): the first caller to find nobody writing writes everything
+queued by then, and each caller answers only once that flush is done. A flush that fails fails every commit it held. No
+thread is started for it, and a commit that arrives alone is written at once, as before. The OffsetCommit v0 path,
+EndTxn's offsets and share-partition states go the same way, and a commit whose offsets are all unchanged still writes
+nothing. On the simulated disk, eight groups committing at once make the flushes of one commit
+(`together::tests::commits_from_different_groups_that_arrive_together_share_one_flush_*`). Against a release broker on
+loopback (darwin/arm64), eight franz-go clients, each in its own group, committed a moving offset (OffsetCommit v8) as fast
+as they could for 15 s. Before: 5,758 to 6,115 commits/s over three runs (a first run, cold, made 3,154), and the broker
+used about 150 µs of CPU per commit. After: 11,019 to 13,367 commits/s over four runs, about 105 µs of CPU per commit. More
+CPU in all (about 20 s against 12 to 14 s in 15 s), because it served twice the commits.
+
 ## The window's drawables stop climbing (2026-11-23, branch `eff-app`), release + fixtures, darwin/arm64
 
 A resource audit of the owner's app (open for hours, maximised at 3024 × 1898) found 208 MB, of which 111 MB was five

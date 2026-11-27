@@ -6,6 +6,7 @@
 use kafka_wire::ids::{GroupId, PartitionId, TopicName};
 use redb::{ReadableDatabase, ReadableTable, TableError, WriteTransaction};
 
+use super::together::{Applied, Txn, Write};
 use super::{MetaStore, OFFSETS, lock};
 use crate::MetaError;
 use crate::offsets::{Committed, GroupOffset, OffsetCommit, StoredOffset};
@@ -91,6 +92,9 @@ impl MetaStore {
     /// flush of the database: a quiet app cost one every five seconds for nothing. The caller
     /// picks `within_ms` well under how long offsets are kept, since a commit time that lags is one that expires sooner.
     ///
+    /// Commits that arrive together, from any groups, share one transaction and one flush (`store/together.rs`); each
+    /// is answered once its own is flushed.
+    ///
     /// # Errors
     /// A failed write, in which case nothing was stored.
     pub fn commit_offsets_unless_held(
@@ -99,7 +103,23 @@ impl MetaStore {
         commits: &[OffsetCommit],
         within_ms: i64,
     ) -> Result<Vec<Committed>, MetaError> {
-        let _one_at_a_time = lock(&self.write);
+        self.together(Write::Offsets {
+            group: group.clone(),
+            commits: commits.to_vec(),
+            within_ms,
+        })
+    }
+
+    /// Applies one commit in the transaction of its batch, under the lock topic changes take. Judged, checked against
+    /// what is stored (earlier commits of the batch included) and encoded before anything is written, so a commit
+    /// refused alone writes nothing.
+    pub(super) fn apply_offsets(
+        &self,
+        txn: &mut Txn<'_>,
+        group: &GroupId,
+        commits: &[OffsetCommit],
+        within_ms: i64,
+    ) -> Applied {
         let outcomes: Vec<Committed> = commits
             .iter()
             .map(|c| match self.topic(&c.topic) {
@@ -107,26 +127,47 @@ impl MetaStore {
                 _ => Committed::UnknownTopicOrPartition,
             })
             .collect();
-        if !outcomes.contains(&Committed::Stored)
-            || (within_ms > 0 && self.held(group, commits, &outcomes, within_ms)?)
-        {
-            return Ok(outcomes);
+        if !outcomes.contains(&Committed::Stored) {
+            return Ok(Ok(outcomes));
         }
-        let txn = self.begin()?;
-        {
-            let mut table = txn.open_table(OFFSETS)?;
-            for (c, outcome) in commits.iter().zip(&outcomes) {
-                if *outcome == Committed::Stored {
-                    let record = c.offset.encode()?;
-                    table.insert(
-                        key(group, &c.topic, c.partition).as_slice(),
-                        record.as_slice(),
-                    )?;
-                }
+        if within_ms > 0 {
+            let was_held = match txn.open() {
+                Some(t) => t
+                    .open_table(OFFSETS)
+                    .map_err(MetaError::from)
+                    .and_then(|table| held(&table, group, commits, &outcomes, within_ms)),
+                None => self.offsets_table().and_then(|table| {
+                    table.map_or(Ok(false), |t| {
+                        held(&t, group, commits, &outcomes, within_ms)
+                    })
+                }),
+            };
+            match was_held {
+                Ok(true) => return Ok(Ok(outcomes)),
+                Ok(false) => {}
+                Err(e) => return Ok(Err(e)),
             }
         }
-        txn.commit()?;
-        Ok(outcomes)
+        let stored = || {
+            commits
+                .iter()
+                .zip(&outcomes)
+                .filter(|(_, o)| **o == Committed::Stored)
+        };
+        let records: Result<Vec<Vec<u8>>, MetaError> =
+            stored().map(|(c, _)| c.offset.encode()).collect();
+        let records = match records {
+            Ok(r) => r,
+            Err(e) => return Ok(Err(e)),
+        };
+        let mut table = txn.begun()?.open_table(OFFSETS)?;
+        for ((c, _), record) in stored().zip(&records) {
+            table.insert(
+                key(group, &c.topic, c.partition).as_slice(),
+                record.as_slice(),
+            )?;
+        }
+        Ok(Ok(outcomes))
     }
 
     /// What `group` has committed for one partition.
@@ -281,36 +322,6 @@ impl MetaStore {
     }
 
     /// The offsets table, or `None` if no offset has ever been committed (a database made before the table was).
-    /// Whether every offset to be stored is already there as it is, committed less than `within_ms` before.
-    fn held(
-        &self,
-        group: &GroupId,
-        commits: &[OffsetCommit],
-        outcomes: &[Committed],
-        within_ms: i64,
-    ) -> Result<bool, MetaError> {
-        let Some(table) = self.offsets_table()? else {
-            return Ok(false);
-        };
-        for (c, outcome) in commits.iter().zip(outcomes) {
-            if *outcome != Committed::Stored {
-                continue;
-            }
-            let Some(found) = table.get(key(group, &c.topic, c.partition).as_slice())? else {
-                return Ok(false);
-            };
-            let (was, now) = (StoredOffset::decode(found.value())?, &c.offset);
-            let age = now.committed_ms - was.committed_ms;
-            if (was.offset, was.leader_epoch, &was.metadata)
-                != (now.offset, now.leader_epoch, &now.metadata)
-                || !(0..within_ms).contains(&age)
-            {
-                return Ok(false);
-            }
-        }
-        Ok(true)
-    }
-
     fn offsets_table(&self) -> Result<Option<OffsetsTable>, MetaError> {
         match self.db.begin_read()?.open_table(OFFSETS) {
             Ok(table) => Ok(Some(table)),
@@ -318,6 +329,34 @@ impl MetaStore {
             Err(e) => Err(e.into()),
         }
     }
+}
+
+/// Whether every offset to be stored is already there as it is, committed less than `within_ms` before. Read from the
+/// database, or from the transaction of a batch that has already stored something.
+fn held(
+    table: &impl ReadableTable<&'static [u8], &'static [u8]>,
+    group: &GroupId,
+    commits: &[OffsetCommit],
+    outcomes: &[Committed],
+    within_ms: i64,
+) -> Result<bool, MetaError> {
+    for (c, outcome) in commits.iter().zip(outcomes) {
+        if *outcome != Committed::Stored {
+            continue;
+        }
+        let Some(found) = table.get(key(group, &c.topic, c.partition).as_slice())? else {
+            return Ok(false);
+        };
+        let (was, now) = (StoredOffset::decode(found.value())?, &c.offset);
+        let age = now.committed_ms - was.committed_ms;
+        if (was.offset, was.leader_epoch, &was.metadata)
+            != (now.offset, now.leader_epoch, &now.metadata)
+            || !(0..within_ms).contains(&age)
+        {
+            return Ok(false);
+        }
+    }
+    Ok(true)
 }
 
 #[cfg(test)]
