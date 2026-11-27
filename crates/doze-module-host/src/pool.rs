@@ -4,9 +4,11 @@
 use crate::running::{self, Running};
 use crate::services::Services;
 use doze_module_proto::msg::error::{Error, ErrorKind};
+use doze_module_proto::msg::hello::Manifest;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 use tokio::sync::Mutex;
 
@@ -19,6 +21,11 @@ pub struct Pool {
     locate: Locate,
     idle: Duration,
     modules: Mutex<HashMap<String, Arc<Running>>>,
+    /// Each key's manifest from its last hello, kept after its process is reaped: what a module declares is static, so
+    /// a question about it (does it take its own connections, has it a console) never starts the process again.
+    known: std::sync::Mutex<HashMap<String, Arc<Manifest>>>,
+    /// Module processes started, ever.
+    launches: AtomicU64,
 }
 
 impl std::fmt::Debug for Pool {
@@ -37,6 +44,8 @@ impl Pool {
             locate,
             idle,
             modules: Mutex::new(HashMap::new()),
+            known: std::sync::Mutex::default(),
+            launches: AtomicU64::new(0),
         }
     }
 
@@ -50,9 +59,28 @@ impl Pool {
         let program = (self.locate)(key)
             .ok_or_else(|| Error::new(ErrorKind::NotFound, format!("no module for {key}")))?;
         let engine = key.split_once('@').map_or(key, |(e, _)| e);
+        self.launches.fetch_add(1, Ordering::Relaxed);
         let m = Arc::new(running::launch(engine, &program, self.services.clone()).await?);
+        self.known_lock()
+            .insert(key.to_string(), Arc::new(m.manifest.clone()));
         modules.insert(key.to_string(), m.clone());
         Ok(m)
+    }
+
+    /// `key`'s manifest as its module last said it, without starting it: `None` until it has run once.
+    pub fn manifest(&self, key: &str) -> Option<Arc<Manifest>> {
+        self.known_lock().get(key).cloned()
+    }
+
+    /// How many module processes this pool has launched (a launch that failed included).
+    pub fn launches(&self) -> u64 {
+        self.launches.load(Ordering::Relaxed)
+    }
+
+    fn known_lock(&self) -> std::sync::MutexGuard<'_, HashMap<String, Arc<Manifest>>> {
+        self.known
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     /// How long until [`Pool::reap_idle`] could next stop something, if no call comes first: the least time any module

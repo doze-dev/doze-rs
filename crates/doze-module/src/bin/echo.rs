@@ -303,16 +303,10 @@ fn record(spec: &EchoSpec, what: &str) {
 }
 
 fn main() -> std::process::ExitCode {
-    serve(Echo)
-        .release(env!("CARGO_PKG_VERSION"))
-        .objects()
-        .wire()
-        .admin()
-        .console()
-        .migrate()
-        .values()
-        .tree()
-        .run()
+    let s = serve(Echo).release(env!("CARGO_PKG_VERSION")).objects();
+    // A copy named `…-nowire` leaves its clients to the front, as kafka does.
+    let s = if side::named("-nowire") { s } else { s.wire() };
+    s.admin().console().migrate().values().tree().run()
 }
 
 impl doze_module::caps::Wire for Echo {

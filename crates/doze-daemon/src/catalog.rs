@@ -146,6 +146,11 @@ impl Catalog {
         self.rt.block_on(r.network(i)).unwrap_or_default()
     }
 
+    /// The pool its modules run in.
+    pub fn pool(&self) -> &Arc<Pool> {
+        &self.pool
+    }
+
     /// The running module for a type (and major), if it is one this catalog found.
     pub async fn module_of(&self, key: &str) -> Option<Arc<Running>> {
         self.pool.get(key).await.ok()
