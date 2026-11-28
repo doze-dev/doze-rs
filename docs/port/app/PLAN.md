@@ -3,6 +3,14 @@
 Status: proposed 2026-11-13, not approved. Built so far (branch `app-shell`): M0 steps 0.1 to 0.7 (0.2–0.5 on their
 own branches, 0.1, 0.6 and 0.7 here) and the Map (step 1.3).
 
+**Activity removed (the owner, 2026-11-28).** The Activity page (row 80, step 3.3) is gone from the app, with everything
+that existed only for it: `apps/doze-app/src/activity`, `doze-desk::activity` and its Go JSON (`testdata/go/activity`),
+the head's Activity button, ⇧A and ⇧T, the Go menu's row, the ⌘K rows, the help sheet's Activity section, and the shot
+and bench screens. The reason, in the owner's words: "The activity section in the doze app has very little use". The
+journal itself stays (the daemon writes it and serves it on the `journal` topic; `doze why` reads it), and so does the daemon's `journal`
+topic, which Needs you, Away, the service page's Recent and Runs, and All logs read. A saved `last` page of
+`activity` reopens the stack's page. Where Activity is described below, it is history.
+
 M2 steps 2.1, 2.2, 2.5 and 2.6 (branch `app-m2-act`): `doze-desk::act` (dialogs held to Go's goldens, notices, stack
 actions through `doze --json`, the checks before Up and before a wake, the start sheet, the empty folder with a reduced
 detector) and `apps/doze-app/src/act` with its overlays. Differences: the overview's ⋯ opens ⌘K (its stack commands are
@@ -17,7 +25,7 @@ M2 combined (branch `app-m2`, superseding `app-m2-act` and `app-m2-attention` fo
 `holder:PID` looks again that the pid still holds the port the crash names, then restarts the service); a failed stack
 action is a Needs you item and a stack mid-action carries its items (one `Failure` type for both). One action table
 feeds the help sheet, the chips, the menu bar and ⌘K, each command listed once. Beyond Go: ⌘K's ⌘⏎ on a service in
-trouble restarts it (Needs you's first fix). Settings, Activity, Check for Updates and Settings › Machine's repair and
+trouble restarts it (Needs you's first fix). Settings, Activity (removed 2026-11-28), Check for Updates and Settings › Machine's repair and
 clean-up came with M3 (below); no row says "soon" now (`actions::tests::every_row_is_built`).
 
 M3 steps 3.1, 3.2 and 3.5 (branch `app-m3-tray`): `doze-desk::tray` (Go's `Build`, `Split`, `NeedsOf` with their
@@ -49,7 +57,8 @@ running app or starts one on its own. Differences and beyond Go:
   and open: Go's `doze open` launching the Rust bundle. `doze-app open` does not yet check doze.hcl's shape before
   starting or fall back to the status table with no display (Go did both; both need the Rust CLI's config).
 
-M3 steps 3.3 and 3.4 (branch `app-m3-settings`): Activity and Settings (rows 80, 82–84, 87–88).
+M3 steps 3.3 and 3.4 (branch `app-m3-settings`): Activity and Settings (rows 80, 82–84, 87–88). Activity was removed
+by the owner on 2026-11-28 (see the note at the top); its lines here are history.
 - `doze-desk::activity`: Go's `ActivityOf` ported (its two tests, and JSON Go wrote for ten journals in
   `testdata/go/activity`, matched field for field); the replay is linear in events plus services (Go's walked every
   service at every event). The app's page is one virtualised `list` with each strip painted on a canvas; beyond Go: a
@@ -354,7 +363,7 @@ The "Needs" column says what the feature depends on:
 
 | # | Go feature | Approach | Component | Needs | Spike |
 |---|---|---|---|---|---|
-| 30 | Head: name, dir, up X / stopped · when; view switch Tiles·List·Map·Grid (remembered per stack); Activity A; All logs L; stack switch; ⋯ (`fe/pages/overview.tsx`) | the same | `ButtonGroup`, `switch` | G | built (List/Map) |
+| 30 | Head: name, dir, up X / stopped · when; view switch Tiles·List·Map·Grid (remembered per stack); Activity A (removed 2026-11-28); All logs L; stack switch; ⋯ (`fe/pages/overview.tsx`) | the same | `ButtonGroup`, `switch` | G | built (List/Map) |
 | 31 | Vitals strip: memory with a share bar per service; cores; state counts; connections; faded when stale | `stat` cards; share bar as `plot` Stack | `plot` | G | built |
 | 32 | Busy banner (Starting/Stopping…) | `alert` + `spinner` | `alert` | C | built (M2) |
 | 33 | FailedBanner: Edit file / Try again / Copy / Dismiss, "What doze printed", SourceCard (`v/home.go` FailureOf) | the same; SourceCard via a read-only `Editor` with the line marked | `alert`, `input::Editor` | C | built (M2) |
@@ -429,7 +438,7 @@ The "Needs" column says what the feature depends on:
 
 | # | Go feature | Approach | Component | Needs | Spike |
 |---|---|---|---|---|---|
-| 80 | Activity: last hour / 24 h / 7 d, summary (asleep while up, memory freed, wakes, crashes), per-service timeline with spans, wake-to-ready, crash marks, asleep %, woken by; What happened list; filter by service (`v/activity.go` 426, journal on disk) | read the Go journal files (`internal/journal` format, read-only port) + journal topic; timeline drawn on `canvas` | `plot`, gpui canvas | G+L | built (M3) |
+| 80 | Activity: last hour / 24 h / 7 d, summary (asleep while up, memory freed, wakes, crashes), per-service timeline with spans, wake-to-ready, crash marks, asleep %, woken by; What happened list; filter by service (`v/activity.go` 426, journal on disk) | read the Go journal files (`internal/journal` format, read-only port) + journal topic; timeline drawn on `canvas` | `plot`, gpui canvas | G+L | built (M3); **removed** by the owner on 2026-11-28 ("very little use"): the page, `doze-desk::activity` and every way to it |
 | 81 | Empty folder: found table (Found / Where / Becomes), 3 choice tiles (init / add one thing / empty), busy state (`v/empty.go`, `fe/pages/empty.tsx`) | `doze init`/`add` via the CLI subprocess | — | C | built (M2) |
 | 82 | Settings › General: Mode System/Light/Dark, density, 5 colour themes drawn in the mode, Open at login, Reopen the page I had, prefs path | `setting` page | `setting` | L | built (M3); the colour themes row removed on purpose (one look, Graphite: the owner, 2026-11-19; see the theme tokens note near the top) |
 | 83 | Settings › Machine: Repair banner, doctor table by names/domains/app with Copy fix; Left behind (daemons, engines, data, routes, CA) with Look again / Clean up N / per-item / danger asks inline / show all; Copy report (`s/leftovers.go` 427, `s/repair.go` 255) | `doze doctor --json` (C); leftovers ported (ps + globs, L); repair through `doze-os` privilege prompt running `doze dns-setup` / `doze trust` | `setting`, `table` | C+L | built (M3) |
@@ -455,7 +464,7 @@ All of these become gpui actions with key contexts, so the help sheet, the chips
 |---|---|
 | Global | ⌘0 Home; ⌘1–9 tab n; ⌘O open folder; ⌘L all logs; ⌘, settings; ⌘⇧N bell; ⌘K palette; `?` help; ⌘[ ⌘] back/forward; Esc up; ⌘W close window; ⌘/ help; ⌘⇧D open (tray) |
 | Library | ↑↓ j k move; space up/down; ⏎ open; ⌫ remove |
-| Overview (running) | ↑↓ j k, ←→ (tiles); space switch/run; ⏎ open; p pin; w wake/run; s sleep; r restart/run; l logs; L all logs; A or T activity; y copy address; / filter; 1–4 views |
+| Overview (running) | ↑↓ j k, ←→ (tiles); space switch/run; ⏎ open; p pin; w wake/run; s sleep; r restart/run; l logs; L all logs; A or T activity (removed 2026-11-28); y copy address; / filter; 1–4 views |
 | Overview (stopped) | space start with row; u up as last time; c start sheet |
 | Map | arrows to the nearest card; ⏎ select/open; Esc clear; space toggle |
 | Grid | arrows; ⏎ open tip target; o open row; space; l; p; / |
@@ -656,9 +665,9 @@ The ★ items are 1, 4, 5, 9, 13, 14, 16, 18, 20 and 23. In order of importance:
 | `doze-control` | Control protocol 2: every op, topic and field from `internal/control/types.go` as serde types; a sans-IO NDJSON codec; a blocking client (std `UnixStream` + a thread, as the spike proved) with hello, ids, cancel, subscribe streams and reconnect back-off (500 ms → 5 s). A `test-support` **fixture daemon** that serves scripted frames on a real socket. Shared later with the Rust CLI and (server half) the Rust daemon | serde, serde_json, async-channel, doze-os (the blocking socket in `doze_os::local`; doze-os also compiles tokio, which this crate does not call) | no |
 | `doze-projects` | Project records (`projects/*/project.json`, schema 1), socket discovery, stale-pid check, stack keys; read-only for the Go formats | doze-os | no |
 | `doze-display` | The words: Look (word, glyph, tone), because, tallies, vitals, durations, rates, fuzzy match. Port of Go's `internal/display` (1,915 lines). Shared with the Rust CLI ("same words") | — | no |
-| `doze-journal` | Read-only reader of the Go journal on disk (`internal/journal`, 291 lines) for Activity and Away | — | no |
+| `doze-journal` | Read-only reader of the Go journal on disk (`internal/journal`, 291 lines) for Activity and Away (Activity removed 2026-11-28; the app reads the journal topic, not the file) | — | no |
 | `doze-map` | Map layout (port of `v/flow.go` + `geometry.go`), `next_card`. **Being built by another agent on the `map` branch**; this plan consumes it (§5.4) | doze-display | no |
-| `doze-desk` | The app's brain, GPUI-free: the hub (state per stack, rings, series, journal, console frames, watch ref-counts, Connecting/Live/Down); view models (library, home, stopped, grid, instance, logs, console, dialog, palette + commands, attention, preflight, away, activity, empty, tray, notify rules); prefs; link; autostart; ports (lsof/ss); leftovers; update check; stack actions via the CLI subprocess | the five above | no |
+| `doze-desk` | The app's brain, GPUI-free: the hub (state per stack, rings, series, journal, console frames, watch ref-counts, Connecting/Live/Down); view models (library, home, stopped, grid, instance, logs, console, dialog, palette + commands, attention, preflight, away, activity (removed 2026-11-28), empty, tray, notify rules); prefs; link; autostart; ports (lsof/ss); leftovers; update check; stack actions via the CLI subprocess | the five above | no |
 | `doze-app` | The GPUI binary: shell, screens, widgets, theme, the action table and keymap, overlays, the tray glue, notifications, `shot` and `bench` subcommands. Feature `capture` = gpui `test-support` | gpui-pre, gpui-pre-platform, gpui-component, doze-desk | yes |
 | `doze-os` (existing), new module `ui` behind feature `ui` | The only `unsafe`: `NSStatusItem` + `NSMenu` (custom views), Dock badge, URL-open events, activation, a native folder picker if gpui's is not enough; `ksni` on Linux; Windows later | objc2, objc2-app-kit | no |
 
@@ -670,7 +679,7 @@ The ★ items are 1, 4, 5, 9, 13, 14, 16, 18, 20 and 23. In order of importance:
 - `logs/`: view, ring adapter, search, selection
 - `console/`: node renderer
 - `overlays/`: dialog, palette, help, bell, toasts, preflight, away
-- `activity/`
+- `activity/` (removed 2026-11-28)
 - `settings/`
 - `empty/`
 - `tray`
@@ -791,7 +800,7 @@ boards (11 of them, on real doze-map output), the call made and built:
 |---|---|
 | Everything live: discovery, status, subscribe (instances, journal, stats, logs, console), verbs, admin actions, module consoles, logs history (`logs` op) | The **single binary** (`doze` = CLI + daemon + app). Until then the app ships as its own binary inside `Doze.app` (Q2) |
 | Stack up/down/restart, init/add, lint, doctor, status shape of a stopped stack: the Go CLI's `--json` contract | A doctor/repair that does not shell out (names N5: setup + trust) |
-| Library from project records; Activity and Away from the on-disk journal (read-only formats) | Native doze.hcl semantics in-process (grid refs, stopped shape, the Map's call graph without a subprocess): the Rust config/HCL work, measured at about 47 days in the HCL spike |
+| Library from project records; Activity and Away from the on-disk journal (read-only formats; Activity removed 2026-11-28) | Native doze.hcl semantics in-process (grid refs, stopped shape, the Map's call graph without a subprocess): the Rust config/HCL work, measured at about 47 days in the HCL spike |
 | Preflight, port clash, leftovers (lsof/ss/ps + files), prefs, autostart, links, update check | Windows (named-pipe admin socket, from the core plan) |
 | Notifications, tray, menus, every overlay | Anything the next daemon API (`docs/design/next/daemon-api.md`, "Contract 2") adds beyond today's protocol: why-awake holders as a first-class topic, wake causes. Today's `InstanceView.holders` already gives most of it |
 
@@ -859,7 +868,7 @@ These are working days for one builder agent with independent audits, and honest
 | **M3: Around the clock** | | | **26** |
 | 3.1 | Tray complete: stack lines, submenus, Needs-you section, alert icon, signature rebuild | tray 217, a/tray 263 | 3 |
 | 3.2 | Notifications: rules port + native with fix actions (bundle) | notify 148 + 159 | 3 |
-| 3.3 | Activity: journal spans, summary, timelines, What happened | activity 426, timeline 48 | 5 |
+| 3.3 | Activity: journal spans, summary, timelines, What happened (built, then removed by the owner 2026-11-28) | activity 426, timeline 48 | 5 |
 | 3.4 | Settings: General, Machine (doctor, repair via the admin prompt, leftovers), About (update check) | leftovers 427, repair 255, update 63 | 7 |
 | 3.5 | `Doze.app` bundle, ad-hoc local signing, CI signing from secrets, `doze open` handing off to the bundle (Q2) | — | 4 |
 | 3.6 | `xtask app-bench` (budgets in §6) + soak | deskbench | 4 |

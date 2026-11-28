@@ -2981,7 +2981,6 @@ dependencies = [
  "async-channel",
  "doze-control",
  "doze-display",
- "doze-journal",
  "doze-map",
  "doze-module-proto",
  "doze-os",

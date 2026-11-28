@@ -244,7 +244,7 @@ impl Stack {
         doze_logstore::dir_of(&self.data_dir)
     }
 
-    /// The journal: `run/journal.jsonl` (Go's path; the app reads it there).
+    /// The journal: `run/journal.jsonl` (Go's path; `doze why` reads it there).
     pub fn journal_path(&self) -> PathBuf {
         self.run_dir().join("journal.jsonl")
     }

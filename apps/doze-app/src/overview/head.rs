@@ -10,7 +10,7 @@ use crate::theme::{Tokens, ty};
 use crate::widgets::{switch, tip};
 use doze_desk::overview::titles;
 
-/// `.head`: the name, the folder and how long up (or stopped and when); the views; Activity, All logs; Up.
+/// `.head`: the name, the folder and how long up (or stopped and when); the views; All logs; Up.
 pub(super) fn head(
     t: &Tokens,
     v: &OverviewView,
@@ -40,14 +40,7 @@ pub(super) fn head(
     let row = row
         .relative()
         .child(views(t, v, cx))
-        // Go's keys on these are A and L (shift-a, shift-l: `e.key` "A", "L"); ⌘L also opens All logs.
-        .child(go(
-            t,
-            "Activity",
-            "A",
-            titles::ACTIVITY,
-            &crate::actions::Activity,
-        ))
+        // Go's key on it is L (shift-l: `e.key` "L"); ⌘L also opens All logs.
         .child(go(
             t,
             "All logs",
@@ -281,7 +274,7 @@ fn title_row(
         .child(div().flex_1())
 }
 
-/// A quiet button that does what the action table's row does (Activity A, All logs L), with Go's chip and title.
+/// A quiet button that does what the action table's row does (All logs L), with Go's chip and title.
 fn go(
     t: &Tokens,
     label: &'static str,

@@ -66,7 +66,6 @@ const BAR: [(MenuName, &str, &[Place]); 6] = [
             Row("Search or do…"),
             Row("Needs you"),
             Row("Recent messages"),
-            Row("Activity"),
             Sep,
             Row("Tab 1"),
             Row("Tab 2"),

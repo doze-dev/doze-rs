@@ -1,7 +1,7 @@
 [package]
 name = "doze-journal"
 version = "0.0.0"
-description = "The doze daemon's journal (wakes, sleeps, crashes): the writer, and the reader the app's Activity and Away use"
+description = "The doze daemon's journal (wakes, sleeps, crashes): the writer, and the reader `doze why` uses"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true

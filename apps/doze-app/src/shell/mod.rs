@@ -83,7 +83,7 @@ pub(crate) struct Root {
     clock: clock::Clock,
     /// Each task's last record, to say how a run went (see `tasks`).
     tasks: tasks::Tasks,
-    /// Activity and Settings (M3).
+    /// Settings (M3).
     pub(crate) pages: pages::Pages,
     /// The sidebar and foot the root drew beside a page inside a stack (see `inside::chrome`).
     chrome: Option<(Vec<doze_desk::page::side::Side>, String)>,
@@ -184,7 +184,7 @@ impl Root {
                 }
             }
             Screen::Empty(_) => {}
-            Screen::Activity(_) | Screen::Settings => self.apply_pages(batch, cx),
+            Screen::Settings => self.apply_pages(batch, cx),
             Screen::Stack(k) => {
                 if !batch.parts(k).is_empty() || !batch.hub.is_empty() {
                     self.overview.update(cx, |o, cx| o.refresh(cx));
@@ -210,8 +210,8 @@ impl Root {
         match &self.screen {
             Screen::Library => self.library.update(cx, |l, cx| l.refresh(cx)),
             Screen::Empty(_) => cx.notify(),
-            // Activity and Settings read the hub themselves; the root draws nothing of its own from it there.
-            Screen::Activity(_) | Screen::Settings => {}
+            // Settings reads the hub itself; the root draws nothing of its own from it there.
+            Screen::Settings => {}
             Screen::Stack(_) => self.overview.update(cx, |o, cx| o.refresh(cx)),
             Screen::Instance(..) | Screen::Logs(_) => self.chrome(cx),
         }
@@ -363,9 +363,7 @@ impl Render for Root {
             Screen::Instance(..) | Screen::Logs(_) => self
                 .inside_el(&t, cx)
                 .unwrap_or_else(|| div().into_any_element()),
-            Screen::Activity(_) | Screen::Settings => {
-                self.pages_el().unwrap_or_else(|| div().into_any_element())
-            }
+            Screen::Settings => self.pages_el().unwrap_or_else(|| div().into_any_element()),
         };
         let page = div()
             .key_context("Page")

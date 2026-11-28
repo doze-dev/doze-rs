@@ -39,8 +39,6 @@ pub(crate) const LG_UP: f32 = 18.;
 pub(crate) const XL: f32 = 20.;
 /// `--text-figure`: big numbers.
 pub(crate) const FIGURE: f32 = 22.;
-/// Activity's summary figures (`.act-sum .v`).
-pub(crate) const SUMMARY: f32 = 26.;
 
 // ── line heights, px ──
 
@@ -55,7 +53,6 @@ pub(crate) const LH_19: f32 = 19.;
 pub(crate) const LH: f32 = 20.;
 pub(crate) const LH_21: f32 = 21.;
 pub(crate) const LH_26: f32 = 26.;
-pub(crate) const LH_30: f32 = 30.;
 /// A key chip's line is its glyph's size and this.
 pub(crate) const CHIP_LEAD: f32 = 5.;
 /// A one-line label set solid but for this (the minimap's names).

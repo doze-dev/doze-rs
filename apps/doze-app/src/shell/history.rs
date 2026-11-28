@@ -59,7 +59,6 @@ impl Root {
             Screen::Stack(k) => last(k, "home", ""),
             Screen::Instance(k, n) => last(k, "instance", n),
             Screen::Logs(k) => last(k, "logs", ""),
-            Screen::Activity(k) => last(k, "activity", ""),
             Screen::Settings => crate::prefs::recall::save_last(Some(("", "settings", ""))),
             Screen::Library => crate::prefs::recall::save_last(None),
             Screen::Empty(_) => {}
@@ -82,12 +81,7 @@ impl Root {
         if self.hub.stack(&key).is_none() {
             return Screen::Library;
         }
-        match page.as_str() {
-            "instance" if !instance.is_empty() => Screen::Instance(key, instance),
-            "logs" => Screen::Logs(key),
-            "activity" => Screen::Activity(key),
-            _ => Screen::Stack(key),
-        }
+        reopen_page(key, &page, instance)
     }
 
     fn step(&mut self, back: bool, window: &mut Window, cx: &mut Context<Self>) {
@@ -182,6 +176,16 @@ impl Root {
     }
 }
 
+/// The page a known stack's saved `last` names. Anything else, `activity` among them (a page the app had until
+/// 2026-11-28, which a saved `last` may still name), is the stack's own page.
+fn reopen_page(key: doze_desk::StackKey, page: &str, instance: String) -> Screen {
+    match page {
+        "instance" if !instance.is_empty() => Screen::Instance(key, instance),
+        "logs" => Screen::Logs(key),
+        _ => Screen::Stack(key),
+    }
+}
+
 /// Hiding and showing other apps reach the owner's own windows: never from a hands-off run.
 fn outward_ok() -> bool {
     !crate::handsoff::on()
@@ -189,7 +193,7 @@ fn outward_ok() -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{History, KEPT, Screen};
+    use super::{History, KEPT, Screen, reopen_page};
 
     #[test]
     fn history_keeps_fifty_and_a_new_place_drops_what_was_ahead() {
@@ -206,5 +210,30 @@ mod tests {
         h.ahead.push(Screen::Library);
         h.went(&Screen::Library, &Screen::Logs(k));
         assert!(h.ahead.is_empty());
+    }
+
+    #[test]
+    fn a_saved_activity_page_reopens_the_stacks_page() {
+        let k = doze_desk::StackKey::new("/code/shop");
+        assert_eq!(
+            reopen_page(k.clone(), "activity", String::new()),
+            Screen::Stack(k.clone())
+        );
+        assert_eq!(
+            reopen_page(k.clone(), "activity", "api".into()),
+            Screen::Stack(k.clone())
+        );
+        assert_eq!(
+            reopen_page(k.clone(), "logs", String::new()),
+            Screen::Logs(k.clone())
+        );
+        assert_eq!(
+            reopen_page(k.clone(), "instance", "api".into()),
+            Screen::Instance(k.clone(), "api".into())
+        );
+        assert_eq!(
+            reopen_page(k.clone(), "home", String::new()),
+            Screen::Stack(k)
+        );
     }
 }
