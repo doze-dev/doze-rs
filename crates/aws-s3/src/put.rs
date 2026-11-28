@@ -177,10 +177,6 @@ impl Core {
             .staged
             .take()
             .ok_or_else(|| ApiError::internal("the object body was not received"))?;
-        let blob = self
-            .blobs
-            .publish(&staged.staging)
-            .map_err(|e| ApiError::internal(format!("the object could not be stored: {e}")))?;
         let mut meta = meta_of(&req);
         let (sse, kms) = self.default_sse(&bucket);
         meta.sse.get_or_insert(sse);
@@ -193,13 +189,13 @@ impl Core {
             seq: 0,
             delete_marker: false,
             modified_ms: self.now_ms(),
-            size: staged.staging.len,
+            size: staged.len,
             etag: aws_core::hex::encode(&staged.done.md5),
             meta,
             checksum: primary(&staged.done),
             segs: vec![Seg {
-                blob,
-                len: staged.staging.len,
+                blob: staged.blob,
+                len: staged.len,
             }],
             parts: Vec::new(),
             tags: req.s("Tagging").map(tags_of).unwrap_or_default(),

@@ -4,6 +4,7 @@ use aws_wire::ApiError;
 use serde_json::{Value, json};
 
 use crate::core::Core;
+use crate::merge::SCAN_MAX;
 use crate::model::{Event, Stream, stream_key};
 use crate::pattern;
 use crate::req::{Put, Req, invalid, no_group, no_stream};
@@ -23,7 +24,7 @@ pub(crate) struct Row {
     pub(crate) event: Event,
 }
 
-fn parse_row(key: &str, value: &[u8]) -> Option<Row> {
+pub(crate) fn parse_row(key: &str, value: &[u8]) -> Option<Row> {
     let pos = key.get(8..)?.to_owned();
     let ts = i64::from_str_radix(pos.get(..16)?, 16).ok()?;
     let seq = u64::from_str_radix(pos.get(16..)?, 16).ok()?;
@@ -154,21 +155,17 @@ impl Core {
         let hi = r
             .int("endTime")
             .map_or_else(|| "g".to_owned(), |e| hex_time(e.max(0)));
-        let mut found: Vec<(Row, &Stream)> = Vec::new();
-        for s in &streams {
-            let keep = |row: &Row| {
-                pattern.matches(&row.event.message)
-                    && after.as_ref().is_none_or(|(ts, name, seq)| {
-                        (row.ts, s.name.as_str(), row.seq) > (*ts, name.as_str(), *seq)
-                    })
-            };
-            for row in self.rows(s.no, (&lo, &hi), limit + 1, false, &keep)? {
-                found.push((row, s));
-            }
-        }
-        found.sort_by(|a, b| (a.0.ts, &a.1.name, a.0.seq).cmp(&(b.0.ts, &b.1.name, b.0.seq)));
-        let more = found.len() > limit;
-        found.truncate(limit);
+        let keep = |row: &Row| pattern.matches(&row.event.message);
+        let mut merged = self.merged(
+            &streams,
+            (&lo, &hi),
+            after.as_ref(),
+            (limit + 1, SCAN_MAX),
+            &keep,
+        )?;
+        let more = merged.found.len() > limit;
+        merged.found.truncate(limit);
+        let found = merged.found;
         let mut out = json!({
             "events": found.iter().map(|(x, s)| json!({
                 "logStreamName": s.name,
@@ -178,11 +175,13 @@ impl Core {
                 "eventId": format!("{:019}{:019}{:018}", s.no, x.ts, x.seq),
             })).collect::<Vec<_>>(),
         });
-        if let (true, Some((x, s))) = (more, found.last()) {
-            out.put(
-                "nextToken",
-                json!(format!("{:016x}:{:016x}:{}", x.ts, x.seq, s.name)),
-            );
+        // More matches than the limit: on from the last one returned. The rows read ran out first: on from the last one read.
+        let next = match (more, found.last()) {
+            (true, Some((x, s))) => Some((x.ts, s.name.clone(), x.seq)),
+            _ => merged.resume,
+        };
+        if let Some((ts, name, seq)) = next {
+            out.put("nextToken", json!(format!("{ts:016x}:{seq:016x}:{name}")));
         }
         Ok(out)
     }

@@ -85,10 +85,15 @@ const fn spec(a: Algo) -> (u64, u32) {
     }
 }
 
-fn table(a: Algo) -> &'static [u64; 256] {
-    static CRC32: OnceLock<[u64; 256]> = OnceLock::new();
-    static CRC32C: OnceLock<[u64; 256]> = OnceLock::new();
-    static CRC64: OnceLock<[u64; 256]> = OnceLock::new();
+/// Eight tables of a reflected CRC, for eight bytes a step ("slicing-by-8"): `t[0]` is the byte-at-a-time table, and `t[k][i]` is
+/// `i` followed by `k` zero bytes. 16 KiB each, made the first time the algorithm is used.
+type Tables = [[u64; 256]; 8];
+
+#[allow(clippy::indexing_slicing)] // WHY: fixed-size tables, indexed by a byte or by 0..8.
+fn tables(a: Algo) -> &'static Tables {
+    static CRC32: OnceLock<Box<Tables>> = OnceLock::new();
+    static CRC32C: OnceLock<Box<Tables>> = OnceLock::new();
+    static CRC64: OnceLock<Box<Tables>> = OnceLock::new();
     let cell = match a {
         Algo::Crc32 => &CRC32,
         Algo::Crc32c => &CRC32C,
@@ -96,13 +101,19 @@ fn table(a: Algo) -> &'static [u64; 256] {
     };
     cell.get_or_init(|| {
         let (poly, _) = spec(a);
-        let mut t = [0u64; 256];
-        for (i, e) in t.iter_mut().enumerate() {
+        let mut t = Box::new([[0u64; 256]; 8]);
+        for i in 0..256 {
             let mut c = i as u64;
             for _ in 0..8 {
                 c = if c & 1 == 1 { (c >> 1) ^ poly } else { c >> 1 };
             }
-            *e = c;
+            t[0][i] = c;
+        }
+        for k in 1..8 {
+            for i in 0..256 {
+                let prev = t[k - 1][i];
+                t[k][i] = (prev >> 8) ^ t[0][(prev & 0xFF) as usize];
+            }
         }
         t
     })
@@ -179,11 +190,26 @@ impl Sums {
     }
 }
 
+/// Eight bytes a step, then the rest one at a time. The state of a 32-bit CRC has its top half zero, so XOR-ing it into the low four
+/// bytes of the word is the same step as for a 64-bit one.
+#[allow(clippy::indexing_slicing)] // WHY: every index is a byte (`& 0xFF`) into a table of 256.
 fn crc_update(a: Algo, mut crc: u64, data: &[u8]) -> u64 {
-    let t = table(a);
-    for b in data {
-        let ix = usize::from((crc as u8) ^ b);
-        crc = t.get(ix).copied().unwrap_or(0) ^ (crc >> 8);
+    let t = tables(a);
+    let (words, rest) = data.as_chunks::<8>();
+    for word in words {
+        let v = crc ^ u64::from_le_bytes(*word);
+        let byte = |n: u32| ((v >> (8 * n)) & 0xFF) as usize;
+        crc = t[7][byte(0)]
+            ^ t[6][byte(1)]
+            ^ t[5][byte(2)]
+            ^ t[4][byte(3)]
+            ^ t[3][byte(4)]
+            ^ t[2][byte(5)]
+            ^ t[1][byte(6)]
+            ^ t[0][byte(7)];
+    }
+    for b in rest {
+        crc = t[0][usize::from((crc as u8) ^ b)] ^ (crc >> 8);
     }
     crc
 }
@@ -323,6 +349,46 @@ mod tests {
             aws_core::hex::encode(&sum(Algo::Sha1, b"abc")),
             "a9993e364706816aba3e25717850c26c9cd0d89d"
         );
+    }
+
+    /// The CRC a bit at a time, as its definition says.
+    fn bitwise(a: Algo, data: &[u8]) -> u64 {
+        let (poly, _) = spec(a);
+        let mut crc = mask(a);
+        for b in data {
+            crc ^= u64::from(*b);
+            for _ in 0..8 {
+                crc = if crc & 1 == 1 {
+                    (crc >> 1) ^ poly
+                } else {
+                    crc >> 1
+                };
+            }
+        }
+        !crc & mask(a)
+    }
+
+    #[test]
+    fn eight_bytes_a_step_is_the_crc_at_every_length_and_split() {
+        let data: Vec<u8> = (0..1000_u32)
+            .map(|i| (i.wrapping_mul(2_654_435_761) >> 13) as u8)
+            .collect();
+        for a in [Algo::Crc32, Algo::Crc32c, Algo::Crc64Nvme] {
+            for len in [0, 1, 7, 8, 9, 15, 16, 17, 63, 64, 65, 999, 1000] {
+                let part = data.get(..len).unwrap_or_default();
+                assert_eq!(crc_value(a, &sum(a, part)), bitwise(a, part), "{a:?} {len}");
+                // Pieces that do not fall on eight bytes sum to the same.
+                let mut s = Sums::new(&[a]);
+                for piece in part.chunks(5) {
+                    s.update(piece);
+                }
+                assert_eq!(
+                    s.finish().sums.remove(0).1,
+                    sum(a, part),
+                    "{a:?} {len} in pieces"
+                );
+            }
+        }
     }
 
     #[test]

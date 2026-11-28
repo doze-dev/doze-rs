@@ -5,7 +5,7 @@ use serde_json::{Value, json};
 
 use crate::core::Core;
 use crate::model::{Event, Stream, event_key, stream_key};
-use crate::pattern::{self, Pattern};
+use crate::pattern::Pattern;
 use crate::req::{Put, Req, invalid, no_stream};
 
 /// The most bytes a batch may hold: the messages in UTF-8 plus 26 for each event.
@@ -142,7 +142,7 @@ impl Core {
         let mut matched = Vec::new();
         let mut defaults = Vec::new();
         for f in &g.metric_filters {
-            let Ok(pattern) = pattern::parse(&f.pattern) else {
+            let Some(pattern) = self.filter_patterns.get(&f.pattern) else {
                 continue;
             };
             let events = if f.apply_on_transformed {

@@ -50,9 +50,16 @@ impl Inner {
             .config
             .get("Runtime")
             .and_then(Value::as_str)
-            .unwrap_or_default();
+            .unwrap_or_default()
+            .to_owned();
         let command = rs.config.get("Command").is_some_and(|c| !c.is_null());
-        if let Some(why) = check(runtime, &rs.root, command, self.rt.interpreters()) {
+        let (root, it) = (rs.root.clone(), self.rt.interpreters().clone());
+        // On a blocking thread: a Java package's jars are each read whole to look inside them.
+        let why = tokio::task::spawn_blocking(move || check(&runtime, &root, command, &it))
+            .await
+            .ok()
+            .flatten();
+        if let Some(why) = why {
             tracing::warn!(function = %rs.name, "{why}; the function is kept, and its first invocation will fail with Runtime.LaunchError");
         }
     }

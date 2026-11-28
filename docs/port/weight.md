@@ -1921,3 +1921,37 @@ What changed:
 Heap: a full queue costs a little more per message (two index entries); RSS after the 50,000 drain was 13.1 MB against
 9.4 MB before (allocator high water while the queue was full). The idle line is unchanged: an empty SQS holds no index
 and no watch.
+
+## Workstream 3: heavy work off the event loop (2026-11-27, branch `perf-offloop`), release-aws, darwin/arm64
+
+doze-aws answers every service on one current-thread event loop; whatever blocks it delays every other call. Measured with
+`tools/loop-probe.ts` (an SQS ListQueues every 10 ms; "stall" is the probe's worst round trip while the operation runs). Before and
+after ran back to back on the same machine under the same heavy load from other builds (load average 18 to 44), so wall times are
+noisy; the stalls are the comparison. A quiet-machine baseline earlier the same day is in brackets.
+
+| Operation | Stall before | Stall after |
+|---|---|---|
+| KMS first Sign of an RSA_4096 key (key made) | 151-951 ms [300-1030 ms] | 11-73 ms |
+| KMS GenerateDataKeyPair RSA_4096 | 526-1323 ms [84-514 ms] | 5-22 ms |
+| KMS GetParametersForImport RSA_4096 | 438-1563 ms [684-2032 ms] | 5-35 ms |
+| Lambda UpdateFunctionCode, 30,000-file package | 5.2-6.9 s [0.94-1.13 s] | 98-246 ms |
+| S3 1 GiB PUT (one request) | 64-168 ms, p50 2.6 ms | 37-60 ms, p50 0.4-0.9 ms |
+| S3 1 GiB multipart upload (aws s3 cp) | 244-471 ms, p99 228 ms [138-148 ms] | 41-65 ms, p99 31-38 ms |
+| S3 1 GiB CopyObject | 115-131 ms (and the region's actor held for the whole copy) | 24-30 ms, actor free |
+| Logs FilterLogEvents, 100,000 events, no match | 132-155 ms [35-40 ms] | 8-15 ms |
+| DynamoDB CreateBackup, 100,000 items | 230 ms [85-150 ms] | 15-30 ms |
+| DynamoDB RestoreTableFromBackup, 100,000 items | 270-814 ms [185-345 ms] | 11-16 ms |
+
+Also: ListObjects with a delimiter over 100,000 keys under one prefix read 100,005 rows in 158 ms; it now seeks past the fold (a
+handful of rows, 74 us; `list_tests`). The server's resident memory after the whole run was 132 MB before (a restore held every item)
+and 12 MB after.
+
+What moved: KMS key generation, RSA decryption, every Sign and Verify and an import's unwrap run on blocking threads (`offload.rs`);
+Lambda drops code trees by renaming them into `code-trash/` and empties it in one blocking job, and decodes, hashes and unpacks a
+package in one; S3 sums and writes an upload in 512 KiB batches (one blocking job each, at most two batches held), flushes and names
+a blob off the loop, and copies outside the actor in one blocking job, 1 MiB at a time; the CRCs take eight bytes a step; Logs reads
+at most 10,000 rows a FilterLogEvents call and answers a nextToken, and parses a filter's pattern once; DynamoDB copies a backup's
+and a restore's items inside the writer's transaction.
+
+Size: 12,237,920 B before, 12,254,816 B after (+16.9 KB), with `md-5` at opt-level 3 (+48 B of that; MD5 2.2 times faster, 256 MiB
+in 1.02 s then 0.45 s). `aws-s3` at opt-level 3 for the CRCs would have been +412 KB and was not taken. No new crate.

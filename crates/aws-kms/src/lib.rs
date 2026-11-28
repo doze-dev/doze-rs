@@ -19,6 +19,7 @@ mod keys;
 mod managed;
 mod model;
 mod multi;
+mod offload;
 mod policy;
 mod rotation;
 mod rsa_keys;
@@ -59,38 +60,60 @@ impl Kms {
         }
     }
 
-    /// Sends the call to the actor of the region it was signed for.
-    async fn call_actor(&self, call: Call) -> Result<Answer, String> {
-        let actor = self
-            .actors
-            .actor(&call.caller.region)
-            .map_err(|e| e.to_string())?;
+    /// Sends the call to the actor of `region`.
+    async fn call_actor(&self, region: &str, ask: crate::core::Ask) -> Answer {
+        let actor = match self.actors.actor(region) {
+            Ok(actor) => actor,
+            Err(e) => return Answer::of(Err(ApiError::internal(e.to_string()))),
+        };
         actor
-            .call(crate::core::Ask::Call(Box::new(call)))
+            .call(ask)
             .await
-            .map_err(|e| e.to_string())
+            .unwrap_or_else(|e| Answer::of(Err(ApiError::internal(e.to_string()))))
     }
 
-    /// Asks the actor, and holds the answer until what it changed is on disk.
+    /// Asks the actor, and holds the answer until what it changed is on disk. Work the call leaves for off the event loop is done
+    /// here, outside the actor (`offload.rs`): a job, after which the call is asked again with what it made, or the answer itself.
     async fn ask(&self, call: Call) -> Reply {
-        let mut answer = match self.call_actor(call).await {
-            Ok(answer) => answer,
-            Err(e) => Answer {
-                reply: Err(ApiError::internal(e.to_string())),
-                durable: None,
-                fanout: None,
-            },
-        };
-        if let Some(saved) = answer.durable.take()
-            && let Err(e) = saved.await
-        {
-            answer.reply = Err(ApiError::internal(format!("could not save: {e}")));
-            return answer.reply;
+        use crate::core::Ask;
+        use crate::offload::Next;
+        let region = call.caller.region.clone();
+        let mut ask = Ask::Call(Box::new(call));
+        // A call asks for one job at most; a second asking that wants another (its key changed in between) is given one more go.
+        for _ in 0..3 {
+            let mut answer = self.call_actor(&region, ask).await;
+            if let Some(saved) = answer.durable.take()
+                && let Err(e) = saved.await
+            {
+                return Err(ApiError::internal(format!("could not save: {e}")));
+            }
+            match answer.next.take() {
+                Some(Next::Again(job, call)) => {
+                    let made = offload::run_job(job)
+                        .await
+                        .ok_or_else(keys::no_randomness)?;
+                    ask = Ask::Again(call, made);
+                }
+                Some(Next::Answer(deferred)) => {
+                    let reply = offload::run_deferred(deferred.run).await;
+                    if reply.is_ok()
+                        && let Some((id, used)) = deferred.used
+                    {
+                        drop(self.call_actor(&region, Ask::Used(id, used)).await);
+                    }
+                    return reply;
+                }
+                None => {
+                    return match answer.fanout.take() {
+                        Some(fanout) => self.spread(fanout, answer.reply).await,
+                        None => answer.reply,
+                    };
+                }
+            }
         }
-        match answer.fanout.take() {
-            Some(fanout) => self.spread(fanout, answer.reply).await,
-            None => answer.reply,
-        }
+        Err(ApiError::internal(
+            "the key material could not be made: the key kept changing",
+        ))
     }
 
     /// Sends one region's actor work from another, and waits for it to be on disk.

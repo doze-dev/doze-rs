@@ -16,6 +16,7 @@ mod grants;
 mod import;
 mod keys;
 mod multi;
+mod offload;
 mod persistence;
 mod refusals;
 mod rsa;
@@ -53,7 +54,7 @@ impl World {
     pub(crate) fn run(&mut self, op: &str, request: &Value) -> Result<Value, aws_wire::ApiError> {
         let ix = self.h.op(op);
         let call = self.h.call(ix, request)?;
-        let out = self.core.dispatch(&call);
+        let out = self.core.dispatch_inline(&call);
         if let Some(saved) = self.core.flush().unwrap() {
             saved.wait().unwrap();
         }

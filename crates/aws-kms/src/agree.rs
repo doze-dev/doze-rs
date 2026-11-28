@@ -139,9 +139,14 @@ impl Core {
 
     /// Notes a successful cryptographic call as the last use of the key it named.
     pub(crate) fn note_use(&mut self, call: &Call) {
-        let Some(operation) = Operation::from_index(call.op).and_then(tracked) else {
-            return;
-        };
+        if let Some((id, used)) = self.use_of(call) {
+            self.used.insert(id, used);
+        }
+    }
+
+    /// The key a successful `call` is a use of, and the use.
+    pub(crate) fn use_of(&self, call: &Call) -> Option<(String, Used)> {
+        let operation = Operation::from_index(call.op).and_then(tracked)?;
         let body: Value = serde_json::from_str(&call.body).unwrap_or(Value::Null);
         let text = |k: &str| body.get(k).and_then(Value::as_str);
         let given = text("DestinationKeyId").or_else(|| text("KeyId"));
@@ -151,14 +156,12 @@ impl Core {
                 .and_then(aws_core::base64::decode)
                 .and_then(|b| crate::crypto::parse(&b).map(|p| p.key_id.to_owned())),
         };
-        if let Some(id) = id {
-            let used = Used {
-                operation,
-                at_ms: self.now_ms(),
-                request_id: call.id.to_string(),
-            };
-            self.used.insert(id, used);
-        }
+        let used = Used {
+            operation,
+            at_ms: self.now_ms(),
+            request_id: call.id.to_string(),
+        };
+        Some((id?, used))
     }
 }
 

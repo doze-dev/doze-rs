@@ -37,6 +37,8 @@ mod janitor;
 mod lifecycle;
 mod lifecycle_check;
 mod list;
+#[cfg(test)]
+mod list_tests;
 mod listv;
 mod lock;
 mod model;
@@ -202,6 +204,9 @@ impl Inner {
             (Some(Operation::PutObject | Operation::UploadPart), Some(mut upload)) => {
                 self.stream_in(&region, call, upload.as_mut()).await
             }
+            (Some(Operation::CopyObject | Operation::UploadPartCopy), _) => {
+                self.copy_in(&region, call).await
+            }
             (_, _) => self.ask(&region, Ask::Call(call, None)).await,
         };
         let answer = match answer {
@@ -230,23 +235,38 @@ impl Inner {
         {
             declared.want.push(Algo::Crc64Nvme);
         }
-        let staged = receive(&self.blobs(region), upload, &declared).await?;
-        let blobs = self.blobs(region);
-        let kept = self
-            .ask(
-                region,
-                Ask::Call(
-                    call,
-                    Some(req::Staged {
-                        staging: staged.staging,
-                        done: staged.done,
-                    }),
-                ),
-            )
-            .await;
-        if kept.is_err() {
-            // WHY: a staging file the actor did not take is swept at the next start; nothing refers to it.
-            blobs.sweep(None);
+        let body = receive(&self.blobs(region), upload, &declared).await?;
+        let staged = receive::publish(self.blobs(region), body).await?;
+        self.keep(region, call, staged).await
+    }
+
+    /// A copy: the actor checks it and answers what to read, the bytes are copied outside the actor by one blocking job, then the
+    /// actor keeps them.
+    async fn copy_in(&self, region: &str, call: Call) -> Answer {
+        let planned = self.ask(region, Ask::Plan(call.duplicate())).await?;
+        let algo = planned
+            .json
+            .get("Algo")
+            .and_then(serde_json::Value::as_str)
+            .and_then(Algo::parse)
+            .unwrap_or(Algo::Crc64Nvme);
+        let source = planned.json.get("Seq").and_then(serde_json::Value::as_u64);
+        let slices = planned.body.unwrap_or_default();
+        let mut staged = copy::copy_blob(self.blobs(region), slices, vec![algo]).await?;
+        staged.source = source;
+        self.keep(region, call, staged).await
+    }
+
+    /// Asks the actor to keep a blob made outside it. One it refuses (the bucket went, a condition failed: a 4xx, which comes before
+    /// anything refers to the blob) is removed; after a 5xx it is left for the sweep at the next unclean start, in case a record
+    /// already names it.
+    async fn keep(&self, region: &str, call: Call, staged: req::Staged) -> Answer {
+        let blob = staged.blob.clone();
+        let kept = self.ask(region, Ask::Call(call, Some(staged))).await;
+        if let Err(e) = &kept
+            && e.status < 500
+        {
+            receive::unkept(self.blobs(region), blob).await;
         }
         kept
     }

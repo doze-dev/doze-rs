@@ -54,7 +54,8 @@ impl Core {
         if key.current().is_none_or(|m| !m.sealed.is_empty()) {
             return Ok(());
         }
-        let der = rsa_keys::generate(bits).ok_or_else(no_randomness)?;
+        // Made off the event loop: the call is asked again with it (`offload.rs`).
+        let (der, _) = self.fresh_rsa(bits)?;
         let sealed = self.sealer.seal(&der).ok_or_else(no_randomness)?;
         if let Some(m) = self.keys.get_mut(&id).and_then(|k| k.materials.last_mut()) {
             m.sealed = sealed;
@@ -102,17 +103,18 @@ impl Core {
         usable(key, Usage::EncryptDecrypt, "Decrypt")?;
         let algorithm = algorithm_of(key, v.get(Decrypt::ENCRYPTION_ALGORITHM))?;
         let der = self.secret_of(key)?;
-        // Recorded for a symmetric key: the message of an unreadable ciphertext is empty.
-        let plain = rsa_keys::decrypt(
-            &algorithm,
-            &der,
-            v.get(Decrypt::CIPHERTEXT_BLOB).unwrap_or_default(),
-        )
-        .ok_or_else(|| ApiError::modeled("InvalidCiphertextException", ""))?;
-        reply::<Decrypted>(|o| {
-            o.put(Decrypted::KEY_ID, &key.arn);
-            o.put_blob(Decrypted::PLAINTEXT, &plain);
-            o.put(Decrypted::ENCRYPTION_ALGORITHM, &algorithm);
+        let arn = key.arn.clone();
+        let blob = v.get(Decrypt::CIPHERTEXT_BLOB).unwrap_or_default().to_vec();
+        // A private-key operation: about 12 ms at 4,096 bits, made off the event loop (`offload.rs`).
+        self.defer(call, move || {
+            // Recorded for a symmetric key: the message of an unreadable ciphertext is empty.
+            let plain = rsa_keys::decrypt(&algorithm, &der, &blob)
+                .ok_or_else(|| ApiError::modeled("InvalidCiphertextException", ""))?;
+            reply::<Decrypted>(|o| {
+                o.put(Decrypted::KEY_ID, &arn);
+                o.put_blob(Decrypted::PLAINTEXT, &plain);
+                o.put(Decrypted::ENCRYPTION_ALGORITHM, &algorithm);
+            })
         })
     }
 }

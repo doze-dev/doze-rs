@@ -297,14 +297,20 @@ fn random(n: usize) -> Result<Vec<u8>, ApiError> {
 
 impl Core {
     /// A new key pair for a data key pair call: the private key as PKCS #8 and the public key as SPKI, both DER.
-    fn new_pair(spec: &str) -> Result<(Vec<u8>, Vec<u8>), ApiError> {
+    /// Made off the event loop (an RSA 4,096 pair takes up to seconds): the call is asked again with it (`offload.rs`).
+    /// The key that seals it is checked first, so no pair is made for a call that fails.
+    fn new_pair(
+        &mut self,
+        call: &Call,
+        given: &str,
+        spec: &str,
+        operation: &str,
+    ) -> Result<(Vec<u8>, Vec<u8>), ApiError> {
         let curve = crate::spec::Spec::parse(spec)
             .filter(|s| s.is_rsa() || matches!(s, crate::spec::Spec::EccP256 | crate::spec::Spec::EccP384 | crate::spec::Spec::EccP521 | crate::spec::Spec::EccK1))
             .ok_or_else(|| ApiError::modeled("UnsupportedOperationException", format!("The key pair spec {spec} is not built in doze-aws: only the RSA and elliptic-curve ones are.")))?;
-        let secret = crate::asym::generate(curve).ok_or_else(no_randomness)?;
-        let private = crate::asym::private_key(curve, &secret).ok_or_else(no_randomness)?;
-        let public = crate::asym::public_key(curve, &secret).ok_or_else(no_randomness)?;
-        Ok((private, public))
+        usable(self.key(call, given)?, Usage::EncryptDecrypt, operation)?;
+        self.fresh_pair(curve)
     }
 
     pub(crate) fn generate_data_key_pair(&mut self, call: &Call) -> Reply {
@@ -313,7 +319,12 @@ impl Core {
         };
         let v = request::<Ask>(call)?;
         let spec = v.get(Ask::KEY_PAIR_SPEC).unwrap_or_default();
-        let (private, public) = Self::new_pair(spec)?;
+        let (private, public) = self.new_pair(
+            call,
+            v.get(Ask::KEY_ID).unwrap_or_default(),
+            spec,
+            "GenerateDataKeyPair",
+        )?;
         let ctx = context(v.get(Ask::ENCRYPTION_CONTEXT));
         let (blob, key, material) = self.seal_under(
             call,
@@ -339,7 +350,12 @@ impl Core {
         };
         let v = request::<Ask>(call)?;
         let spec = v.get(Ask::KEY_PAIR_SPEC).unwrap_or_default();
-        let (private, public) = Self::new_pair(spec)?;
+        let (private, public) = self.new_pair(
+            call,
+            v.get(Ask::KEY_ID).unwrap_or_default(),
+            spec,
+            "GenerateDataKeyPairWithoutPlaintext",
+        )?;
         let ctx = context(v.get(Ask::ENCRYPTION_CONTEXT));
         let (blob, key, material) = self.seal_under(
             call,

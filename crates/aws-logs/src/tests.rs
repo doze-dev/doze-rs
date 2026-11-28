@@ -12,6 +12,7 @@ use crate::core::Core;
 
 mod data;
 mod events;
+mod filtering;
 mod groups;
 mod insights;
 mod persistence;

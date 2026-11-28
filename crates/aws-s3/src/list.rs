@@ -41,6 +41,9 @@ pub(crate) struct Page {
     pub(crate) entries: Vec<Entry>,
     /// The last key or prefix returned, when more follow.
     pub(crate) next: Option<String>,
+    /// The rows read to make it.
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) scanned: usize,
 }
 
 /// What a listing asks for.
@@ -104,59 +107,47 @@ impl Core {
         Ok(())
     }
 
-    /// The page of newest versions described by `q`.
+    /// The page of newest versions described by `q`. Under a delimiter, the keys a folded prefix holds are not read: after a few
+    /// rows of one fold the walk starts again past the fold (a bucket with 100,000 keys under one prefix is one row, not 100,000).
     pub(crate) fn page(&self, q: &Query<'_>) -> Result<Page, ApiError> {
-        let mut entries: Vec<Entry> = Vec::new();
-        let mut last_key: Option<String> = None;
-        let mut last_fold: Option<String> = None;
-        let mut truncated = false;
         let skip_under = q
             .delimiter
             .filter(|d| q.after.ends_with(d))
             .map(|_| q.after);
-        let mut bad = false;
-        self.walk(q, |key, bytes| {
-            if last_key.as_deref() == Some(key) || skip_under.is_some_and(|s| key.starts_with(s)) {
-                return true;
+        let mut p = Paging::default();
+        let mut start = match skip_under {
+            Some(fold) => past(q.bucket, fold),
+            None if q.after.is_empty() || q.after < q.prefix => {
+                format!("{}\0{}", q.bucket, q.prefix)
             }
-            last_key = Some(key.to_owned());
-            if let Some(f) = fold(q, key) {
-                if last_fold.as_deref() == Some(f.as_str()) {
-                    return true;
-                }
-                if entries.len() >= q.max {
-                    truncated = true;
-                    return false;
-                }
-                last_fold = Some(f.clone());
-                entries.push(Entry::Prefix(f));
-                return true;
+            None => format!("{}\0{}\u{1}", q.bucket, q.after),
+        };
+        loop {
+            self.walk_from(q, &start, |key, bytes| {
+                p.scanned += 1;
+                p.take(q, skip_under, key, bytes)
+            })?;
+            match p.restart.take() {
+                Some(fold) => start = past(q.bucket, &fold),
+                None => break,
             }
-            let Ok(v) = crate::store::decode_version(bytes) else {
-                bad = true;
-                return false;
-            };
-            if v.delete_marker {
-                return true;
-            }
-            if entries.len() >= q.max {
-                truncated = true;
-                return false;
-            }
-            entries.push(Entry::Object(Box::new(v)));
-            true
-        })?;
-        if bad {
+        }
+        if p.bad {
             return Err(ApiError::internal("a stored object could not be read"));
         }
-        let next = truncated
-            .then(|| match entries.last() {
+        let next = p
+            .truncated
+            .then(|| match p.entries.last() {
                 Some(Entry::Object(v)) => Some(v.key.clone()),
-                Some(Entry::Prefix(p)) => Some(p.clone()),
+                Some(Entry::Prefix(f)) => Some(f.clone()),
                 None => None,
             })
             .flatten();
-        Ok(Page { entries, next })
+        Ok(Page {
+            entries: p.entries,
+            next,
+            scanned: p.scanned,
+        })
     }
 
     pub(crate) fn list_objects(&self, req: &Req<'_>, v2: bool) -> Answer {
@@ -186,6 +177,7 @@ impl Core {
             Page {
                 entries: Vec::new(),
                 next: None,
+                scanned: 0,
             }
         } else {
             self.page(&q)?
@@ -281,4 +273,74 @@ fn encode_token(s: &str) -> String {
 
 fn decode_token(t: &str) -> Option<String> {
     aws_core::base64::decode(t).and_then(|b| String::from_utf8(b).ok())
+}
+
+/// Rows of one folded prefix read before the walk starts again past it: a fold of a few keys is cheaper to read through than to
+/// seek past.
+const FOLD_ROWS: usize = 16;
+
+/// The row key just past every key under `fold` (a key that has U+10FFFF right after the fold sorts after it; the fold is then
+/// met again and skipped as one already returned).
+fn past(bucket: &str, fold: &str) -> String {
+    format!("{bucket}\0{fold}\u{10FFFF}")
+}
+
+/// A page being gathered.
+#[derive(Default)]
+struct Paging {
+    entries: Vec<Entry>,
+    last_key: Option<String>,
+    last_fold: Option<String>,
+    /// Rows of the current fold read since it was returned.
+    in_fold: usize,
+    truncated: bool,
+    bad: bool,
+    /// The fold to start the walk again past.
+    restart: Option<String>,
+    /// The fold the walk last started again past.
+    restarted: Option<String>,
+    scanned: usize,
+}
+
+impl Paging {
+    /// Takes one row; answers whether to go on.
+    fn take(&mut self, q: &Query<'_>, skip_under: Option<&str>, key: &str, bytes: &[u8]) -> bool {
+        if self.last_key.as_deref() == Some(key) || skip_under.is_some_and(|s| key.starts_with(s)) {
+            return true;
+        }
+        self.last_key = Some(key.to_owned());
+        if let Some(f) = fold(q, key) {
+            if self.last_fold.as_deref() == Some(f.as_str()) {
+                self.in_fold += 1;
+                // Once per fold: keys past the restart point that still fold here are read through.
+                if self.in_fold >= FOLD_ROWS && self.restarted.as_deref() != Some(f.as_str()) {
+                    self.restarted = Some(f.clone());
+                    self.restart = Some(f);
+                    return false;
+                }
+                return true;
+            }
+            if self.entries.len() >= q.max {
+                self.truncated = true;
+                return false;
+            }
+            self.last_fold = Some(f.clone());
+            self.in_fold = 0;
+            self.entries.push(Entry::Prefix(f));
+            return true;
+        }
+        let Ok(v) = crate::store::decode_version(bytes) else {
+            self.bad = true;
+            return false;
+        };
+        if v.delete_marker {
+            return true;
+        }
+        if self.entries.len() >= q.max {
+            self.truncated = true;
+            return false;
+        }
+        self.entries.push(Entry::Object(Box::new(v)));
+        true
+    }
 }

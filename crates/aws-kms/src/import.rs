@@ -73,8 +73,9 @@ impl Core {
         let now = self.now_ms();
         let key = self.keys.get(&id).ok_or_else(|| not_found_key(call, &id))?;
         external(key)?;
-        let der = rsa_keys::generate(bits).ok_or_else(no_randomness)?;
-        let public = rsa_keys::public_key(&der).ok_or_else(no_randomness)?;
+        // Made off the event loop (up to seconds at 4,096 bits): the call is asked again with it (`offload.rs`).
+        let (der, public) = self.fresh_rsa(bits)?;
+        let key = self.keys.get(&id).ok_or_else(|| not_found_key(call, &id))?;
         let token = aws_seal::random_bytes::<48>()
             .ok_or_else(no_randomness)?
             .to_vec();
@@ -97,11 +98,16 @@ impl Core {
         })
     }
 
-    pub(crate) fn import_key_material(&mut self, call: &Call) -> Reply {
-        let v = request::<Import_>(call)?;
-        let id = self.locate(call, v.get(Import_::KEY_ID).unwrap_or_default())?;
+    /// The 32 bytes of material an import brings, checked against the key's import token and opened with its wrapping key.
+    fn unwrap_import(
+        &mut self,
+        call: &Call,
+        id: &str,
+        token: Option<&[u8]>,
+        wrapped: &[u8],
+    ) -> Result<Vec<u8>, ApiError> {
         let now = self.now_ms();
-        let key = self.keys.get(&id).ok_or_else(|| not_found_key(call, &id))?;
+        let key = self.keys.get(id).ok_or_else(|| not_found_key(call, id))?;
         external(key)?;
         let params = key.import.as_ref().ok_or_else(|| {
             bad(
@@ -109,7 +115,7 @@ impl Core {
                 "Call GetParametersForImport first: there is no import token for this key.",
             )
         })?;
-        if v.get(Import_::IMPORT_TOKEN) != Some(params.token.as_slice()) {
+        if token != Some(params.token.as_slice()) {
             return Err(bad(
                 "InvalidImportTokenException",
                 "The import token is not the one this key was given.",
@@ -125,15 +131,30 @@ impl Core {
             .sealer
             .open(&params.wrapping)
             .ok_or_else(|| ApiError::internal("the wrapping key could not be opened"))?;
-        let raw = unwrap_material(&params.algorithm, &wrapping, v.get(Import_::ENCRYPTED_KEY_MATERIAL).unwrap_or_default())
+        let (algorithm, wrapped) = (params.algorithm.clone(), wrapped.to_vec());
+        // An RSA private-key operation (about 12 ms at 4,096 bits): done off the event loop, then the call is asked again.
+        self.unwrapped(move || unwrap_material(&algorithm, &wrapping, &wrapped))?
             .filter(|m| m.len() == KEY_BYTES)
-            .ok_or_else(|| bad("IncorrectKeyMaterialException", "The key material is not the 256 bits of an AES key, or was not wrapped with the key this import gave."))?;
+            .ok_or_else(|| bad("IncorrectKeyMaterialException", "The key material is not the 256 bits of an AES key, or was not wrapped with the key this import gave."))
+    }
+
+    pub(crate) fn import_key_material(&mut self, call: &Call) -> Reply {
+        let v = request::<Import_>(call)?;
+        let id = self.locate(call, v.get(Import_::KEY_ID).unwrap_or_default())?;
+        let now = self.now_ms();
+        let raw = self.unwrap_import(
+            call,
+            &id,
+            v.get(Import_::IMPORT_TOKEN),
+            v.get(Import_::ENCRYPTED_KEY_MATERIAL).unwrap_or_default(),
+        )?;
         let (model, valid_to) = expiry(
             v.get(Import_::EXPIRATION_MODEL),
             v.get(Import_::VALID_TO),
             now,
         )?;
         let material_hex = aws_core::hex::encode(&material_id(&raw));
+        let key = self.keys.get(&id).ok_or_else(|| not_found_key(call, &id))?;
         if key.current().is_some_and(|m| m.id != material_hex) {
             return Err(bad(
                 "IncorrectKeyMaterialException",

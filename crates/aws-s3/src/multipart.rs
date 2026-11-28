@@ -5,11 +5,11 @@ use aws_wire::ApiError;
 use serde_json::{Map, Value, json};
 
 use crate::checksum::{Algo, b64};
-use crate::copy::{copy_into, parse_source};
+use crate::copy::{copied, parse_source, plan};
 use crate::core::Core;
 use crate::errors::{invalid_argument, invalid_range, no_such_bucket, no_such_upload};
 use crate::get::{Span, parse_range, slices};
-use crate::model::{CKind, PartRec, Upload};
+use crate::model::{CKind, PartRec, Upload, Version};
 use crate::put::{check_key, meta_of, tags_of};
 use crate::req::{Answer, Out, Req};
 
@@ -146,10 +146,7 @@ impl Core {
             .staged
             .take()
             .ok_or_else(|| ApiError::internal("the part body was not received"))?;
-        let blob = self
-            .blobs
-            .publish(&staged.staging)
-            .map_err(|e| ApiError::internal(format!("the part could not be stored: {e}")))?;
+        let blob = staged.blob;
         let etag = aws_core::hex::encode(&staged.done.md5);
         let sums: Vec<(Algo, String)> = staged
             .done
@@ -169,7 +166,7 @@ impl Core {
             number,
             PartRec {
                 blob,
-                size: staged.staging.len,
+                size: staged.len,
                 etag,
                 modified_ms: self.now_ms(),
                 sums,
@@ -187,11 +184,11 @@ impl Core {
         self.parts.insert(row, part);
     }
 
-    pub(crate) async fn upload_part_copy(&mut self, req: &Req<'_>) -> Answer {
-        let (bucket, key) = (req.bucket().to_owned(), req.key().to_owned());
-        let id = req.s("UploadId").unwrap_or_default().to_owned();
-        let number = Self::part_number(req)?;
-        self.upload(&bucket, &key, &id)?;
+    /// The checks of a part copy: the upload, the part number and the source; answers the source and the stretch of it to copy.
+    fn check_part_copy(&self, req: &Req<'_>) -> Result<(Version, u64, u64), ApiError> {
+        let id = req.s("UploadId").unwrap_or_default();
+        Self::part_number(req)?;
+        self.upload(req.bucket(), req.key(), id)?;
         let (sb, sk, sv) = req.s("CopySource").and_then(parse_source).ok_or_else(|| {
             invalid_argument(
                 "Copy Source must mention the source bucket and key: sourcebucket/sourcekey",
@@ -211,32 +208,35 @@ impl Core {
                 ));
             }
         };
-        let mut staging = self
-            .blobs
-            .begin()
-            .map_err(|e| ApiError::internal(e.to_string()))?;
-        let parts = slices(self, &src.segs, from, len)?;
-        let want = [Algo::Crc64Nvme];
-        let done = match copy_into(&mut staging, parts, &want).await {
-            Ok(d) => d,
-            Err(e) => {
-                self.blobs.discard(&staging);
-                return Err(e);
-            }
-        };
-        let blob = self
-            .blobs
-            .publish(&staging)
-            .map_err(|e| ApiError::internal(e.to_string()))?;
-        let etag = aws_core::hex::encode(&done.md5);
+        Ok((src, from, len))
+    }
+
+    /// What an `UploadPartCopy` is to read: the stretch of the source, summed with CRC64NVME (it gives the whole object its
+    /// checksum when the upload is completed).
+    pub(crate) fn plan_part_copy(&self, req: &Req<'_>) -> Answer {
+        let (src, from, len) = self.check_part_copy(req)?;
+        plan(slices(self, &src.segs, from, len)?, Algo::Crc64Nvme, &src)
+    }
+
+    pub(crate) fn upload_part_copy(&mut self, mut req: Req<'_>) -> Answer {
+        let (src, _, _) = self.check_part_copy(&req)?;
+        let staged = copied(&mut req, &src)?;
+        let id = req.s("UploadId").unwrap_or_default().to_owned();
+        let number = Self::part_number(&req)?;
+        let etag = aws_core::hex::encode(&staged.done.md5);
         let modified = self.now_ms();
-        let sums = done.sums.iter().map(|(a, raw)| (*a, b64(raw))).collect();
+        let sums = staged
+            .done
+            .sums
+            .iter()
+            .map(|(a, raw)| (*a, b64(raw)))
+            .collect();
         self.set_part(
             &id,
             number,
             PartRec {
-                blob,
-                size: staging.len,
+                blob: staged.blob,
+                size: staged.len,
                 etag: etag.clone(),
                 modified_ms: modified,
                 sums,

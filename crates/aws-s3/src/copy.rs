@@ -1,13 +1,12 @@
-//! CopyObject, and the byte copy UploadPartCopy shares: the source's bytes are read in pieces on blocking threads into a new blob,
-//! summed on the way.
-
-use std::sync::Arc;
+//! CopyObject, and the byte copy UploadPartCopy shares. A copy is asked of the actor twice: first it is checked and planned (which
+//! stretches of which blobs to read), then the bytes are read, summed and written into a new blob by one job on a blocking thread,
+//! outside the actor, and the copy is asked again with the blob, checked again and kept.
 
 use aws_wire::ApiError;
 use doze_fs::fs::{Fs, FsFile, RealFs};
 use serde_json::{Map, Value, json};
 
-use crate::blob::Staging;
+use crate::blob::{Blobs, Staging};
 use crate::checksum::{Algo, Done, Sums};
 use crate::core::Core;
 use crate::errors::{invalid_argument, invalid_request, no_such_bucket, precondition_failed};
@@ -15,12 +14,13 @@ use crate::events::Kind;
 use crate::get::slices;
 use crate::model::{Seg, Version, Versioning};
 use crate::put::{add_checksum, check_key, meta_of, primary, tags_of};
-use crate::req::{Answer, Out, Req, Slice};
+use crate::req::{Answer, Out, Req, Slice, Staged};
 use crate::timeutil::parse_http_date;
 
 type File = <RealFs as Fs>::File;
 
-const PIECE: usize = 256 * 1024;
+/// The bytes a copy reads and writes at a time.
+const PIECE: usize = 1024 * 1024;
 
 /// The bucket, key and version a `CopySource` names.
 pub(crate) fn parse_source(raw: &str) -> Option<(String, String, Option<String>)> {
@@ -38,47 +38,97 @@ fn io_failed(e: impl std::fmt::Display) -> ApiError {
     ApiError::internal(format!("the object could not be copied: {e}"))
 }
 
-/// Copies `slices` into `staging`, summing with `want`.
-pub(crate) async fn copy_into(
-    staging: &mut Staging<RealFs>,
+/// Copies `slices` into a new blob of `blobs`, summing with `want`, then flushes and names it: all of it in one job on a blocking
+/// thread, outside the actor, a [`PIECE`] at a time through one buffer. Before, each piece was two blocking jobs (a read, a write)
+/// and was summed on the event loop, inside the actor, which no other call of the region could reach until the copy was done.
+///
+/// # Errors
+/// A source that cannot be read, or a disk that refuses; the staging file is removed.
+pub(crate) async fn copy_blob(
+    blobs: Blobs<RealFs>,
     slices: Vec<Slice>,
+    want: Vec<Algo>,
+) -> Result<Staged, ApiError> {
+    tokio::task::spawn_blocking(move || {
+        let mut staging = blobs.begin().map_err(io_failed)?;
+        let done = match copy_into(&mut staging, &slices, &want) {
+            Ok(done) => done,
+            Err(e) => {
+                blobs.discard(&staging);
+                return Err(io_failed(e));
+            }
+        };
+        let blob = blobs.publish(&staging).map_err(io_failed)?;
+        Ok(Staged {
+            blob,
+            len: staging.len,
+            done,
+            source: None,
+        })
+    })
+    .await
+    .map_err(io_failed)?
+}
+
+fn copy_into(
+    staging: &mut Staging<RealFs>,
+    slices: &[Slice],
     want: &[Algo],
-) -> Result<Done, ApiError> {
+) -> std::io::Result<Done> {
     let mut sums = Sums::new(want);
+    let mut buf = vec![0u8; PIECE];
     for s in slices {
         let (mut at, end) = (s.from, s.from + s.len);
         while at < end {
             let n = usize::try_from((end - at).min(PIECE as u64)).unwrap_or(PIECE);
-            let (file, from) = (Arc::clone(&s.file), at);
-            let piece = tokio::task::spawn_blocking(move || read_piece(&file, from, n))
-                .await
-                .map_err(io_failed)?
-                .map_err(io_failed)?;
-            sums.update(&piece);
-            let (out, pos) = (staging.file(), staging.len);
-            let data = piece.clone();
-            tokio::task::spawn_blocking(move || out.write_all_at(&data, pos))
-                .await
-                .map_err(io_failed)?
-                .map_err(io_failed)?;
-            staging.len += piece.len() as u64;
-            at += piece.len() as u64;
+            let piece = buf.get_mut(..n).unwrap_or_default();
+            read_piece(&s.file, at, piece)?;
+            sums.update(piece);
+            staging.file.write_all_at(piece, staging.len)?;
+            staging.len += n as u64;
+            at += n as u64;
         }
     }
     Ok(sums.finish())
 }
 
-fn read_piece(file: &File, from: u64, n: usize) -> std::io::Result<Vec<u8>> {
-    let mut buf = vec![0u8; n];
+fn read_piece(file: &File, from: u64, buf: &mut [u8]) -> std::io::Result<()> {
     let mut got = 0;
-    while got < n {
+    while got < buf.len() {
         let m = file.read_at(buf.get_mut(got..).unwrap_or_default(), from + got as u64)?;
         if m == 0 {
             return Err(std::io::ErrorKind::UnexpectedEof.into());
         }
         got += m;
     }
-    Ok(buf)
+    Ok(())
+}
+
+/// What a copy is to read, as the actor's plan answers it: the stretches of the source in `body`, and in `json` the algorithm and
+/// the source version's sequence number, which the copy's second asking checks is still the source's.
+pub(crate) fn plan(slices: Vec<Slice>, algo: Algo, source: &Version) -> Answer {
+    Ok(Out {
+        json: json!({"Algo": algo.name(), "Seq": source.seq}),
+        status: None,
+        body: Some(slices),
+    })
+}
+
+/// The copy's bytes, as its second asking is handed them, checked against the source as it is now: it must be the version that
+/// was copied (it was replaced in between: AWS's words for a conflicting operation).
+pub(crate) fn copied(req: &mut Req<'_>, source: &Version) -> Result<Staged, ApiError> {
+    let staged = req
+        .staged
+        .take()
+        .ok_or_else(|| ApiError::internal("the copy's bytes were not made"))?;
+    if staged.source != Some(source.seq) {
+        return Err(ApiError::new(
+            409,
+            "OperationAborted",
+            "A conflicting conditional operation is currently in progress against this resource. Please try again.",
+        ));
+    }
+    Ok(staged)
 }
 
 impl Core {
@@ -118,24 +168,53 @@ impl Core {
         Ok(v)
     }
 
-    pub(crate) async fn copy_object(&mut self, req: &Req<'_>) -> Answer {
-        let (bucket, key) = (req.bucket().to_owned(), req.key().to_owned());
-        check_key(&key)?;
-        let dest = self.require(&bucket)?.versioning;
+    /// The checks of a copy, made when it is planned and again when its bytes are handed in.
+    fn check_copy(&self, req: &Req<'_>) -> Result<Checked, ApiError> {
+        let bucket = req.bucket();
+        check_key(req.key())?;
+        let dest = self.require(bucket)?.versioning;
         let src = self.copy_source(req)?;
         let replace = req.s("MetadataDirective") == Some("REPLACE");
-        check_not_onto_itself(req, &src, &bucket, replace, dest)?;
+        check_not_onto_itself(req, &src, bucket, replace, dest)?;
         // The copy has the lock its own request names (or the bucket's default), never the source's.
-        let lock = self.new_lock(&bucket, crate::lock::requested(req, self.now_ms())?)?;
+        let lock = self.new_lock(bucket, crate::lock::requested(req, self.now_ms())?)?;
         // A copy has the ACL its own request names, never the source's (memory: as AWS documents for CopyObject).
         let acl = self.object_write_acl(req)?;
-        self.guard_replace(&bucket, &key)?;
+        self.guard_replace(bucket, req.key())?;
         let algo = req
             .s("ChecksumAlgorithm")
             .and_then(Algo::parse)
             .or(src.checksum.as_ref().map(|c| c.algo))
             .unwrap_or(Algo::Crc64Nvme);
-        let (blob, len, done) = self.copy_bytes(&src, algo).await?;
+        Ok(Checked {
+            src,
+            dest,
+            replace,
+            lock,
+            acl,
+            algo,
+        })
+    }
+
+    /// What a `CopyObject` is to read: the whole source.
+    pub(crate) fn plan_copy_object(&self, req: &Req<'_>) -> Answer {
+        let c = self.check_copy(req)?;
+        plan(slices(self, &c.src.segs, 0, c.src.size)?, c.algo, &c.src)
+    }
+
+    pub(crate) fn copy_object(&mut self, mut req: Req<'_>) -> Answer {
+        let (bucket, key) = (req.bucket().to_owned(), req.key().to_owned());
+        let Checked {
+            src,
+            dest,
+            replace,
+            lock,
+            acl,
+            ..
+        } = self.check_copy(&req)?;
+        let Staged {
+            blob, len, done, ..
+        } = copied(&mut req, &src)?;
         let tags = if req.s("TaggingDirective") == Some("REPLACE") {
             req.s("Tagging").map(tags_of).unwrap_or_default()
         } else {
@@ -149,7 +228,7 @@ impl Core {
             modified_ms: self.now_ms(),
             size: len,
             etag: aws_core::hex::encode(&done.md5),
-            meta: self.copied_meta(req, &src, &bucket, replace),
+            meta: self.copied_meta(&req, &src, &bucket, replace),
             checksum: primary(&done),
             segs: vec![Seg { blob, len }],
             parts: Vec::new(),
@@ -158,27 +237,8 @@ impl Core {
             acl,
         };
         let stored = self.install(&bucket, v)?;
-        self.note(req, Kind::Object("ObjectCreated:Copy"), &stored);
+        self.note(&req, Kind::Object("ObjectCreated:Copy"), &stored);
         Out::json(copy_output(&stored, &src, dest != Versioning::Off))
-    }
-
-    /// The source's bytes in a new blob: its id, its length, and its sums.
-    async fn copy_bytes(
-        &mut self,
-        src: &Version,
-        algo: Algo,
-    ) -> Result<(String, u64, crate::checksum::Done), ApiError> {
-        let mut staging = self.blobs.begin().map_err(io_failed)?;
-        let sl = slices(self, &src.segs, 0, src.size)?;
-        let done = match copy_into(&mut staging, sl, &[algo]).await {
-            Ok(d) => d,
-            Err(e) => {
-                self.blobs.discard(&staging);
-                return Err(e);
-            }
-        };
-        let blob = self.blobs.publish(&staging).map_err(io_failed)?;
-        Ok((blob, staging.len, done))
     }
 
     /// The headers the copy keeps: the source's, or the request's when it replaces them. The storage class and the encryption are
@@ -256,4 +316,14 @@ fn copy_output(stored: &Version, src: &Version, versioned: bool) -> Value {
         out.insert("CopySourceVersionId".into(), json!(src.version_id));
     }
     Value::Object(out)
+}
+
+/// A copy's checks, as they found it.
+struct Checked {
+    src: Version,
+    dest: Versioning,
+    replace: bool,
+    lock: crate::model::Lock,
+    acl: Option<Vec<crate::acl::Grant>>,
+    algo: Algo,
 }

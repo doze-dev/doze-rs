@@ -7,13 +7,16 @@ use aws_wire::service::Call;
 use doze_fs::fs::{Fs, RealFs};
 use serde_json::Value;
 
-use crate::blob::Staging;
 use crate::checksum::Done;
 
-/// A body that has been written to disk and summed, waiting for its metadata.
+/// A body that has been written to disk, summed, flushed and named, waiting for its metadata: the blob's id, its length and its sums.
+/// A blob the actor does not keep is removed by whoever handed it over.
 pub(crate) struct Staged {
-    pub(crate) staging: Staging<RealFs>,
+    pub(crate) blob: String,
+    pub(crate) len: u64,
     pub(crate) done: Done,
+    /// For a copy: the sequence number of the source version it was copied from.
+    pub(crate) source: Option<u64>,
 }
 
 /// What the actor is asked.
@@ -22,6 +25,9 @@ pub(crate) enum Ask {
     Gate(Call),
     /// Do the operation.
     Call(Call, Option<Staged>),
+    /// Check a copy (`CopyObject`, `UploadPartCopy`) and answer what it is to read; the bytes are copied outside the actor and the
+    /// copy is then asked as a `Call` with them.
+    Plan(Call),
     /// Apply the lifecycle rules of every bucket as of now (the janitor asks; so does a test).
     Sweep,
     /// The bucket's CORS and website configurations (a browser's preflight, an actual request with `Origin`, a page request).

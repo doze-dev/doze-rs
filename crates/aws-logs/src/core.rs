@@ -41,6 +41,8 @@ pub(crate) struct Core {
     pub(crate) clock: Arc<dyn Clock>,
     pub(crate) peers: Option<Arc<Peers>>,
     pub(crate) patterns: Patterns,
+    /// The metric and subscription filters' patterns, parsed once.
+    pub(crate) filter_patterns: crate::pattern::Cache,
     /// When each group's events past its retention were last removed (not persisted: a restart sweeps once).
     pub(crate) swept: HashMap<String, i64>,
     /// Metric data points the last call made through metric filters, for CloudWatch (sent once the call is answered).
@@ -252,6 +254,7 @@ impl Core {
             clock,
             peers,
             patterns: Patterns::new(&TABLES),
+            filter_patterns: crate::pattern::Cache::default(),
             swept: HashMap::new(),
             emit: Vec::new(),
             forward: Vec::new(),

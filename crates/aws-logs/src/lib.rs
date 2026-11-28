@@ -31,6 +31,7 @@ mod forward;
 mod groups;
 mod indexes;
 mod insights;
+mod merge;
 mod model;
 mod pattern;
 mod queries;

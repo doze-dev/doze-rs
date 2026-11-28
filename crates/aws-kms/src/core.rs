@@ -46,6 +46,8 @@ pub(crate) struct Core {
     next_purge_ms: Option<i64>,
     /// The bus, for asking whether a caller may do what it asks.
     pub(crate) peers: Option<Arc<Peers>>,
+    /// What the call in hand was given from off the loop, and leaves to be done there.
+    pub(crate) offload: crate::offload::Offload,
 }
 
 /// What the actor is asked.
@@ -53,6 +55,10 @@ pub(crate) struct Core {
 pub(crate) enum Ask {
     /// A call from the wire (or the peer bus).
     Call(Box<Call>),
+    /// A call asked again with what its job made off the loop.
+    Again(Box<Call>, crate::offload::Made),
+    /// A key's last use, noted once an answer made off the loop succeeded.
+    Used(String, Used),
     /// From `doze-aws data`: what KMS holds, or remove it all.
     Data(Box<crate::storage::DataCall>),
     /// From the region of a multi-Region primary: make this replica.
@@ -70,6 +76,8 @@ pub(crate) struct Answer {
     pub(crate) durable: Option<Ack>,
     /// What other regions are to do before the call is answered.
     pub(crate) fanout: Option<Fanout>,
+    /// What is left to do off the loop before the call is answered.
+    pub(crate) next: Option<crate::offload::Next>,
 }
 
 /// The operations this service runs. The others are refused by name before their request is read.
@@ -145,16 +153,20 @@ impl doze_runtime::Service for Core {
     async fn handle(&mut self, ask: Ask) -> Answer {
         let call = match ask {
             Ask::Call(call) => *call,
+            Ask::Again(call, made) => {
+                self.offload.made = Some(made);
+                *call
+            }
+            Ask::Used(id, used) => {
+                self.used.insert(id, used);
+                return Answer::of(aws_wire::handler::empty());
+            }
             Ask::Data(asked) => {
                 let crate::storage::DataCall { region, ask, reply } = *asked;
                 if reply.send(self.data(&region, ask)).is_err() {
                     // WHY: the person stopped waiting; what was asked was done all the same.
                 }
-                return Answer {
-                    reply: aws_wire::handler::empty(),
-                    durable: None,
-                    fanout: None,
-                };
+                return Answer::of(aws_wire::handler::empty());
             }
             other => return self.region_work(other),
         };
@@ -162,28 +174,26 @@ impl doze_runtime::Service for Core {
             && peers.mode() != Mode::Off
             && let Err(refusal) = peers.authorize(&call.caller, self.needs(&call)).await
         {
-            return Answer {
-                reply: Err(refusal),
-                durable: None,
-                fanout: None,
-            };
+            return Answer::of(Err(refusal));
         }
         let mut reply = self.dispatch(&call);
-        if reply.is_ok() {
+        let pending = self.pending(reply.is_ok());
+        if reply.is_ok() && pending.is_none() {
             self.note_use(&call);
         }
         let fanout = self.fanout.take().filter(|_| reply.is_ok());
-        let durable = match self.flush() {
-            Ok(ack) => ack,
+        let (durable, next) = match self.flush() {
+            Ok(ack) => (ack, pending.map(|p| p.next(call))),
             Err(e) => {
                 reply = Err(ApiError::internal(format!("could not save: {e}")));
-                None
+                (None, None)
             }
         };
         Answer {
             reply,
             durable,
             fanout,
+            next,
         }
     }
 
@@ -258,6 +268,7 @@ impl Core {
             db,
             next_purge_ms,
             peers: None,
+            offload: crate::offload::Offload::default(),
         }
     }
 

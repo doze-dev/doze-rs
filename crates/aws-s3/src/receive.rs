@@ -1,8 +1,13 @@
 //! An object's bytes arriving: the upload is written to a staging file as it comes, summed on the way, and checked against what the
-//! client declared (the length, `Content-MD5`, a checksum in a header or a trailer). Nothing is held but the piece in hand.
+//! client declared (the length, `Content-MD5`, a checksum in a header or a trailer). The summing and writing are done on a blocking
+//! thread a batch at a time; at most two batches are held (one arriving, one being written). The finished body is flushed and named
+//! there too, before the actor is asked to keep it.
+
+use std::sync::Arc;
 
 use aws_wire::ApiError;
 use aws_wire::rest::Upload;
+use bytes::Bytes;
 use doze_fs::fs::{FsFile, RealFs};
 use serde_json::Value;
 
@@ -62,16 +67,97 @@ fn read_failed(e: &std::io::Error) -> ApiError {
     ApiError::internal(format!("the object could not be stored: {e}"))
 }
 
-/// Writes `data` at `at` on a blocking thread.
-async fn write_at(
-    file: std::sync::Arc<<RealFs as doze_fs::fs::Fs>::File>,
-    data: bytes::Bytes,
-    at: u64,
-) -> Result<(), ApiError> {
-    tokio::task::spawn_blocking(move || file.write_all_at(&data, at))
-        .await
-        .map_err(|e| ApiError::internal(e.to_string()))?
-        .map_err(|e| read_failed(&e))
+/// The bytes gathered before one blocking job sums and writes them. A network piece is 8 to 64 KiB: a job each was a thread hop
+/// per piece, and the summing (MD5 always, a CRC, maybe a SHA) ran on the event loop.
+pub(crate) const BATCH: usize = 512 * 1024;
+
+type File = <RealFs as doze_fs::fs::Fs>::File;
+
+/// Sums and writes a body in batches of [`BATCH`] bytes, one blocking job each, while the next batch arrives: at most one job is
+/// in flight, and the sums go to the job and come back with it.
+pub(crate) struct Batcher {
+    file: Arc<File>,
+    /// Where the next batch is written.
+    pub(crate) at: u64,
+    sums: Option<Sums>,
+    running: Option<tokio::task::JoinHandle<std::io::Result<Sums>>>,
+    pieces: Vec<Bytes>,
+    gathered: usize,
+}
+
+impl Batcher {
+    pub(crate) fn new(file: Arc<File>, sums: Sums) -> Self {
+        Self {
+            file,
+            at: 0,
+            sums: Some(sums),
+            running: None,
+            pieces: Vec::new(),
+            gathered: 0,
+        }
+    }
+
+    /// Takes a piece; a full batch goes to a job.
+    pub(crate) async fn push(&mut self, piece: Bytes) -> Result<(), ApiError> {
+        self.gathered += piece.len();
+        self.pieces.push(piece);
+        if self.gathered >= BATCH {
+            self.send().await?;
+        }
+        Ok(())
+    }
+
+    /// Waits for the job in flight, which hands the sums back.
+    async fn settle(&mut self) -> Result<(), ApiError> {
+        if let Some(job) = self.running.take() {
+            let sums = job
+                .await
+                .map_err(|e| ApiError::internal(e.to_string()))?
+                .map_err(|e| read_failed(&e))?;
+            self.sums = Some(sums);
+        }
+        Ok(())
+    }
+
+    async fn send(&mut self) -> Result<(), ApiError> {
+        self.settle().await?;
+        if self.pieces.is_empty() {
+            return Ok(());
+        }
+        let Some(mut sums) = self.sums.take() else {
+            return Ok(());
+        };
+        let pieces = std::mem::take(&mut self.pieces);
+        let (file, at, len) = (Arc::clone(&self.file), self.at, self.gathered);
+        self.at += len as u64;
+        self.gathered = 0;
+        self.running = Some(tokio::task::spawn_blocking(move || {
+            for p in &pieces {
+                sums.update(p);
+            }
+            match pieces.as_slice() {
+                [one] => file.write_all_at(one, at)?,
+                _ => file.write_all_at(&pieces.concat(), at)?,
+            }
+            Ok(sums)
+        }));
+        Ok(())
+    }
+
+    /// Writes what is left and answers the sums.
+    pub(crate) async fn finish(mut self) -> Result<Sums, ApiError> {
+        self.send().await?;
+        self.settle().await?;
+        self.sums
+            .take()
+            .ok_or_else(|| ApiError::internal("the body's sums were lost"))
+    }
+}
+
+/// A body written to its staging file and summed.
+pub(crate) struct Body {
+    pub(crate) staging: Staging<RealFs>,
+    pub(crate) done: Done,
 }
 
 /// Reads `upload` to its end into a new staging file.
@@ -83,11 +169,11 @@ pub(crate) async fn receive(
     blobs: &Blobs<RealFs>,
     upload: &mut dyn Upload,
     declared: &Declared,
-) -> Result<Staged, ApiError> {
+) -> Result<Body, ApiError> {
     let mut staging = blobs.begin().map_err(|e| read_failed(&e))?;
     let result = fill(&mut staging, upload, declared).await;
     match result {
-        Ok(done) => Ok(Staged { staging, done }),
+        Ok(done) => Ok(Body { staging, done }),
         Err(e) => {
             blobs.discard(&staging);
             Err(e)
@@ -104,13 +190,12 @@ async fn fill(
     if d.sha256_hex.is_some() && !want.contains(&Algo::Sha256) {
         want.push(Algo::Sha256);
     }
-    let mut sums = Sums::new(&want);
+    let mut batcher = Batcher::new(staging.file(), Sums::new(&want));
     while let Some(piece) = upload.next().await? {
-        sums.update(&piece);
-        let n = piece.len() as u64;
-        write_at(staging.file(), piece, staging.len).await?;
-        staging.len += n;
+        batcher.push(piece).await?;
     }
+    staging.len = batcher.at + batcher.gathered as u64;
+    let sums = batcher.finish().await?;
     if let Some(declared) = upload.length().filter(|l| *l != staging.len) {
         return Err(invalid_request(&format!(
             "The request body is {} bytes but x-amz-decoded-content-length said {declared}.",
@@ -157,4 +242,30 @@ fn verify(done: &Done, d: &Declared, trailers: &[(String, String)]) -> Result<()
         }
     }
     Ok(())
+}
+
+/// Flushes the body and gives it its name on a blocking thread (`sync_data`, rename, the directory's flush: in that order, as
+/// [`Blobs::publish`] does), so the actor is handed a blob that is already durable.
+///
+/// # Errors
+/// The disk refused; the staging file is removed.
+pub(crate) async fn publish(blobs: Blobs<RealFs>, body: Body) -> Result<Staged, ApiError> {
+    let Body { staging, done } = body;
+    let len = staging.len;
+    let blob = tokio::task::spawn_blocking(move || blobs.publish(&staging))
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?
+        .map_err(|e| ApiError::internal(format!("the object could not be stored: {e}")))?;
+    Ok(Staged {
+        blob,
+        len,
+        done,
+        source: None,
+    })
+}
+
+/// Removes a blob the actor did not keep, on a blocking thread.
+pub(crate) async fn unkept(blobs: Blobs<RealFs>, blob: String) {
+    // WHY: a blob that cannot be removed now is unreferenced and is swept at the next unclean start.
+    drop(tokio::task::spawn_blocking(move || blobs.remove(&blob)).await);
 }

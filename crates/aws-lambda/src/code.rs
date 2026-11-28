@@ -63,38 +63,53 @@ pub(crate) async fn stage(
             image: Some(image.to_owned()),
         });
     }
-    let bytes = if let Some(zip) = text("ZipFile") {
-        base64::decode(zip).ok_or_else(|| invalid("Could not decode the ZipFile."))?
+    let package = if let Some(zip) = text("ZipFile") {
+        // Decoded on the blocking thread: up to 50 MB of base64 (the copy here is a memcpy, the decode is not).
+        Package::Inline(zip.to_owned())
     } else if let (Some(bucket), Some(key)) = (text("S3Bucket"), text("S3Key")) {
-        fetch(peers, caller, bucket, key, text("S3ObjectVersion")).await?
+        Package::Bytes(fetch(peers, caller, bucket, key, text("S3ObjectVersion")).await?)
     } else {
         return Err(invalid(
             "Please provide a source for function code. Zip file, S3 bucket and key, or an image URI.",
         ));
     };
-    unpack(base, bytes).await
+    unpack(base, package).await
 }
 
-async fn unpack(base: &Path, bytes: Vec<u8>) -> Result<Code, ApiError> {
-    if bytes.len() > MAX_ZIPPED {
-        return Err(invalid("Zipped size must be smaller than 262144000 bytes"));
-    }
+/// An archive as it arrived.
+enum Package {
+    /// The base64 of an inline `ZipFile`.
+    Inline(String),
+    /// The bytes of an S3 object.
+    Bytes(Vec<u8>),
+}
+
+/// Decodes, hashes, unpacks and writes the archive, all on one blocking thread: a 250 MB package is seconds of work.
+async fn unpack(base: &Path, package: Package) -> Result<Code, ApiError> {
     let id = aws_seal::uuid_v4().ok_or_else(|| ApiError::internal("no randomness"))?;
     let dir = base.join("code").join(&id);
-    let sha256 = base64::encode(&Sha256::digest(&bytes));
-    let size = bytes.len() as u64;
-    let unpacked = tokio::task::spawn_blocking(move || {
+    let (sha256, size) = tokio::task::spawn_blocking(move || {
+        let bytes = match package {
+            Package::Inline(text) => {
+                base64::decode(&text).ok_or_else(|| invalid("Could not decode the ZipFile."))?
+            }
+            Package::Bytes(bytes) => bytes,
+        };
+        if bytes.len() > MAX_ZIPPED {
+            return Err(invalid("Zipped size must be smaller than 262144000 bytes"));
+        }
+        let sha256 = base64::encode(&Sha256::digest(&bytes));
         let made = zipread::extract(&bytes, &dir.join("root"));
         if made.is_ok() {
-            std::fs::write(dir.join("code.zip"), &bytes).map_err(|_| ZipError::Io)?;
+            std::fs::write(dir.join("code.zip"), &bytes).map_err(|_| unzip_error(ZipError::Io))?;
         } else {
             drop(std::fs::remove_dir_all(&dir));
         }
-        made
+        made.map_err(unzip_error)?;
+        Ok((sha256, bytes.len() as u64))
     })
     .await
-    .map_err(|_| ApiError::internal("unpacking was interrupted"))?;
-    unpacked.map_err(unzip_error)?;
+    .map_err(|_| ApiError::internal("unpacking was interrupted"))??;
     Ok(Code {
         id,
         local: None,
@@ -154,16 +169,40 @@ async fn fetch(
     Ok(out)
 }
 
-/// Removes the directories of `code/` that none of `keep` names. Called after anything that drops a reference.
+/// Where code nothing refers to waits to be deleted: beside `code/`, so nothing that reads `code/` sees it.
+const TRASH: &str = "code-trash";
+
+/// Removes the directories of `code/` that none of `keep` names. Called after anything that drops a reference, from the actor: each
+/// is renamed into `code-trash/` here (one rename, whatever its size), and the trash is emptied by one job on a blocking thread
+/// (a Node package's tree can take a second to delete). What an earlier run left in the trash goes with it.
 pub(crate) fn sweep(base: &Path, keep: &std::collections::BTreeSet<String>) {
     let Ok(read) = std::fs::read_dir(base.join("code")) else {
         return;
     };
+    let trash = base.join(TRASH);
     for entry in read.filter_map(Result::ok) {
         let name = entry.file_name().to_string_lossy().into_owned();
-        if !keep.contains(&name) {
+        if !keep.contains(&name) && std::fs::create_dir_all(&trash).is_ok() {
+            // WHY: a tree that cannot be moved stays where it is, and the next sweep tries again.
+            drop(std::fs::rename(entry.path(), trash.join(&name)));
+        }
+    }
+    if std::fs::read_dir(&trash).is_ok_and(|mut d| d.next().is_some()) {
+        empty_later(trash);
+    }
+}
+
+/// Empties the trash on a blocking thread (inline when there is no runtime: a test).
+fn empty_later(trash: PathBuf) {
+    let empty = move || {
+        for entry in std::fs::read_dir(&trash).into_iter().flatten().flatten() {
+            // WHY: a job that runs beside another finds some trees gone already; what is left is emptied by the next sweep.
             drop(std::fs::remove_dir_all(entry.path()));
         }
+    };
+    match tokio::runtime::Handle::try_current() {
+        Ok(runtime) => drop(runtime.spawn_blocking(empty)),
+        Err(_) => empty(),
     }
 }
 
@@ -194,5 +233,53 @@ impl crate::Inner {
             staged.role = crate::role::check(self.peers.as_deref(), &r.caller, role).await;
         }
         Ok(staged)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+    use super::*;
+
+    #[tokio::test]
+    async fn a_swept_tree_leaves_code_at_once_and_is_deleted_off_the_actor() {
+        let base = std::env::temp_dir().join(format!("doze-lambda-sweep-{}", std::process::id()));
+        drop(std::fs::remove_dir_all(&base));
+        for tree in [
+            "code/kept/root",
+            "code/dropped/root/node_modules/a",
+            "code-trash/left-by-an-earlier-run",
+        ] {
+            std::fs::create_dir_all(base.join(tree)).unwrap();
+        }
+        for n in 0..200 {
+            std::fs::write(
+                base.join(format!("code/dropped/root/node_modules/a/{n}.js")),
+                b"x",
+            )
+            .unwrap();
+        }
+        sweep(
+            &base,
+            &std::collections::BTreeSet::from(["kept".to_owned()]),
+        );
+        assert!(base.join("code/kept").is_dir());
+        assert!(
+            !base.join("code/dropped").exists(),
+            "moved out of code/ before the sweep returns"
+        );
+        let trash = base.join(TRASH);
+        for _ in 0..500 {
+            if std::fs::read_dir(&trash).unwrap().next().is_none() {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+        assert_eq!(
+            std::fs::read_dir(&trash).unwrap().count(),
+            0,
+            "the trash is emptied, an earlier run's too"
+        );
+        drop(std::fs::remove_dir_all(&base));
     }
 }

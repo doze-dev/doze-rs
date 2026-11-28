@@ -67,7 +67,7 @@ impl Core {
         };
         let mut out = Vec::new();
         for f in &g.subscriptions {
-            let Ok(pattern) = crate::pattern::parse(&f.pattern) else {
+            let Some(pattern) = self.filter_patterns.get(&f.pattern) else {
                 continue;
             };
             let on = f.apply_on_transformed;

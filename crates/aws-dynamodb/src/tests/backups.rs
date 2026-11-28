@@ -292,3 +292,66 @@ fn backups_survive_a_restart() {
         ("TableNotFoundException", "Table not found: nope")
     );
 }
+
+/// Before: CreateBackup read every item of the table and staged a copy of each on the actor, on the event loop. After: the writer
+/// copies them inside the call's transaction; the actor stages one operation.
+#[test]
+fn a_backup_is_copied_by_the_writer_not_read_by_the_actor() {
+    use crate::core::Cx;
+    use crate::keys::Space;
+    let mut w = World::new();
+    w.table("orders", false);
+    for i in 0..50 {
+        w.put("orders", json!({"pk": {"S": format!("k{i}")}}));
+    }
+    let request = json!({"TableName": "orders", "BackupName": "nightly"});
+    let call = w.h.call(w.h.op("CreateBackup"), &request).unwrap();
+    let core = w.core.as_mut().unwrap();
+    let cx = Cx {
+        call: &call,
+        body: request,
+        now_ms: core.clock.now_ms(),
+    };
+    core.create_backup(&cx).unwrap();
+    assert!(
+        core.pending
+            .puts
+            .iter()
+            .all(|(s, _, _)| *s != Space::Backup),
+        "no item was staged by the actor"
+    );
+    assert_eq!(core.pending.ops.len(), 1);
+}
+
+#[test]
+fn a_backup_counts_its_items_when_first_described_and_restores_them_all() {
+    let mut w = World::new();
+    w.table("orders", false);
+    for i in 0..30 {
+        w.put(
+            "orders",
+            json!({"pk": {"S": format!("k{i}")}, "v": {"S": "x"}}),
+        );
+    }
+    let made = w.ok(
+        "CreateBackup",
+        json!({"TableName": "orders", "BackupName": "nightly"}),
+    );
+    assert_eq!(made["BackupDetails"]["BackupSizeBytes"], 0, "counted later");
+    let arn = made["BackupDetails"]["BackupArn"].clone();
+    let shown = w.ok("DescribeBackup", json!({"BackupArn": arn}))["BackupDescription"].clone();
+    assert_eq!(shown["SourceTableDetails"]["ItemCount"], 30);
+    let bytes = shown["BackupDetails"]["BackupSizeBytes"].as_u64().unwrap();
+    assert!(bytes > 0);
+    w.restart();
+    let listed = w.ok("ListBackups", json!({}));
+    assert_eq!(
+        listed["BackupSummaries"][0]["BackupSizeBytes"], bytes,
+        "the count was kept"
+    );
+    w.ok(
+        "RestoreTableFromBackup",
+        json!({"TargetTableName": "copy", "BackupArn": arn}),
+    );
+    assert_eq!(items(&mut w, "copy").len(), 30);
+}

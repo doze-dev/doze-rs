@@ -16,15 +16,27 @@ use serde_json::{Value as Json, json};
 use crate::backup::table_missing;
 use crate::core::{Core, Cx};
 use crate::describe::{Shape, Sizes, description, seconds};
+use crate::disk::{TxnOp, def};
 use crate::extras::{Extra, Restored, restored_key};
+use crate::keys::{self, Space};
 use crate::meta::{Index, Pitr, Status, Table, Ttl};
 use crate::req::{bad_param, bool_of, int_of, set, str_of, table_arn, time_ms_of, validation};
+use crate::stage;
+use doze_store::StoreError;
 
 /// What a restore starts from.
 struct Source {
     table: Table,
-    items: Vec<Item>,
+    items: Items,
     restored: Restored,
+}
+
+/// Where a restore's items come from.
+enum Items {
+    /// The backup with this id: read inside the write transaction.
+    Backup([u8; 16]),
+    /// The items as they were at a time, from the recovery log.
+    Given(Vec<Item>),
 }
 
 impl Core {
@@ -40,10 +52,9 @@ impl Core {
             }
         };
         self.target_free(cx)?;
-        let items = self.backup_items(&b)?;
         let source = Source {
             table: b.table.clone(),
-            items,
+            items: Items::Backup(b.id),
             restored: Restored {
                 backup_arn: Some(b.arn.clone()),
                 source_arn: b.table_arn.clone(),
@@ -93,7 +104,7 @@ impl Core {
                 at_ms: at,
             },
             table: t,
-            items,
+            items: Items::Given(items),
         };
         self.restore(cx, source)
     }
@@ -114,9 +125,13 @@ impl Core {
     fn restore(&mut self, cx: &Cx<'_>, source: Source) -> Result<Json, ApiError> {
         let target = str_of(&cx.body, "TargetTableName").unwrap_or_default();
         let t = self.restored_table(cx, &source.table, target)?;
-        for item in &source.items {
-            self.stage(&t, cx.now_ms, None, Some(item), false)?;
-        }
+        // The items and their index entries are written by the writer, in the call's own transaction, not read and staged here on
+        // the event loop (100,000 items held it for 185 to 345 ms). The new table has no stream, recovery log or time to live, so an
+        // item is its row and its index entries.
+        let (filled, items) = (t.clone(), source.items);
+        self.pending
+            .ops
+            .push(TxnOp(Box::new(move |txn| fill(txn, &filled, items))));
         let mut shown = description(
             &t,
             cx.region(),
@@ -308,6 +323,50 @@ fn overrides(t: &mut Table, body: &Json, now_ms: i64) -> Result<(), ApiError> {
                 str_of(s, "KMSMasterKeyId").map(str::to_owned),
             )
         });
+    }
+    Ok(())
+}
+
+/// Writes a restored table's items and their index entries inside the write transaction. The items were each written to the source
+/// table, so their keys and index attributes are good for it, and a restored table's indexes are some of its; what fails here is a
+/// corrupt row.
+fn fill(txn: &redb::WriteTransaction, t: &Table, items: Items) -> Result<(), StoreError> {
+    use redb::ReadableTable as _;
+    let corrupt = |e: ApiError| StoreError::Corrupt(e.message);
+    let mut rows = txn.open_table(def(Space::Items))?;
+    let mut index = txn.open_table(def(Space::Index))?;
+    let mut put = |item: &Item, encoded: Option<&[u8]>| -> Result<(), StoreError> {
+        let pk = stage::pk_bytes(t, item).map_err(corrupt)?;
+        let value = match encoded {
+            Some(v) => v.to_vec(),
+            None => stage::encode_item(item).map_err(corrupt)?,
+        };
+        rows.insert(stage::item_key(t, &pk).as_slice(), value.as_slice())?;
+        for ix in t.gsis.iter().chain(&t.lsis) {
+            if let Some(entry) = stage::index_entry(t, ix, item, &pk).map_err(corrupt)? {
+                index.insert(entry.as_slice(), pk.as_slice())?;
+            }
+        }
+        Ok(())
+    };
+    match items {
+        Items::Given(items) => {
+            for item in &items {
+                put(item, None)?;
+            }
+        }
+        Items::Backup(id) => {
+            let backup = txn.open_table(def(Space::Backup))?;
+            for row in backup.range::<&[u8]>(id.as_slice()..keys::prefix_end(&id).as_slice())? {
+                let (k, v) = row?;
+                // The id alone keys the backup's counts, not an item.
+                if k.value().len() == id.len() {
+                    continue;
+                }
+                let item = stage::decode_item(v.value()).map_err(corrupt)?;
+                put(&item, Some(v.value()))?;
+            }
+        }
     }
     Ok(())
 }

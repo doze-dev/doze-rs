@@ -69,17 +69,26 @@ impl Core {
         let message = v.get(Sign::MESSAGE).unwrap_or_default();
         check_digest(key, algorithm, message, digest)?;
         let secret = self.secret_of(key)?;
-        let signature =
-            asym::sign(key.spec, algorithm, &secret, message, digest).ok_or_else(|| {
-                ApiError::modeled(
-                    "InvalidKeyUsageException",
-                    "That message type is not valid for this algorithm.",
-                )
-            })?;
-        reply::<Signed>(|o| {
-            o.put(Signed::KEY_ID, &key.arn);
-            o.put_blob(Signed::SIGNATURE, &signature);
-            o.put(Signed::SIGNING_ALGORITHM, algorithm);
+        let (spec, arn, algorithm, message) = (
+            key.spec,
+            key.arn.clone(),
+            algorithm.to_owned(),
+            message.to_vec(),
+        );
+        // 0.1 ms (Ed25519) to 12 ms (RSA 4096) in the size-built release: made off the event loop (`offload.rs`).
+        self.defer(call, move || {
+            let signature =
+                asym::sign(spec, &algorithm, &secret, &message, digest).ok_or_else(|| {
+                    ApiError::modeled(
+                        "InvalidKeyUsageException",
+                        "That message type is not valid for this algorithm.",
+                    )
+                })?;
+            reply::<Signed>(|o| {
+                o.put(Signed::KEY_ID, &arn);
+                o.put_blob(Signed::SIGNATURE, &signature);
+                o.put(Signed::SIGNING_ALGORITHM, &algorithm);
+            })
         })
     }
 
@@ -97,29 +106,32 @@ impl Core {
         let message = v.get(Verify::MESSAGE).unwrap_or_default();
         check_digest(key, algorithm, message, digest)?;
         let secret = self.secret_of(key)?;
-        match asym::verify(
+        let (spec, arn, algorithm, message) = (
             key.spec,
-            algorithm,
-            &secret,
-            message,
-            digest,
-            v.get(Verify::SIGNATURE).unwrap_or_default(),
-        ) {
-            Ok(()) => {}
-            // Recorded 2026-11-09: a signature that does not match is an error with an empty message, not `false`.
-            Err(Fail::Invalid) => {
-                return Err(ApiError::modeled("KMSInvalidSignatureException", ""));
+            key.arn.clone(),
+            algorithm.to_owned(),
+            message.to_vec(),
+        );
+        let signature = v.get(Verify::SIGNATURE).unwrap_or_default().to_vec();
+        // Up to about 2 ms (P-384) in the size-built release: made off the event loop (`offload.rs`).
+        self.defer(call, move || {
+            match asym::verify(spec, &algorithm, &secret, &message, digest, &signature) {
+                Ok(()) => {}
+                // Recorded 2026-11-09: a signature that does not match is an error with an empty message, not `false`.
+                Err(Fail::Invalid) => {
+                    return Err(ApiError::modeled("KMSInvalidSignatureException", ""));
+                }
+                Err(Fail::Malformed) => {
+                    return Err(validation(
+                        "The signature or the message is not in a form this key can check.",
+                    ));
+                }
             }
-            Err(Fail::Malformed) => {
-                return Err(validation(
-                    "The signature or the message is not in a form this key can check.",
-                ));
-            }
-        }
-        reply::<Verified>(|o| {
-            o.put(Verified::KEY_ID, &key.arn);
-            o.put_bool(Verified::SIGNATURE_VALID, true);
-            o.put(Verified::SIGNING_ALGORITHM, algorithm);
+            reply::<Verified>(|o| {
+                o.put(Verified::KEY_ID, &arn);
+                o.put_bool(Verified::SIGNATURE_VALID, true);
+                o.put(Verified::SIGNING_ALGORITHM, &algorithm);
+            })
         })
     }
 

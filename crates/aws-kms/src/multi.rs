@@ -380,7 +380,7 @@ impl Core {
             Ask::Replica(seed) => reply = self.make_replica(*seed),
             Ask::Set(id, set) => self.take_set(&id, set),
             Ask::Materials(id, materials) => self.take_materials(&id, materials),
-            Ask::Call(_) | Ask::Data(_) => {}
+            Ask::Call(_) | Ask::Again(..) | Ask::Used(..) | Ask::Data(_) => {}
         }
         let durable = match self.flush() {
             Ok(ack) => ack,
@@ -393,6 +393,7 @@ impl Core {
             reply,
             durable,
             fanout: None,
+            next: None,
         }
     }
 }

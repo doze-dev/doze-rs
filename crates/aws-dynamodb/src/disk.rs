@@ -23,7 +23,7 @@ pub(crate) const EXTRAS: &str = "extras";
 
 type Def = TableDefinition<'static, &'static [u8], &'static [u8]>;
 
-fn def(space: Space) -> Def {
+pub(crate) fn def(space: Space) -> Def {
     TableDefinition::new(space.table_name())
 }
 
@@ -42,6 +42,18 @@ pub(crate) struct Writes {
     pub(crate) dels: Vec<(Space, Vec<u8>)>,
     /// Every entry from the first key up to (not including) the second.
     pub(crate) ranges: Vec<(Space, Vec<u8>, Vec<u8>)>,
+    /// Work done inside the transaction itself, after the rest, on the writer's thread: a copy of many entries (a backup, a
+    /// restore) that would otherwise be read and staged on the event loop.
+    pub(crate) ops: Vec<TxnOp>,
+}
+
+/// Work done inside a write transaction: it reads what the transaction sees (every write before it) and writes into it.
+pub(crate) struct TxnOp(pub(crate) Op);
+
+impl std::fmt::Debug for TxnOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("TxnOp")
+    }
 }
 
 impl Writes {
@@ -50,6 +62,7 @@ impl Writes {
             && self.puts.is_empty()
             && self.dels.is_empty()
             && self.ranges.is_empty()
+            && self.ops.is_empty()
     }
 
     pub(crate) fn put(&mut self, space: Space, key: Vec<u8>, value: Vec<u8>) {
@@ -156,6 +169,8 @@ impl Disk {
             return None;
         }
         let op: Op = Box::new(move |txn| {
+            let mut writes = writes;
+            let ops = std::mem::take(&mut writes.ops);
             for c in &writes.meta {
                 c.apply(txn)?;
             }
@@ -169,6 +184,9 @@ impl Disk {
             for (space, key, value) in &writes.puts {
                 txn.open_table(def(*space))?
                     .insert(key.as_slice(), value.as_slice())?;
+            }
+            for TxnOp(op) in ops {
+                op(txn)?;
             }
             Ok(())
         });

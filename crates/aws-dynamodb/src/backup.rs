@@ -4,15 +4,15 @@
 //! days, as the model says.
 //!
 //! AWS makes a backup in the background (`CREATING`, then `AVAILABLE` within minutes); here it is whole when the call answers, so
-//! only that answer says `CREATING`. The messages are `(memory)` until a recording reaches them.
+//! only that answer says `CREATING` (with `BackupSizeBytes` 0: the items are copied by the writer, in the call's own transaction, and
+//! counted the first time the backup is described or listed). The messages are `(memory)` until a recording reaches them.
 
-use aws_expr::Item;
 use aws_wire::ApiError;
 use serde_json::{Value as Json, json};
 
 use crate::core::{Core, Cx};
 use crate::describe::{key_schema, projection, seconds};
-use crate::disk::Flow;
+use crate::disk::{Flow, TxnOp};
 use crate::extras::{Backup, Extra, backup_key, task_id};
 use crate::keys::{self, Space};
 use crate::meta::Table;
@@ -35,9 +35,29 @@ pub(crate) fn table_missing(name: &str) -> ApiError {
     ApiError::modeled("TableNotFoundException", format!("Table not found: {name}"))
 }
 
-/// The backup's key in the backup space: its id, then the item's primary key.
+/// The backup's key in the backup space: its id, then the item's primary key. The id alone keys the backup's counts.
 fn item_prefix(id: &[u8; 16]) -> Vec<u8> {
     id.to_vec()
+}
+
+/// Copies a table's items (`from..to` of the items space) into the backup `id`, inside the write transaction.
+fn copy_items(
+    txn: &redb::WriteTransaction,
+    from: &[u8],
+    to: &[u8],
+    id: &[u8; 16],
+) -> Result<(), doze_store::StoreError> {
+    use redb::ReadableTable as _;
+    let items = txn.open_table(crate::disk::def(Space::Items))?;
+    let mut backup = txn.open_table(crate::disk::def(Space::Backup))?;
+    let mut key = item_prefix(id);
+    for row in items.range::<&[u8]>(from..to)? {
+        let (k, v) = row?;
+        key.truncate(id.len());
+        key.extend_from_slice(k.value().get(16..).unwrap_or_default());
+        backup.insert(key.as_slice(), v.value())?;
+    }
+    Ok(())
 }
 
 impl Core {
@@ -82,27 +102,13 @@ impl Core {
             aws_seal::random_bytes::<16>().ok_or_else(|| ApiError::internal("no random bytes"))?;
         let tail = task_id(now_ms).ok_or_else(|| ApiError::internal("no random bytes"))?;
         let table_arn = table_arn(region, account, &t.name);
-        let mut copied = Vec::new();
-        let (mut items, mut bytes) = (0_u64, 0_u64);
-        self.disk
-            .scan(
-                Space::Items,
-                &t.id,
-                &keys::prefix_end(&t.id),
-                false,
-                |k, v| {
-                    let mut key = item_prefix(&id);
-                    key.extend_from_slice(k.get(16..).unwrap_or_default());
-                    items += 1;
-                    bytes += v.len() as u64;
-                    copied.push((key, v.to_vec()));
-                    Flow::Continue
-                },
-            )
-            .map_err(|e| ApiError::internal(e.to_string()))?;
-        for (k, v) in copied {
-            self.pending.put(Space::Backup, k, v);
-        }
+        // The copy is made by the writer, in the call's own transaction (it sees the table as the call does), not read and staged
+        // here on the event loop: 100,000 items held the loop for 85 to 150 ms.
+        let (from, to) = (t.id.to_vec(), keys::prefix_end(&t.id));
+        self.pending
+            .ops
+            .push(TxnOp(Box::new(move |txn| copy_items(txn, &from, &to, &id))));
+        let (items, bytes) = (0, 0);
         let b = Backup {
             id,
             arn: format!("{table_arn}/backup/{tail}"),
@@ -119,18 +125,25 @@ impl Core {
         Ok(b)
     }
 
-    fn backup(&self, arn: &str) -> Result<Backup, ApiError> {
+    fn backup(&mut self, arn: &str) -> Result<Backup, ApiError> {
         match self.extras.get(&backup_key(arn)) {
-            Some(Extra::Backup(b)) => Ok((**b).clone()),
+            Some(Extra::Backup(b)) => {
+                let b = (**b).clone();
+                self.counted(&b)
+            }
             _ => Err(not_found(arn)),
         }
     }
 
-    /// The items a backup holds.
-    pub(crate) fn backup_items(&self, b: &Backup) -> Result<Vec<Item>, ApiError> {
-        let mut out = Vec::new();
-        let mut bad = None;
+    /// The backup with its item count and bytes, counted the first time they are asked for and kept in its record: the writer
+    /// makes the copy, so the call that made the backup did not count it. (A backup of an empty table is counted, cheaply, each time.)
+    fn counted(&mut self, b: &Backup) -> Result<Backup, ApiError> {
+        let mut b = b.clone();
+        if b.items > 0 {
+            return Ok(b);
+        }
         let prefix = item_prefix(&b.id);
+        let (mut items, mut bytes) = (0_u64, 0_u64);
         self.disk
             .scan(
                 Space::Backup,
@@ -138,15 +151,18 @@ impl Core {
                 &keys::prefix_end(&prefix),
                 false,
                 |_, v| {
-                    match crate::stage::decode_item(v) {
-                        Ok(i) => out.push(i),
-                        Err(e) => bad = Some(e),
-                    }
+                    items += 1;
+                    bytes += v.len() as u64;
                     Flow::Continue
                 },
             )
             .map_err(|e| ApiError::internal(e.to_string()))?;
-        bad.map_or(Ok(out), Err)
+        if items > 0 {
+            (b.items, b.bytes) = (items, bytes);
+            self.extras
+                .insert(backup_key(&b.arn), Extra::Backup(Box::new(b.clone())));
+        }
+        Ok(b)
     }
 
     pub(crate) fn describe_backup(&mut self, cx: &Cx<'_>) -> Result<Json, ApiError> {
@@ -184,11 +200,11 @@ impl Core {
         let limit = int_of(body, "Limit")
             .and_then(|l| usize::try_from(l).ok())
             .unwrap_or(LIST_MAX);
-        let mut all: Vec<&Backup> = self
+        let mut all: Vec<Backup> = self
             .extras
             .with_prefix("backup/")
             .filter_map(|(_, e)| match e {
-                Extra::Backup(b) => Some(&**b),
+                Extra::Backup(b) => Some((**b).clone()),
                 _ => None,
             })
             .filter(|b| table.as_deref().is_none_or(|t| b.table.name == t))
@@ -210,7 +226,10 @@ impl Core {
         }
         let more = all.len() > limit;
         all.truncate(limit);
-        let summaries: Vec<Json> = all.iter().map(|b| summary(b, cx.now_ms)).collect();
+        let mut summaries = Vec::with_capacity(all.len());
+        for b in &all {
+            summaries.push(summary(&self.counted(b)?, cx.now_ms));
+        }
         let mut out = json!({ "BackupSummaries": summaries });
         if more && let Some(last) = all.last() {
             crate::req::set(&mut out, "LastEvaluatedBackupArn", json!(last.arn));

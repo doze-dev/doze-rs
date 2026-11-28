@@ -92,6 +92,8 @@ impl Janitor {
 pub(crate) async fn run(inner: Arc<crate::Inner>, tasks: Tasks, clock: Arc<dyn Clock>) {
     let stopping = tasks.stopping();
     loop {
+        // TODO(perf workstream 2): sleep with the shared capped sleep it adds, so a clock change or a sleep through the night does
+        // not leave this waiting a whole day past midnight.
         let wait =
             Duration::from_millis(u64::try_from(until_midnight(clock.now_ms())).unwrap_or(1000));
         if stopping

@@ -254,3 +254,31 @@ pub(crate) fn glob(pattern: &str, text: &str) -> bool {
 
 #[cfg(test)]
 mod tests;
+
+/// Filter patterns parsed once. A metric or subscription filter's pattern is matched against every `PutLogEvents` of its group; it
+/// was parsed (its regular expressions compiled) on each. Keyed by the pattern's text, so a filter put again with another pattern is
+/// a new entry and the old one is never used; the cache is cleared when it holds [`Cache::MAX`] (a group has at most a few filters).
+#[derive(Debug, Default)]
+pub(crate) struct Cache(std::collections::HashMap<String, std::sync::Arc<Pattern>>);
+
+impl Cache {
+    const MAX: usize = 256;
+
+    /// The parsed pattern of `text`; `None` for one that does not parse (a stored filter's always does).
+    pub(crate) fn get(&mut self, text: &str) -> Option<std::sync::Arc<Pattern>> {
+        if let Some(p) = self.0.get(text) {
+            return Some(std::sync::Arc::clone(p));
+        }
+        let p = std::sync::Arc::new(parse(text).ok()?);
+        if self.0.len() >= Self::MAX {
+            self.0.clear();
+        }
+        self.0.insert(text.to_owned(), std::sync::Arc::clone(&p));
+        Some(p)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn len(&self) -> usize {
+        self.0.len()
+    }
+}

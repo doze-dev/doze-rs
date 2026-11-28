@@ -36,6 +36,12 @@ pub(crate) const HOME: &str = "us-east-1";
 /// Present while the service is open: finding it at start means the last run did not close.
 const RUNNING: &str = "running";
 
+/// What a call is asked before it is done: the checks before a body is read, or the plan of a copy.
+enum Before {
+    Gate,
+    Plan,
+}
+
 /// The rows of the versions table a call changed.
 #[derive(Debug, Default)]
 pub(crate) struct Batch {
@@ -133,9 +139,10 @@ impl doze_runtime::Service for Core {
     }
 
     async fn handle(&mut self, ask: Ask) -> Answer {
-        let (call, staged, gate) = match ask {
-            Ask::Gate(call) => (call, None, true),
-            Ask::Call(call, staged) => (call, staged, false),
+        let (call, staged, before) = match ask {
+            Ask::Gate(call) => (call, None, Some(Before::Gate)),
+            Ask::Plan(call) => (call, None, Some(Before::Plan)),
+            Ask::Call(call, staged) => (call, staged, None),
             Ask::Sweep => {
                 let done = self.sweep_lifecycle();
                 self.sync_marker();
@@ -154,8 +161,15 @@ impl doze_runtime::Service for Core {
         self.last_caller = Some(call.caller.clone());
         let req = Req::new(&call, staged);
         self.authorize(&req).await?;
-        if gate {
-            return self.gate(&req);
+        match before {
+            Some(Before::Gate) => return self.gate(&req),
+            Some(Before::Plan)
+                if Operation::from_index(call.op) == Some(Operation::UploadPartCopy) =>
+            {
+                return self.plan_part_copy(&req);
+            }
+            Some(Before::Plan) => return self.plan_copy_object(&req),
+            None => {}
         }
         let result = self.dispatch(req).await;
         self.commit(result).await
@@ -354,7 +368,7 @@ impl Core {
             O::GetObject | O::HeadObject => self.get_object(&req, op == O::HeadObject),
             O::DeleteObject => self.delete_object(&req),
             O::DeleteObjects => self.delete_objects(&req),
-            O::CopyObject => self.copy_object(&req).await,
+            O::CopyObject => self.copy_object(req),
             O::ListObjects | O::ListObjectsV2 => self.list_objects(&req, op == O::ListObjectsV2),
             O::ListObjectVersions => self.list_object_versions(&req),
             O::GetObjectAttributes => self.get_object_attributes(&req),
@@ -381,7 +395,7 @@ impl Core {
             O::PutObjectAcl => self.put_object_acl(&req),
             O::CreateMultipartUpload => self.create_upload(&req),
             O::UploadPart => self.upload_part(req),
-            O::UploadPartCopy => self.upload_part_copy(&req).await,
+            O::UploadPartCopy => self.upload_part_copy(req),
             O::CompleteMultipartUpload => self.complete_upload(&req),
             O::AbortMultipartUpload => self.abort_upload(&req),
             O::ListParts => self.list_parts(&req),

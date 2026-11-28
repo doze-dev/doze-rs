@@ -412,3 +412,8 @@ opt-level = "z"
 opt-level = "z"
 [profile.release-doze.package.hcl-edit]
 opt-level = "z"
+# Every S3 upload is MD5-summed (its ETag). At "z" MD5 ran at about 250 MB/s; at 3 it is about 2.2 times faster (256 MiB summed in
+# 1.02 s, then 0.45 s, release-aws, darwin/arm64) for 48 B of binary (docs/port/weight.md, "Workstream 3"). aws-s3 itself at 3 (for
+# the CRCs) was +412 KB and was not taken.
+[profile.release-aws.package.md-5]
+opt-level = 3
