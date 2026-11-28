@@ -235,8 +235,11 @@ mod tests {
     /// F1 audit 3, minor 1: a `file://` body is held to the same limit as a download; a missing file is a 404.
     #[test]
     fn a_file_url_over_its_limit_is_refused() {
-        let d = std::env::temp_dir().join(format!("doze-fetch-filelimit-{}", std::process::id()));
-        std::fs::create_dir_all(&d).unwrap();
+        let tmp = tempfile::Builder::new()
+            .prefix("doze-fetch-filelimit-")
+            .tempdir()
+            .unwrap();
+        let d = tmp.path();
         let f = d.join("big");
         std::fs::write(&f, vec![0u8; 4097]).unwrap();
         let url = format!("file://{}", f.display());
@@ -248,7 +251,6 @@ mod tests {
         assert_eq!(get_up_to(&url, t, 4097).map(|b| b.len()), Ok(4097));
         let missing = format!("file://{}", d.join("none").display());
         assert_eq!(get_up_to(&missing, t, 4096), Err(Failure::Status(404)));
-        let _ = std::fs::remove_dir_all(&d);
     }
 }
 

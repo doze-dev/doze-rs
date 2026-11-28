@@ -75,7 +75,11 @@ fn records_change_it_only_when_something_differs() {
 
 #[test]
 fn save_writes_only_a_change_and_names_the_newest_doze() {
-    let dir = std::env::temp_dir().join(format!("doze-fetch-lock-{}", std::process::id()));
+    let tmp = tempfile::Builder::new()
+        .prefix("doze-fetch-lock-")
+        .tempdir()
+        .unwrap();
+    let dir = tmp.path();
     let path = dir.join(FILE);
     let mut l = Lock {
         doze: "0.2.0".into(),
@@ -96,14 +100,17 @@ fn save_writes_only_a_change_and_names_the_newest_doze() {
         "0.3.0",
         "an older doze does not lower it"
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 /// A symlinked doze.lock is its target, through a relative link to a link, without the file being opened.
 #[cfg(unix)]
 #[test]
 fn a_linked_lock_is_its_target() {
-    let root = std::env::temp_dir().join(format!("doze-fetch-link-{}", std::process::id()));
+    let tmp = tempfile::Builder::new()
+        .prefix("doze-fetch-link-")
+        .tempdir()
+        .unwrap();
+    let root = tmp.path();
     let (real, p) = (root.join("real"), root.join("p"));
     std::fs::create_dir_all(&real).unwrap();
     std::fs::create_dir_all(&p).unwrap();
@@ -118,14 +125,17 @@ fn a_linked_lock_is_its_target() {
         p.canonicalize().unwrap().join("absent.lock"),
         "a file not yet written is its folder's"
     );
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// Two spellings of one file are one lock: writers through `dir/../dir/doze.lock` and `dir/doze.lock` each read the
 /// file again under the same lock, so both pins are kept.
 #[test]
 fn one_file_reached_two_ways_keeps_both_pins() {
-    let root = std::env::temp_dir().join(format!("doze-fetch-canon-{}", std::process::id()));
+    let tmp = tempfile::Builder::new()
+        .prefix("doze-fetch-canon-")
+        .tempdir()
+        .unwrap();
+    let root = tmp.path();
     let (home, dir) = (root.join("home"), root.join("p"));
     std::fs::create_dir_all(&dir).unwrap();
     let direct = dir.join(FILE);
@@ -147,6 +157,5 @@ fn one_file_reached_two_ways_keeps_both_pins() {
     })
     .unwrap();
     let got = Lock::load(&direct).unwrap();
-    let _ = std::fs::remove_dir_all(&root);
     assert_eq!(got.modules.len(), 2);
 }

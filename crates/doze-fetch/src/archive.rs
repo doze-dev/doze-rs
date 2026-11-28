@@ -173,7 +173,11 @@ pub(crate) mod tests {
 
     #[test]
     fn a_nested_bin_comes_to_the_top_and_the_sha_is_kept() {
-        let d = std::env::temp_dir().join(format!("doze-fetch-archive-{}", std::process::id()));
+        let tmp = tempfile::Builder::new()
+            .prefix("doze-fetch-archive-")
+            .tempdir()
+            .unwrap();
+        let d = tmp.path();
         let content = d.join("valkey/9.1.1-x");
         let a = targz(&[
             ("valkey-9/bin/valkey-server", b"#!", true),
@@ -192,14 +196,17 @@ pub(crate) mod tests {
                 .unwrap_err()
                 .contains("no bin/")
         );
-        let _ = std::fs::remove_dir_all(&d);
     }
 
     /// Audit F1, minor 7: a `bin` that is a link out of the build is not taken as its `bin/`; an archive that inflates
     /// past the cap is refused.
     #[test]
     fn a_linked_bin_and_an_inflating_archive_are_refused() {
-        let d = std::env::temp_dir().join(format!("doze-fetch-link-{}", std::process::id()));
+        let tmp = tempfile::Builder::new()
+            .prefix("doze-fetch-link-")
+            .tempdir()
+            .unwrap();
+        let d = tmp.path();
         let outside = d.join("outside");
         std::fs::create_dir_all(&outside).unwrap();
         std::fs::write(outside.join("tool"), b"x").unwrap();
@@ -217,26 +224,32 @@ pub(crate) mod tests {
         let big = targz(&[("bin/zeros", &vec![0u8; 2 << 20], true)]);
         let err = untar(&big, &d.join("big"), 1 << 20).unwrap_err();
         assert!(format!("{err:?}").contains("more than"), "{err:?}");
-        let _ = std::fs::remove_dir_all(&d);
     }
 
     /// F1 audit 2, minor 3: a failed unpack leaves no tmp folder, and one left by an earlier child is cleared.
     #[test]
     fn a_failed_unpack_leaves_no_tmp() {
-        let d = std::env::temp_dir().join(format!("doze-fetch-tmp-{}", std::process::id()));
+        let tmp = tempfile::Builder::new()
+            .prefix("doze-fetch-tmp-")
+            .tempdir()
+            .unwrap();
+        let d = tmp.path();
         let content = d.join("v/1-t");
         std::fs::create_dir_all(d.join("v/1-t.tmp999999")).unwrap();
         assert!(unpack(b"not an archive", &content, "sha256:1").is_err());
         let left: Vec<_> = std::fs::read_dir(d.join("v")).unwrap().flatten().collect();
         assert!(left.is_empty(), "{left:?}");
-        let _ = std::fs::remove_dir_all(&d);
     }
 
     /// F1 audit 3, minors 1 and 2: setuid and setgid are dropped and nobody but the user may write what is unpacked
     /// (4755 becomes 755, 0777 becomes 755, 0666 becomes 644). Unix only: Windows has no modes to read.
     #[test]
     fn unpacked_modes_lose_setuid_and_shared_write() {
-        let d = std::env::temp_dir().join(format!("doze-fetch-modes-{}", std::process::id()));
+        let tmp = tempfile::Builder::new()
+            .prefix("doze-fetch-modes-")
+            .tempdir()
+            .unwrap();
+        let d = tmp.path();
         let content = d.join("x/1-t");
         let gz = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
         let mut b = tar::Builder::new(gz);
@@ -254,13 +267,16 @@ pub(crate) mod tests {
                 assert_eq!(m, want, "{path}: {m:o}");
             }
         }
-        let _ = std::fs::remove_dir_all(&d);
     }
 
     /// Go's `TestADownloadCannotEscapeItsDirectory`: an entry naming a path outside is not written there.
     #[test]
     fn an_archive_cannot_write_outside_its_folder() {
-        let d = std::env::temp_dir().join(format!("doze-fetch-escape-{}", std::process::id()));
+        let tmp = tempfile::Builder::new()
+            .prefix("doze-fetch-escape-")
+            .tempdir()
+            .unwrap();
+        let d = tmp.path();
         let content = d.join("cache/x/1-t");
         let gz = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
         let mut b = tar::Builder::new(gz);
@@ -282,6 +298,5 @@ pub(crate) mod tests {
         let a = b.into_inner().unwrap().finish().unwrap();
         let _ = unpack(&a, &content, "sha256:ab");
         assert!(!d.join("cache/escaped").exists() && !d.join("escaped").exists());
-        let _ = std::fs::remove_dir_all(&d);
     }
 }
