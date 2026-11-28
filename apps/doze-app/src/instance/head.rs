@@ -264,7 +264,7 @@ fn service_verbs(t: &Tokens, v: &InstanceView, cx: &mut Context<InstanceView>) -
     out
 }
 
-/// Open <address> o: the address without its scheme, titled with the whole URL as Go's.
+/// Open `<address>` o: the address without its scheme, titled with the whole URL as Go's.
 fn open_button(t: &Tokens, u: &str, cx: &mut Context<InstanceView>) -> AnyElement {
     let shown = u
         .trim_start_matches("https://")
