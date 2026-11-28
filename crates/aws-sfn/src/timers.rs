@@ -41,16 +41,22 @@ impl Timers {
         })
     }
 
-    /// Tells the region's timer its deadline, starting the task if there is a deadline and no task.
+    /// Tells the region's timer the deadline of the answer numbered `number` ([`doze_runtime::Lazy::call_numbered`]), starting the
+    /// task if there is a deadline and no task. An answer older than one already armed from is dropped: a call that awaited its save
+    /// is overtaken.
     pub(crate) fn arm(
         &self,
         shared: &Arc<Shared>,
         region: &str,
         caller: &Caller,
-        due: Option<i64>,
+        (due, number): (Option<i64>, u64),
     ) {
-        self.due
-            .arm(region, &(Arc::downgrade(shared), caller.clone()), due);
+        self.due.arm_ordered(
+            region,
+            &(Arc::downgrade(shared), caller.clone()),
+            due,
+            number,
+        );
     }
 
     /// Whether a region has a timer task (for tests).

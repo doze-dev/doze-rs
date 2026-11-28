@@ -214,14 +214,17 @@ impl Cloudwatch {
                 service: None,
                 session_token: None,
             };
-            if let Ok(mut answer) = actor.call(Request::Tick(caller.clone())).await {
+            if let Ok((mut answer, number)) =
+                actor.call_numbered(Request::Tick(caller.clone())).await
+            {
                 if let Some(saved) = answer.durable.take() {
                     // WHY: a failed save is the writer's to report; the next call finds the same state and says so.
                     drop(saved.await);
                 }
                 self.timers
                     .launch(&region, &actor, std::mem::take(&mut answer.log_runs));
-                self.timers.arm(&region, &caller, &actor, answer.next_due);
+                self.timers
+                    .arm(&region, &caller, &actor, (answer.next_due, number));
             }
         }
     }
@@ -236,7 +239,7 @@ impl Cloudwatch {
             Ok(actor) => actor,
             Err(e) => return Err(ApiError::internal(e.to_string())),
         };
-        let mut answer = match actor.call(Request::Call(call)).await {
+        let (mut answer, number) = match actor.call_numbered(Request::Call(call)).await {
             Ok(answer) => answer,
             Err(e) => return Err(ApiError::internal(e.to_string())),
         };
@@ -245,7 +248,8 @@ impl Cloudwatch {
         {
             return Err(ApiError::internal(format!("could not save: {e}")));
         }
-        self.timers.arm(&region, &caller, &actor, answer.next_due);
+        self.timers
+            .arm(&region, &caller, &actor, (answer.next_due, number));
         answer.reply
     }
 

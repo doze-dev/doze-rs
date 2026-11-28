@@ -5,19 +5,32 @@ use serde_json::{Map, Value, json};
 
 use crate::buckets::owner;
 use crate::core::Core;
-use crate::list::{Enc, MAX_KEYS, Query, fold};
+use crate::list::{Enc, FOLD_ROWS, MAX_KEYS, Query, fold, past};
 use crate::model::{CKind, Version};
 use crate::put::algo_name;
 use crate::req::{Answer, Out, Req};
 
 /// What a page of versions held.
 #[derive(Default)]
-struct Found {
-    versions: Vec<Value>,
-    markers: Vec<Value>,
-    prefixes: Vec<String>,
+pub(crate) struct Found {
+    pub(crate) versions: Vec<Value>,
+    pub(crate) markers: Vec<Value>,
+    pub(crate) prefixes: Vec<String>,
     /// The last (key, version id) returned, when more follow.
-    next: Option<(String, String)>,
+    pub(crate) next: Option<(String, String)>,
+    /// The rows read to make it.
+    pub(crate) scanned: usize,
+}
+
+/// The row a listing starts at. With a version marker the key itself is read again, from its first row, to find the marker.
+fn first_row(q: &Query<'_>, version_marker: Option<&str>) -> String {
+    if version_marker.is_some() {
+        format!("{}\0{}", q.bucket, q.after)
+    } else if q.after.is_empty() || q.after < q.prefix {
+        format!("{}\0{}", q.bucket, q.prefix)
+    } else {
+        format!("{}\0{}\u{1}", q.bucket, q.after)
+    }
 }
 
 fn version_entry(v: &Version, latest: bool, enc: Enc, account: &str) -> Value {
@@ -100,7 +113,7 @@ impl Core {
         Out::json(Value::Object(out))
     }
 
-    fn collect(
+    pub(crate) fn collect(
         &self,
         q: &Query<'_>,
         version_marker: Option<&str>,
@@ -112,55 +125,65 @@ impl Core {
         let mut current: Option<String> = None;
         let mut skipping = version_marker.is_some();
         let mut bad = false;
-        // With a version marker the key itself is read again, from its first row, to find the marker.
-        let start = if version_marker.is_some() {
-            format!("{}\0{}", q.bucket, q.after)
-        } else if q.after.is_empty() || q.after < q.prefix {
-            format!("{}\0{}", q.bucket, q.prefix)
-        } else {
-            format!("{}\0{}\u{1}", q.bucket, q.after)
-        };
-        self.walk_from(q, &start, |key, bytes| {
-            if version_marker.is_some() && key < q.after {
-                return true;
-            }
-            if let Some(folded) = fold(q, key) {
-                if f.prefixes.last() != Some(&folded) {
+        // Under a delimiter a fold's keys are not read: after a few rows of one fold the walk starts again past it, once per fold.
+        let (mut in_fold, mut restart, mut restarted) = (0usize, None::<String>, None::<String>);
+        let mut start = first_row(q, version_marker);
+        loop {
+            self.walk_from(q, &start, |key, bytes| {
+                f.scanned += 1;
+                if version_marker.is_some() && key < q.after {
+                    return true;
+                }
+                if let Some(folded) = fold(q, key) {
+                    if f.prefixes.last() == Some(&folded) {
+                        in_fold += 1;
+                        if in_fold >= FOLD_ROWS && restarted.as_ref() != Some(&folded) {
+                            restarted = Some(folded.clone());
+                            restart = Some(folded);
+                            return false;
+                        }
+                        return true;
+                    }
                     if count >= q.max {
                         return false;
                     }
                     count += 1;
+                    in_fold = 0;
                     f.prefixes.push(folded);
+                    return true;
                 }
-                return true;
-            }
-            let Ok(v) = crate::store::decode_version(bytes) else {
-                bad = true;
-                return false;
-            };
-            if skipping {
-                if v.key == q.after && Some(v.version_id.as_str()) == version_marker {
-                    skipping = false;
+                let Ok(v) = crate::store::decode_version(bytes) else {
+                    bad = true;
+                    return false;
+                };
+                if skipping {
+                    if v.key == q.after && Some(v.version_id.as_str()) == version_marker {
+                        skipping = false;
+                    }
+                    return v.key == q.after || v.key.as_str() < q.after;
                 }
-                return v.key == q.after || v.key.as_str() < q.after;
+                let latest = current.as_deref() != Some(key);
+                if latest {
+                    current = Some(key.to_owned());
+                }
+                if count >= q.max {
+                    return false;
+                }
+                count += 1;
+                f.next = Some((v.key.clone(), v.version_id.clone()));
+                let entry = version_entry(&v, latest, enc, account);
+                if v.delete_marker {
+                    f.markers.push(entry)
+                } else {
+                    f.versions.push(entry)
+                }
+                true
+            })?;
+            match restart.take() {
+                Some(fold) => start = past(q.bucket, &fold),
+                None => break,
             }
-            let latest = current.as_deref() != Some(key);
-            if latest {
-                current = Some(key.to_owned());
-            }
-            if count >= q.max {
-                return false;
-            }
-            count += 1;
-            f.next = Some((v.key.clone(), v.version_id.clone()));
-            let entry = version_entry(&v, latest, enc, account);
-            if v.delete_marker {
-                f.markers.push(entry)
-            } else {
-                f.versions.push(entry)
-            }
-            true
-        })?;
+        }
         if bad {
             return Err(ApiError::internal("a stored object could not be read"));
         }

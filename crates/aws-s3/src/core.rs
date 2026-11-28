@@ -144,7 +144,7 @@ impl doze_runtime::Service for Core {
             Ask::Plan(call) => (call, None, Some(Before::Plan)),
             Ask::Call(call, staged) => (call, staged, None),
             Ask::Sweep => {
-                let done = self.sweep_lifecycle();
+                let done = self.sweep_lifecycle().await;
                 self.sync_marker();
                 let result =
                     Out::json(json!({"Actions": done, "Armed": self.has_lifecycle_rules()}));

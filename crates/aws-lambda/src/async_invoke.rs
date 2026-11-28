@@ -6,7 +6,8 @@
 //! **The queue.** As AWS's, an accepted event waits in a queue for its function: here one per function, in memory, run by at most
 //! [`RUNNING_PER_FUNCTION`] tasks (as many as the function may have processes), each of which takes the next event when it is done; no
 //! task waits for a process. At most [`QUEUED_EVENTS`] events and [`QUEUED_BYTES`] of payload wait in all. Past that, an event is
-//! still accepted (`202`, as AWS accepts it) and is dropped with a warning in doze-aws's log: AWS keeps a queue for six hours, a
+//! still accepted (`202`, as AWS accepts it) and is dropped, with a warning in doze-aws's log and a count in the function's
+//! `AsyncEventsDropped` metric (`AWS/Lambda`, as AWS counts its own drops): AWS keeps a queue for six hours, a
 //! local process keeps its memory bounded. A restart loses what waits, as it loses the retries.
 
 use std::sync::Arc;
@@ -71,10 +72,15 @@ impl Inner {
                     .spawn(async move { me.run_queue(function, event).await });
             }
             Admit::Queued => {}
-            Admit::Dropped(event) => tracing::warn!(
-                function = %event.rs.name,
-                "an asynchronous invocation was accepted and dropped: {QUEUED_EVENTS} events or {QUEUED_BYTES} bytes already wait"
-            ),
+            Admit::Dropped(event) => {
+                tracing::warn!(
+                    function = %event.rs.name,
+                    "an asynchronous invocation was accepted and dropped: {QUEUED_EVENTS} events or {QUEUED_BYTES} bytes already wait"
+                );
+                // Seen where a person looks: the function's `AsyncEventsDropped` in CloudWatch, as AWS counts its own drops.
+                let target = crate::metrics::Target::of(&event.rs, &event.caller);
+                self.count_answered(&target, &crate::metrics::Outcome::Dropped);
+            }
         }
     }
 

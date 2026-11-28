@@ -13,6 +13,9 @@
 //! deadline too early only costs a wake-up that finds nothing due (the service answers the true next one); a deadline lost or too
 //! late was the bug.
 //!
+//! Calls can overtake each other too: a call path that awaits its save before it arms may arm after a later call's. The actor numbers
+//! its answers ([`Lazy::call_numbered`]); [`Due::arm_ordered`] drops an arm from an answer older than one the key was armed from.
+//!
 //! A nap is never longer than [`LONGEST_NAP`]: the sleep is on the monotonic clock, which stops while the laptop sleeps, so the time
 //! is read again (the wall clock, `ctx.clock`) at least that often while something is armed. With nothing armed there is no task.
 
@@ -56,6 +59,8 @@ struct Slot<T> {
     tx: watch::Sender<Option<i64>>,
     generation: u64,
     with: T,
+    /// The number of the latest answer a call armed the key from ([`Due::arm_ordered`]).
+    answer: u64,
 }
 
 impl<T> std::fmt::Debug for Due<T> {
@@ -81,8 +86,19 @@ impl<T: Clone + Send + Sync + 'static> Due<T> {
     /// Tells the key's task its deadline (and what to wake with), starting the task if there is a deadline and no task. `None` ends a
     /// running task.
     pub fn arm(self: &Arc<Self>, key: &str, with: &T, due: Option<i64>) {
+        self.arm_ordered(key, with, due, 0);
+    }
+
+    /// [`Due::arm`] from the answer numbered `answer` ([`Lazy::call_numbered`]). A caller that awaits its save before it arms can be
+    /// overtaken by a later call's caller: an arm from an answer older than one the key was already armed from is dropped, so the
+    /// older answer's deadline (or its `None`) cannot overwrite the newer one. 0 is unordered: always taken.
+    pub fn arm_ordered(self: &Arc<Self>, key: &str, with: &T, due: Option<i64>, answer: u64) {
         let mut map = self.lock();
         if let Some(slot) = map.get_mut(key) {
+            if answer != 0 && answer < slot.answer {
+                return;
+            }
+            slot.answer = slot.answer.max(answer);
             slot.generation += 1;
             slot.with = with.clone();
             // A deadline already past wakes the task even when it is the one it sleeps to: the clock moved on under the sleep (the
@@ -103,6 +119,7 @@ impl<T: Clone + Send + Sync + 'static> Due<T> {
             tx,
             generation: 0,
             with: with.clone(),
+            answer,
         };
         map.insert(key.to_owned(), slot);
         self.ctx
@@ -230,6 +247,18 @@ impl<S: Service> Deadlines<S> {
     /// Tells the key's task its deadline, starting the task if there is a deadline and no task. `None` ends a running task.
     pub fn arm(self: &Arc<Self>, key: &str, actor: &Arc<Lazy<S>>, due: Option<i64>) {
         self.due.arm(key, actor, due);
+    }
+
+    /// [`Deadlines::arm`] from the answer numbered `answer` ([`Lazy::call_numbered`]): an older answer than one already armed from
+    /// is dropped ([`Due::arm_ordered`]).
+    pub fn arm_ordered(
+        self: &Arc<Self>,
+        key: &str,
+        actor: &Arc<Lazy<S>>,
+        due: Option<i64>,
+        answer: u64,
+    ) {
+        self.due.arm_ordered(key, actor, due, answer);
     }
 
     /// Whether a key has a task (for tests).

@@ -42,7 +42,7 @@ mod restore;
 mod route;
 mod schema;
 mod settings;
-mod signals;
+mod sizes;
 mod stage;
 mod storage;
 mod stream;
@@ -66,8 +66,8 @@ use crate::core::{Answer, Core, Request};
 pub use crate::core::Windows;
 pub use crate::import::check as check_import;
 pub use crate::partiql::check as check_partiql;
-pub use crate::signals::Signal;
 pub use crate::stream::{Batch, Event, Record, StreamInfo};
+pub use doze_runtime::Signal;
 
 /// The region whose files are kept in the service's directory itself.
 const HOME_REGION: &str = "us-east-1";
@@ -78,7 +78,7 @@ pub struct Dynamodb {
     /// One actor per region: a table belongs to the region that made it.
     actors: Keyed<Core>,
     /// The streams consumers wait on, each woken when a call appended to it.
-    signals: Arc<signals::Signals>,
+    signals: Arc<doze_runtime::Signals>,
     /// One timer per region, asleep until the first item with a time to live expires, and none while no such item exists.
     expiry: Arc<Deadlines<Core>>,
     /// The service's directory, which `resume` looks through.
@@ -92,7 +92,7 @@ impl Dynamodb {
     /// Registers DynamoDB. `ctx` says where its files live and how it reads the time.
     #[must_use]
     pub fn new(ctx: Arc<Ctx>) -> Self {
-        let signals: Arc<signals::Signals> = Arc::default();
+        let signals: Arc<doze_runtime::Signals> = Arc::default();
         let wake = Arc::clone(&signals);
         let peers = core::peers_of(&ctx);
         let sender = peers.clone();
@@ -259,7 +259,7 @@ impl Dynamodb {
             Ok(actor) => actor,
             Err(e) => return Err(ApiError::internal(e.to_string())),
         };
-        let answer = match actor.call(Request::Call(Box::new(call))).await {
+        let (answer, number) = match actor.call_numbered(Request::Call(Box::new(call))).await {
             Ok(a) => a,
             Err(e) => return Err(ApiError::internal(e.to_string())),
         };
@@ -270,7 +270,7 @@ impl Dynamodb {
             work,
             ..
         } = answer;
-        self.expiry.arm(&region, &actor, next_due);
+        self.expiry.arm_ordered(&region, &actor, next_due, number);
         self.after(&actor, work).await;
         reply
     }

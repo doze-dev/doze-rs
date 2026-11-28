@@ -2,20 +2,19 @@
 //! queue, and is woken when a call there adds a message or makes one show sooner; a call on another queue does not wake it. The
 //! watch also keeps when the queue's first hidden message shows, as the last receive that found nothing was told, so a waiter
 //! sleeps until then and not a moment less. An entry exists only while someone watches: a queue nobody waits on costs nothing.
+//! The wake-ups are doze-runtime's [`Signals`], with that time as the value each queue's entry carries.
 
-use std::collections::HashMap;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicI64, Ordering};
-use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
-use doze_runtime::Clock;
-use tokio::sync::Notify;
+use doze_runtime::{Clock, Signal, Signals};
 use tokio::sync::futures::Notified;
 
 /// The watched queues, by `region/name`.
 pub(crate) struct Arrivals {
     clock: Arc<dyn Clock>,
-    watched: Mutex<HashMap<String, Arc<Entry>>>,
+    signals: Arc<Signals<NextVisible>>,
 }
 
 impl std::fmt::Debug for Arrivals {
@@ -24,12 +23,14 @@ impl std::fmt::Debug for Arrivals {
     }
 }
 
+/// When the queue's first hidden message shows, in the clock's milliseconds; `i64::MAX` when none is hidden or it is not known yet.
 #[derive(Debug)]
-struct Entry {
-    notify: Notify,
-    /// When the queue's first hidden message shows, in the clock's milliseconds; `i64::MAX` when none is hidden or it is not
-    /// known yet.
-    next_visible_ms: AtomicI64,
+pub(crate) struct NextVisible(AtomicI64);
+
+impl Default for NextVisible {
+    fn default() -> Self {
+        Self(AtomicI64::new(i64::MAX))
+    }
 }
 
 /// The key of a queue: queues are kept per region, by name.
@@ -41,100 +42,63 @@ impl Arrivals {
     pub(crate) fn new(clock: Arc<dyn Clock>) -> Arc<Self> {
         Arc::new(Self {
             clock,
-            watched: Mutex::new(HashMap::new()),
+            signals: Arc::default(),
         })
     }
 
     /// Starts watching the queue `key` names.
-    pub(crate) fn watch(self: &Arc<Self>, key: String) -> Watch {
-        let entry = {
-            let mut watched = self.watched.lock().unwrap_or_else(PoisonError::into_inner);
-            Arc::clone(watched.entry(key.clone()).or_insert_with(|| {
-                Arc::new(Entry {
-                    notify: Notify::new(),
-                    next_visible_ms: AtomicI64::new(i64::MAX),
-                })
-            }))
-        };
+    pub(crate) fn watch(&self, key: String) -> Watch {
         Watch {
-            arrivals: Arc::clone(self),
-            key,
-            entry,
+            clock: Arc::clone(&self.clock),
+            signal: self.signals.watch(key),
         }
     }
 
     /// Wakes whoever waits on the queue `key` names; nothing when nobody does.
     pub(crate) fn tell(&self, key: &str) {
-        let entry = self
-            .watched
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .get(key)
-            .cloned();
-        if let Some(entry) = entry {
-            entry.next_visible_ms.store(i64::MAX, Ordering::Relaxed);
-            entry.notify.notify_waiters();
-        }
+        self.signals
+            .with_extra(key, |next| next.0.store(i64::MAX, Ordering::Relaxed));
+        self.signals.tell(key);
     }
 
     /// Notes what a receive that found nothing was told about when the queue's first hidden message shows.
     pub(crate) fn note(&self, key: &str, next_visible_ms: Option<i64>) {
-        let watched = self.watched.lock().unwrap_or_else(PoisonError::into_inner);
-        if let Some(entry) = watched.get(key) {
-            entry
-                .next_visible_ms
+        self.signals.with_extra(key, |next| {
+            next.0
                 .store(next_visible_ms.unwrap_or(i64::MAX), Ordering::Relaxed);
-        }
+        });
     }
 
     /// How many queues are watched (for tests).
     #[cfg(test)]
     pub(crate) fn watched(&self) -> usize {
-        self.watched
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .len()
+        self.signals.watched()
     }
 }
 
 /// A watch on one queue, ended when dropped.
 #[derive(Debug)]
 pub struct Watch {
-    arrivals: Arc<Arrivals>,
-    key: String,
-    entry: Arc<Entry>,
+    clock: Arc<dyn Clock>,
+    signal: Signal<NextVisible>,
 }
 
 impl Watch {
     /// A wake-up for the next arrival. Call `enable` on it (pinned) before reading the queue, so an arrival between the read and
     /// the wait is not missed.
     pub fn notified(&self) -> Notified<'_> {
-        self.entry.notify.notified()
+        self.signal.notified()
     }
 
     /// How long until the queue's first hidden message shows (in flight or delayed), as the last receive that found nothing was
     /// told; `None` when none is hidden, so only an arrival can give a waiter something.
     #[must_use]
     pub fn until_visible(&self) -> Option<Duration> {
-        let at = self.entry.next_visible_ms.load(Ordering::Relaxed);
+        let at = self.signal.extra().0.load(Ordering::Relaxed);
         if at == i64::MAX {
             return None;
         }
-        let ms = at.saturating_sub(self.arrivals.clock.now_ms()).max(1);
+        let ms = at.saturating_sub(self.clock.now_ms()).max(1);
         Some(Duration::from_millis(u64::try_from(ms).unwrap_or(1)))
-    }
-}
-
-impl Drop for Watch {
-    fn drop(&mut self) {
-        let mut watched = self
-            .arrivals
-            .watched
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner);
-        // The map's and this one: no one else watches.
-        if Arc::strong_count(&self.entry) == 2 {
-            watched.remove(&self.key);
-        }
     }
 }

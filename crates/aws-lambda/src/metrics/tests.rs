@@ -246,3 +246,24 @@ fn an_alias_adds_the_executed_version_and_the_ring_is_bounded() {
     }
     assert_eq!(m.slots.lock().map(|s| s.len()).unwrap_or(0), MAX_SLOTS);
 }
+
+/// Before: an asynchronous invocation dropped by a full queue left only a line in doze-aws's log.
+#[test]
+fn a_dropped_asynchronous_invocation_is_counted_as_async_events_dropped() {
+    let m = Meter::default();
+    let t = target(false);
+    m.add(&t, 60_000, &Outcome::Dropped);
+    m.add(&t, 61_000, &Outcome::Dropped);
+    let made = m.take("us-east-1");
+    let data = made[0].body["MetricData"].as_array().unwrap();
+    let dropped: Vec<&Value> = data
+        .iter()
+        .filter(|d| d["MetricName"] == "AsyncEventsDropped")
+        .collect();
+    assert_eq!(dropped.len(), 3, "the three dimension sets: {data:?}");
+    assert!(dropped.iter().all(|d| d["Counts"] == json!([2])));
+    assert!(
+        data.iter().all(|d| d["MetricName"] == "AsyncEventsDropped"),
+        "a drop is not an invocation"
+    );
+}

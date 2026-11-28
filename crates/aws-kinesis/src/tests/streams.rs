@@ -282,7 +282,8 @@ fn an_append_is_flagged_for_whoever_waits_for_records_of_that_stream() {
     w.stream("t", 1);
     assert!(w.core.appended.is_empty());
     w.put("s", "k", "x");
-    assert_eq!(w.core.appended.iter().collect::<Vec<_>>(), ["s"]);
+    assert_eq!(w.core.appended.keys().collect::<Vec<_>>(), ["s"]);
+    assert_eq!(w.core.appended["s"].len(), 1, "and the shard that took it");
 }
 
 #[test]

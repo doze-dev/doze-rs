@@ -88,8 +88,8 @@ impl Timers {
             None => Err("CloudWatch Logs is not running in doze-aws.".to_owned()),
         };
         let outcome = Box::new(LogOutcome { run, result });
-        if let Ok(mut answer) = actor
-            .call(Request::LogResult(caller.clone(), outcome))
+        if let Ok((mut answer, number)) = actor
+            .call_numbered(Request::LogResult(caller.clone(), outcome))
             .await
         {
             if let Some(saved) = answer.durable.take() {
@@ -97,20 +97,21 @@ impl Timers {
                 drop(saved.await);
             }
             self.launch(&region, &actor, std::mem::take(&mut answer.log_runs));
-            self.arm(&region, &caller, &actor, answer.next_due);
+            self.arm(&region, &caller, &actor, (answer.next_due, number));
         }
     }
 
-    /// Tells the region's timer its deadline, starting the task if there is a deadline and no task.
+    /// Tells the region's timer the deadline of the answer numbered `number` ([`Lazy::call_numbered`]), starting the task if there is a
+    /// deadline and no task. An answer older than one already armed from is dropped: a call that awaited its save is overtaken.
     pub(crate) fn arm(
         self: &Arc<Self>,
         region: &str,
         caller: &Caller,
         actor: &Arc<Lazy<Core>>,
-        due: Option<i64>,
+        (due, number): (Option<i64>, u64),
     ) {
         self.due
-            .arm(region, &(caller.clone(), Arc::clone(actor)), due);
+            .arm_ordered(region, &(caller.clone(), Arc::clone(actor)), due, number);
     }
 
     /// Whether a region has a timer task (for tests).

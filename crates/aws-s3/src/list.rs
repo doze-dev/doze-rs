@@ -277,11 +277,11 @@ fn decode_token(t: &str) -> Option<String> {
 
 /// Rows of one folded prefix read before the walk starts again past it: a fold of a few keys is cheaper to read through than to
 /// seek past.
-const FOLD_ROWS: usize = 16;
+pub(crate) const FOLD_ROWS: usize = 16;
 
 /// The row key just past every key under `fold` (a key that has U+10FFFF right after the fold sorts after it; the fold is then
 /// met again and skipped as one already returned).
-fn past(bucket: &str, fold: &str) -> String {
+pub(crate) fn past(bucket: &str, fold: &str) -> String {
     format!("{bucket}\0{fold}\u{10FFFF}")
 }
 

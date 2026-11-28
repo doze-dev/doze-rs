@@ -195,3 +195,26 @@ async fn arming_a_deadline_already_past_wakes_the_task_at_once() {
     assert_eq!(r.ticks(), 1);
     r.tasks.shutdown().await;
 }
+
+/// Two calls answered in order, armed in the other order (the first awaited its save longer): the older answer's `None` must not
+/// end the deadline the newer one armed. Before, the last arm won and the deadline was lost.
+#[tokio::test(start_paused = true)]
+async fn an_older_answer_armed_late_does_not_overwrite_a_newer_one() {
+    let r = rig(1_000);
+    let deadlines = Deadlines::<Ticker>::new(
+        Arc::clone(&r.ctx),
+        || (),
+        Box::new(|_| Box::pin(async { None })),
+    );
+    let (_, older) = r.actor.call_numbered(()).await.unwrap();
+    let (_, newer) = r.actor.call_numbered(()).await.unwrap();
+    assert!(newer > older, "answers are numbered in the order given");
+    deadlines.arm_ordered("r", &r.actor, Some(5_000), newer);
+    deadlines.arm_ordered("r", &r.actor, None, older);
+    assert!(deadlines.armed("r"), "the stale None was dropped");
+    let before = r.ticks();
+    r.clock.set(5_000);
+    tokio::time::sleep(Duration::from_secs(5)).await;
+    assert_eq!(r.ticks(), before + 1, "the newer deadline fired");
+    r.tasks.shutdown().await;
+}

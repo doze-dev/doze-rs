@@ -13,6 +13,15 @@ use crate::storage::{DataAsk, DataReply};
 
 const HOUR: i64 = 3_600_000;
 
+/// Runs a data question on a runtime of one thread, as the server does (a compaction goes to its blocking pool).
+fn block<T>(asked: impl std::future::Future<Output = T>) -> T {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(asked)
+}
+
 fn open(dir: &std::path::Path, clock: &Arc<ManualClock>) -> World {
     World::with(
         Core::open_in(dir, clock.clone(), None).unwrap(),
@@ -21,7 +30,7 @@ fn open(dir: &std::path::Path, clock: &Arc<ManualClock>) -> World {
 }
 
 fn emptied(w: &mut World, ask: DataAsk) -> Result<Emptied, StorageError> {
-    match w.core.data("us-east-1", ask) {
+    match block(w.core.data("us-east-1", ask)) {
         DataReply::Emptied(done) => done,
         other => panic!("{other:?}"),
     }
@@ -38,7 +47,8 @@ fn empty(w: &mut World, name: &str, prune: Prune) -> Result<Emptied, StorageErro
 }
 
 fn usage(w: &mut World, name: &str) -> Resource {
-    let DataReply::Usage(Ok((resources, _))) = w.core.data("us-east-1", DataAsk::Usage) else {
+    let DataReply::Usage(Ok((resources, _))) = block(w.core.data("us-east-1", DataAsk::Usage))
+    else {
         panic!()
     };
     resources.into_iter().find(|r| r.name == name).unwrap()

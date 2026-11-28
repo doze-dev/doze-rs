@@ -141,6 +141,8 @@ impl doze_runtime::Service for Core {
     type Error = StoreError;
 
     async fn open(ctx: &Ctx, _name: &'static str) -> Result<Self, StoreError> {
+        // WHY: on the blocking thread the open runs on; the emptying is a job of its own, so the open does not wait for it.
+        crate::code::empty_left_trash(&ctx.dir);
         Self::open_in(&ctx.dir, Arc::clone(&ctx.clock), peers_of(ctx))
     }
 
@@ -310,7 +312,11 @@ impl Core {
 
     /// The code directories nothing refers to any more are removed.
     pub(crate) fn sweep_code(&self) {
-        crate::code::sweep(&self.dir, &self.referenced_code());
+        crate::code::sweep(
+            &self.dir,
+            &self.referenced_code(),
+            std::time::Duration::from_millis(crate::storage::GRACE_MS),
+        );
     }
 
     /// A name for each function and its revision, to tell which a call changed (a runner's workers for it are retired).

@@ -224,7 +224,7 @@ impl doze_runtime::Service for Core {
             },
             Request::Data(asked) => {
                 let crate::storage::Asked { region, ask, reply } = *asked;
-                if reply.send(self.data(&region, ask)).is_err() {
+                if reply.send(self.data(&region, ask).await).is_err() {
                     // WHY: the person stopped waiting; what was asked was done all the same.
                 }
                 // What was emptied may have held the item the timer sleeps to.
@@ -353,6 +353,7 @@ impl Core {
             call: &call,
             body: json,
         };
+        self.count_ahead(&cx).await;
         let outcome = self.dispatch(&cx);
         self.finish(outcome).await
     }

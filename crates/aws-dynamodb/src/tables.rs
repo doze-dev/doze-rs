@@ -212,18 +212,18 @@ impl Core {
         Ok(out)
     }
 
-    /// How many items and bytes a table and its indexes hold, counted from the file.
+    /// How many items and bytes a table and its indexes hold, counted from the file: as counted before the call off the serving
+    /// thread (`sizes.rs`), or here when that count is missing.
     pub(crate) fn sizes(&self, t: &Table) -> Result<Sizes, ApiError> {
         let count = |space: Space, prefix: &[u8]| -> Result<(i64, i64), ApiError> {
-            let (mut n, mut bytes) = (0_i64, 0_i64);
-            self.disk
-                .scan(space, prefix, &keys::prefix_end(prefix), false, |k, v| {
-                    n += 1;
-                    bytes += i64::try_from(k.len() + v.len()).unwrap_or(0);
-                    crate::disk::Flow::Continue
-                })
+            let (n, bytes) = self
+                .disk
+                .measure(space, prefix, &keys::prefix_end(prefix))
                 .map_err(|e| ApiError::internal(e.to_string()))?;
-            Ok((n, bytes))
+            Ok((
+                i64::try_from(n).unwrap_or(i64::MAX),
+                i64::try_from(bytes).unwrap_or(i64::MAX),
+            ))
         };
         let mut sizes = Sizes {
             table: count(Space::Items, &t.id)?,

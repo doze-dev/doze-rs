@@ -166,9 +166,38 @@ fn noncurrent(r: &Rule, versions: &[Version], now_ms: i64, out: &mut Vec<Action>
     }
 }
 
+/// Reads every key of the bucket in `read` and decides what the rules do to it.
+fn lifecycle_actions(
+    read: &doze_store::ReadTransaction,
+    bucket: &str,
+    rules: &[Rule],
+    now: i64,
+) -> Result<Vec<Action>, doze_store::StoreError> {
+    let mut actions = Vec::new();
+    let mut group: Vec<Version> = Vec::new();
+    let start = format!("{bucket}\0");
+    doze_store::scan(read, crate::core::VERSIONS, &start, |row, bytes| {
+        let Some(key) = crate::list::key_of(row, bucket) else {
+            return false;
+        };
+        if group.first().is_some_and(|g| g.key != key) {
+            actions.extend(decide(rules, &group, now));
+            group.clear();
+        }
+        if let Ok(v) = crate::store::decode_version(bytes) {
+            group.push(v);
+        }
+        true
+    })?;
+    actions.extend(decide(rules, &group, now));
+    Ok(actions)
+}
+
 impl Core {
-    /// Applies every enabled rule of every bucket as of now. Returns how many things it did.
-    pub(crate) fn sweep_lifecycle(&mut self) -> usize {
+    /// Applies every enabled rule of every bucket as of now. Returns how many things it did. The walk of every key runs in one read
+    /// on the blocking pool ([`doze_store::Db::read_off_loop`]): the region's calls wait in its inbox meanwhile, every other
+    /// service's go on.
+    pub(crate) async fn sweep_lifecycle(&mut self) -> usize {
         let now = self.now_ms();
         let buckets: Vec<(String, Vec<Rule>)> = self
             .buckets
@@ -176,45 +205,30 @@ impl Core {
             .filter_map(|(n, b)| Some((n.to_owned(), rules_of(b.configs.get("lifecycle")?))))
             .filter(|(_, r)| !r.is_empty())
             .collect();
+        if buckets.is_empty() {
+            return 0;
+        }
+        let decided = self
+            .db
+            .read_off_loop(move |read| {
+                let mut out = Vec::with_capacity(buckets.len());
+                for (bucket, rules) in buckets {
+                    // WHY: a bucket whose walk failed is left as it is until the next sweep, as before.
+                    let actions = lifecycle_actions(read, &bucket, &rules, now).unwrap_or_default();
+                    out.push((bucket, rules, actions));
+                }
+                Ok(out)
+            })
+            .await
+            .unwrap_or_default();
         let mut done = 0;
-        for (bucket, rules) in buckets {
-            let mut actions = self.lifecycle_actions(&bucket, &rules, now);
+        for (bucket, rules, mut actions) in decided {
             actions.extend(self.stale_uploads(&bucket, &rules, now));
             for a in actions {
                 done += usize::from(self.apply(&bucket, &a));
             }
         }
         done
-    }
-
-    /// Reads every key of the bucket and decides what the rules do to it.
-    fn lifecycle_actions(&self, bucket: &str, rules: &[Rule], now: i64) -> Vec<Action> {
-        let q = crate::list::Query {
-            bucket,
-            prefix: "",
-            delimiter: None,
-            after: "",
-            max: usize::MAX,
-        };
-        let mut actions = Vec::new();
-        let mut group: Vec<Version> = Vec::new();
-        let flush = |group: &mut Vec<Version>, actions: &mut Vec<Action>| {
-            actions.extend(decide(rules, group, now));
-            group.clear();
-        };
-        let walked = self.walk(&q, |key, bytes| {
-            if group.first().is_some_and(|g| g.key != key) {
-                flush(&mut group, &mut actions);
-            }
-            if let Ok(v) = crate::store::decode_version(bytes) {
-                group.push(v);
-            }
-            true
-        });
-        if walked.is_ok() {
-            flush(&mut group, &mut actions);
-        }
-        actions
     }
 
     fn stale_uploads(&self, bucket: &str, rules: &[Rule], now: i64) -> Vec<Action> {

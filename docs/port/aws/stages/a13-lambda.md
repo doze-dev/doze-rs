@@ -94,8 +94,9 @@ operations, and `InvokeAsync` (deprecated).
 `AWS_ENDPOINT_URL` pointing back at the gateway; the host's own `AWS_*` variables are dropped). Each process gets a Runtime API of its own on a
 loopback port (`rt/api.rs`: `next`, `response` (buffered or `Lambda-Runtime-Function-Response-Mode: streaming`), `error`, `init/error`), its stdout
 and stderr are read line by line, and it is ended cleanly: on a timeout, when its function's code or configuration is replaced (a busy one finishes
-its invocation first), after the idle time (`--lambda-idle-secs`, 600; one timer per warm process, none when there are none), and at shutdown (every
-task is tracked in `Tasks`; **the child's group is killed through `kill(1)`** because signalling a group needs `libc`, and a test proves
+its invocation first), after the idle time (`--lambda-idle-secs`, 300 since 2026-11-27, was 600; one timer per warm process, none when there are none), when the
+whole pool is full (`--lambda-max-processes`, 32 processes in all: the one idle longest makes room), and at shutdown (every task is tracked
+in `Tasks`; **the child's group is killed with `killpg` through `rustix`**, no `kill(1)` process since 2026-11-27, and a test proves
 `Tasks::is_empty()` after shutdown with a function whose grandchild holds the pipe open). Up to 8 processes serve one function version at once;
 more invocations wait. Reserved concurrency is enforced (0 throttles everything: 429 `TooManyRequestsException`); the init has its own 10 s budget
 that is not charged to the function's timeout. A timeout kills the process and answers `{"errorMessage":"<time> <id> Task timed out after 3.00 seconds"}`
@@ -145,6 +146,12 @@ bounded by `MaximumEventAgeInSeconds`; the result goes to `OnSuccess`/`OnFailure
 destination document (`version`, `requestContext.condition` `Success`/`RetriesExhausted`/`EventAgeExceeded`, `requestPayload`, `responseContext`,
 `responsePayload`), and a failed one also to the function's `DeadLetterConfig` (SQS, SNS). The EventBridge destination calls `PutEvents` on the
 `events` service, which is not on this branch (untested; it logs if absent).
+
+**The async queue's bound** (`async_invoke/queue.rs`). An event waits for its function in memory, at most 8 of one function running at once;
+at most 10,000 events and 64 MiB of payload wait in all. Past that an event is still accepted (202, as AWS accepts one) and dropped: a
+warning in doze-aws's log and a count in the function's `AsyncEventsDropped` (`AWS/Lambda`, by `FunctionName`, `FunctionName` and
+`Resource`, and with no dimensions; read it by `Sum`), the metric AWS counts its own drops in. AWS keeps events for up to six hours; a
+restart here loses what waits. Not shown in the console's Live (a call record holds what the gateway saw: a 202).
 
 **Event source mappings** (`poll/`). SQS, Kinesis and DynamoDB streams. A poller is one tracked task per enabled mapping; with none enabled there is
 no task, no timer, and nothing but a marker file (`mappings.armed`) so a restart resumes them (`Lambda::resume()`, called by `run.rs` after the

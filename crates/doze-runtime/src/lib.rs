@@ -8,6 +8,7 @@
 //! - [`Clock`]: time as a value passed in, so tests own the clock.
 //! - [`Tasks`]: tracked tasks and a clean stop.
 //! - [`Rests`]: the lazy services made on a task set, which a tool may tell to rest now.
+//! - [`Signals`]: wake-ups by key (a stream, a queue), with the parts each change touched; nothing while nobody watches.
 //! - [`DataDirLock`]: one process per data directory.
 //!
 //! The lifecycle and timer patterns come from spike C (2026-11-08); the lock and the stop handle are
@@ -20,6 +21,7 @@ mod keyed;
 mod lazy;
 mod lock;
 mod rests;
+mod signals;
 mod tasks;
 
 pub use clock::{Clock, ManualClock, SystemClock};
@@ -29,4 +31,5 @@ pub use keyed::{KeyError, Keyed, MAX_KEYS};
 pub use lazy::{Ctx, Error, Lazy, Service};
 pub use lock::{DataDirLock, LockError};
 pub use rests::{Rested, Rests, Seen};
+pub use signals::{Signal, Signals};
 pub use tasks::Tasks;

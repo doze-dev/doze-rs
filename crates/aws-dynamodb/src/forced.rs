@@ -126,14 +126,15 @@ impl Dynamodb {
             .actors
             .actor(region)
             .map_err(|e| ApiError::internal(e.to_string()))?;
-        let answer = actor
-            .call(Request::Sweep {
+        let (answer, number) = actor
+            .call_numbered(Request::Sweep {
                 table: table.to_owned(),
             })
             .await
             .map_err(|e| ApiError::internal(e.to_string()))?;
         self.tell(&answer);
-        self.expiry.arm(region, &actor, answer.next_due);
+        self.expiry
+            .arm_ordered(region, &actor, answer.next_due, number);
         self.after(&actor, answer.work).await;
         answer
             .swept

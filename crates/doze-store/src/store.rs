@@ -148,6 +148,25 @@ impl Store {
         })
     }
 
+    /// Runs `work` with a read of everything as last committed, on a thread of the blocking pool ([`crate::Db::read_off_loop`]
+    /// says when and why).
+    ///
+    /// # Errors
+    /// A failed read, what `work` returns, or [`StoreError::Stopped`] when the runtime stopped before the job could run. A panic in
+    /// `work` is the caller's.
+    pub async fn read_off_loop<T: Send + 'static>(
+        &self,
+        work: impl FnOnce(&redb::ReadTransaction) -> Result<T, StoreError> + Send + 'static,
+    ) -> Result<T, StoreError> {
+        let db = Arc::clone(&self.db);
+        let job = tokio::task::spawn_blocking(move || work(&db.begin_read()?));
+        match job.await {
+            Ok(done) => done,
+            Err(e) if e.is_panic() => std::panic::resume_unwind(e.into_panic()),
+            Err(_) => Err(StoreError::Stopped),
+        }
+    }
+
     /// Compacts when it is worth it: at least [`WORTH_BYTES`] and a quarter of the file would come back. What a service does as it
     /// closes after sitting idle, so space freed by deletes through the API reaches the disk without anyone asking.
     ///

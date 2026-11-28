@@ -9,7 +9,8 @@ use crate::keys::Space;
 use crate::storage::{DataAsk, DataReply};
 
 fn data(w: &mut World, ask: DataAsk) -> DataReply {
-    w.core.as_mut().unwrap().data("us-east-1", ask)
+    let core = w.core.as_mut().unwrap();
+    w.rt.block_on(core.data("us-east-1", ask))
 }
 
 fn emptied(reply: DataReply) -> Result<Emptied, StorageError> {

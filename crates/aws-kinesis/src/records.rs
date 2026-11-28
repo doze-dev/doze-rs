@@ -103,8 +103,14 @@ impl Core {
         let bytes =
             record::encode("record", 1, &rec).map_err(|e| ApiError::internal(e.to_string()))?;
         self.rows.put(row_key(no, id, seq), bytes);
-        if !self.appended.contains(name) {
-            self.appended.insert(name.to_owned());
+        match self.appended.get_mut(name) {
+            Some(shards) => {
+                shards.insert(id);
+            }
+            None => {
+                self.appended
+                    .insert(name.to_owned(), std::collections::BTreeSet::from([id]));
+            }
         }
         Ok((id, seq))
     }

@@ -17,6 +17,7 @@ use std::fmt;
 use std::future::Future;
 use std::mem;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError, Weak};
 use std::time::Duration;
 
@@ -79,7 +80,7 @@ pub enum Error {
 
 struct Call<S: Service> {
     req: S::Request,
-    reply: oneshot::Sender<Result<S::Response, Error>>,
+    reply: oneshot::Sender<Result<(S::Response, u64), Error>>,
 }
 
 enum Slot<S: Service> {
@@ -104,6 +105,9 @@ struct Shared<S: Service> {
     name: &'static str,
     ctx: Arc<Ctx>,
     state: Mutex<State<S>>,
+    /// How many answers the actors of this handle have given, in the order they gave them ([`Lazy::call_numbered`]); kept
+    /// across actors, so a reopened one goes on counting.
+    answered: AtomicU64,
 }
 
 impl<S: Service> Shared<S> {
@@ -152,6 +156,7 @@ impl<S: Service> Lazy<S> {
             name,
             ctx,
             state: Mutex::new(state),
+            answered: AtomicU64::new(0),
         });
         let at: Weak<dyn Resting> = Arc::downgrade(&shared) as Weak<dyn Resting>;
         shared.ctx.tasks.rests().add(name, key, at);
@@ -168,7 +173,17 @@ impl<S: Service> Lazy<S> {
     ///
     /// # Errors
     /// The service could not open, or went away.
-    pub async fn call(&self, mut req: S::Request) -> Result<S::Response, Error> {
+    pub async fn call(&self, req: S::Request) -> Result<S::Response, Error> {
+        self.call_numbered(req).await.map(|(response, _)| response)
+    }
+
+    /// [`Lazy::call`], with the answer's number: the actors of this handle number their answers 1, 2, 3 as they give them, so a
+    /// caller that awaits something else before it acts on the answer (a save, then arming a deadline) can tell an answer older than
+    /// one already acted on ([`Due::arm_ordered`](crate::Due::arm_ordered)).
+    ///
+    /// # Errors
+    /// The service could not open, or went away.
+    pub async fn call_numbered(&self, mut req: S::Request) -> Result<(S::Response, u64), Error> {
         for _ in 0..ATTEMPTS {
             let inbox = self.inbox();
             let (reply, answer) = oneshot::channel();
@@ -238,11 +253,18 @@ async fn actor<S: Service>(
     // The calls that arrive meanwhile wait in the inbox.
     match off_the_loop::opened(&shared).await {
         Ok(mut svc) => {
-            run(shared.ctx.idle, &rest, &mut svc, &mut inbox).await;
+            run(
+                shared.ctx.idle,
+                &rest,
+                &mut svc,
+                &mut inbox,
+                &shared.answered,
+            )
+            .await;
             // Idle, told to rest, stopping, or every handle dropped: refuse new work, finish what is queued, release.
             inbox.close();
             while let Some(call) = inbox.recv().await {
-                serve(&mut svc, call).await;
+                serve(&mut svc, call, &shared.answered).await;
             }
             off_the_loop::close(svc).await;
         }
@@ -260,18 +282,21 @@ async fn run<S: Service>(
     rest: &CancellationToken,
     svc: &mut S,
     inbox: &mut mpsc::Receiver<Call<S>>,
+    answered: &AtomicU64,
 ) {
     while let Some(Ok(Some(call))) = rest
         .run_until_cancelled(tokio::time::timeout(idle, inbox.recv()))
         .await
     {
-        serve(svc, call).await;
+        serve(svc, call, answered).await;
     }
 }
 
-async fn serve<S: Service>(svc: &mut S, call: Call<S>) {
+async fn serve<S: Service>(svc: &mut S, call: Call<S>, answered: &AtomicU64) {
     let response = svc.handle(call.req).await;
-    if call.reply.send(Ok(response)).is_err() {
+    // WHY: numbered as it is sent, on the actor's one task: the numbers are the order the answers were given in.
+    let number = answered.fetch_add(1, Ordering::Relaxed) + 1;
+    if call.reply.send(Ok((response, number))).is_err() {
         // WHY: the caller gave up waiting; the request was served all the same.
     }
 }

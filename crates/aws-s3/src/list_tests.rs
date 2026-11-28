@@ -104,3 +104,58 @@ async fn a_folded_prefix_is_read_as_one_row_not_all_its_keys() {
     core.db.close();
     drop(std::fs::remove_dir_all(&dir));
 }
+
+/// ListObjectVersions under a delimiter: before, every version under a folded prefix was read (100,005 rows for `deep/`); after, a
+/// few, then the walk starts past the fold. Paged one entry at a time, a fold is not returned twice.
+#[tokio::test]
+async fn a_folded_prefix_of_versions_is_read_as_one_row_not_all_its_keys() {
+    let dir = std::env::temp_dir().join(format!("aws-s3-listv-fold-{}", std::process::id()));
+    drop(std::fs::remove_dir_all(&dir));
+    let clock = Arc::new(doze_runtime::SystemClock);
+    let mut core = Core::open_in(&dir, clock, None).unwrap();
+    core.buckets.insert("bkt".into(), Bucket::default());
+    let mut seq = 0;
+    let mut put = |core: &mut Core, key: &str| {
+        seq += 1;
+        core.batch.puts.push(row(key, seq));
+    };
+    put(&mut core, "a.txt");
+    for n in 0..100_000 {
+        put(&mut core, &format!("deep/{n:06}"));
+    }
+    put(&mut core, "deep/\u{10FFFF}odd");
+    put(&mut core, "deep0");
+    put(&mut core, "x/1");
+    put(&mut core, "x/2");
+    if let Some(ack) = core.flush().unwrap() {
+        ack.await.unwrap();
+    }
+    let list = |after: &str, max: usize| {
+        let q = Query {
+            bucket: "bkt",
+            prefix: "",
+            delimiter: Some("/"),
+            after,
+            max,
+        };
+        core.collect(&q, None, crate::list::Enc(false), "000000000000")
+            .unwrap()
+    };
+    let took = Instant::now();
+    let found = list("", 1000);
+    let took = took.elapsed();
+    let keys: Vec<&str> = found
+        .versions
+        .iter()
+        .filter_map(|v| v["Key"].as_str())
+        .collect();
+    assert_eq!(keys, ["a.txt", "deep0"]);
+    assert_eq!(found.prefixes, ["deep/", "x/"]);
+    assert!(
+        found.scanned < 100,
+        "{} rows read in {took:?}",
+        found.scanned
+    );
+    core.db.close();
+    drop(std::fs::remove_dir_all(&dir));
+}

@@ -6,7 +6,7 @@ use aws_expr::Value;
 
 /// The space an entry lives in: the table's items, a secondary index's entries, a stream's records, the items an on-demand backup
 /// holds (under the backup's id), or the point-in-time recovery log (under the table's id: each change's time and the item before).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum Space {
     Items,
     Index,

@@ -1991,3 +1991,31 @@ origin/main db6cbc2c8.
 - **Dependency:** `rustix` (features `std`, `process`) is now a direct dependency of `aws-lambda` on Unix, for
   `kill_process_group` and `ioctl_fionread`; it was already in the binary through doze-os, so it adds no package (the
   binary delta above is the whole change). `aws-sfn` now depends on `aws-webhook`, which was already linked.
+
+## Workstream 6: the leftovers of workstreams 1-4 (2026-11-27, branch `perf-round`), release, darwin/arm64
+
+Before is `perf-round` at 66b1d86ef (workstreams 1-4 merged), after is the branch with this workstream; both `cargo build --release -p
+doze-aws`, run back to back on the same seeded data directory (100,000 S3 objects under `deep/` in a versioned bucket with a lifecycle
+rule; a DynamoDB table of 100,000 small items), load average 8 to 14. "Stall" is `tools/loop-probe.ts`'s worst round trip (an SQS
+ListQueues every 10 ms) while the operation runs; the idle probe's worst was 3 to 12 ms.
+
+| Operation | Before | After |
+|---|---|---|
+| S3 lifecycle sweep, 100,000 keys: stall | 119, 172, 123 ms | 0.5, 2.2, 0.5 ms |
+| S3 ListObjectVersions `--delimiter /`, 100,000 versions under one prefix | 10 to 17 ms (100,005 rows read) | 0.4 to 0.8 ms (a few dozen rows; `list_tests`) |
+| DynamoDB DescribeTable, 100,000 items, five in a row: each / stall | 4.4 to 6.5 ms / 4.4 ms | 0.26 to 0.49 ms / 0.7 ms (counted once off the loop, kept until a write) |
+| DynamoDB `doze-aws data` empty of that table (deletes and compaction): stall / total | 20.8 ms / 21 ms | 0.5 ms / 11 ms |
+| Kinesis mapping, 32 shards, 2,000 PutRecords 3 ms apart (about 1,980 invocations): server CPU | 2.02, 2.08, 2.26 s | 0.88, 1.42, 0.94 s |
+
+What changed: `doze-store` reads (`Db::read_off_loop`, `doze_store::scan`) and compacts (`Db::compact_off_loop`,
+`GroupCommit::paused_off_loop`) on the blocking pool, one job each; the S3 lifecycle walk, DescribeTable's counts (and the data view's
+usage counts), and DynamoDB's and Kinesis's data-view compaction use them; the S3 janitor naps at most `LONGEST_NAP`; ListObjectVersions
+seeks past a folded prefix; `Lazy` numbers its answers and `Due::arm_ordered` drops an older answer's arm (CloudWatch, Step Functions,
+DynamoDB); one `doze_runtime::Signals` replaces three copies and counts appends per shard, so a Kinesis mapping reads only the shards
+that took records and lists them only when they changed. Not moved: the other thirteen services' data-view compaction (`Db::compact`
+on the loop) and Step Functions' (its `core.rs` is workstream 5's; patch kept for the lead).
+
+Size: `release` 23,162,720 B before, 23,311,600 B after (+148,880 B, not yet bisected: `Lazy`'s numbered answers are monomorphised per
+service). `release-aws` after: 12,388,544 B, 308 packages, idle 8,000 KB (samples 8,000, 7,920, 8,032), after use 8,880 KB, 1 thread
+(`cargo xtask weight doze-aws`); the `release-aws` before build was stopped when work paused. No new crate (`doze-store` turns on
+tokio's `rt` feature, already linked).

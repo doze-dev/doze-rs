@@ -74,14 +74,18 @@ fn backup_name(b: &crate::extras::Backup) -> &str {
 
 impl Core {
     /// Answers a data question. Deletes are handed to the writer before the file is compacted, and compaction waits for them.
-    pub(crate) fn data(&mut self, region: &str, ask: DataAsk) -> DataReply {
+    pub(crate) async fn data(&mut self, region: &str, ask: DataAsk) -> DataReply {
         match ask {
-            DataAsk::Usage => DataReply::Usage(self.usage(region).map_err(|e| e.to_string())),
-            DataAsk::Empty { name, prune } => DataReply::Emptied(self.empty(&name, &prune)),
-            DataAsk::Reset { dry_run } => {
-                DataReply::Emptied(self.reset(dry_run).map_err(StorageError::Failed))
+            DataAsk::Usage => {
+                // WHY: a failed count leaves the usage to count on the serving thread, and report what that read says.
+                drop(self.disk.count_off_loop(self.counted_in_usage()).await);
+                DataReply::Usage(self.usage(region).map_err(|e| e.to_string()))
             }
-            DataAsk::Compact => DataReply::Compacted(self.compact_file()),
+            DataAsk::Empty { name, prune } => DataReply::Emptied(self.empty(&name, &prune).await),
+            DataAsk::Reset { dry_run } => {
+                DataReply::Emptied(self.reset(dry_run).await.map_err(StorageError::Failed))
+            }
+            DataAsk::Compact => DataReply::Compacted(self.compact_file().await),
         }
     }
 
@@ -130,7 +134,7 @@ impl Core {
     }
 
     /// Deletes a backup by the name `doze-aws data` shows.
-    fn empty_backup(&mut self, name: &str, dry_run: bool) -> Result<Emptied, StorageError> {
+    async fn empty_backup(&mut self, name: &str, dry_run: bool) -> Result<Emptied, StorageError> {
         let found = self
             .extras
             .with_prefix("backup/")
@@ -157,7 +161,10 @@ impl Core {
         self.pending
             .ranges
             .push((Space::Backup, id.to_vec(), keys::prefix_end(&id)));
-        done.freed = self.write_and_compact().map_err(StorageError::Failed)?;
+        done.freed = self
+            .write_and_compact()
+            .await
+            .map_err(StorageError::Failed)?;
         Ok(done)
     }
 
@@ -204,7 +211,7 @@ impl Core {
         Ok((out, file))
     }
 
-    fn empty(&mut self, name: &str, prune: &Prune) -> Result<Emptied, StorageError> {
+    async fn empty(&mut self, name: &str, prune: &Prune) -> Result<Emptied, StorageError> {
         if prune.before_ms.is_some() || prune.prefix.is_some() || prune.old_versions || prune.unused
         {
             return Err(StorageError::Unsupported(
@@ -213,7 +220,7 @@ impl Core {
             ));
         }
         if name.contains("/backup/") {
-            return self.empty_backup(name, prune.dry_run);
+            return self.empty_backup(name, prune.dry_run).await;
         }
         let t = self
             .tables
@@ -248,11 +255,14 @@ impl Core {
                 .ranges
                 .push((space, t.id.to_vec(), keys::prefix_end(&t.id)));
         }
-        done.freed = self.write_and_compact().map_err(StorageError::Failed)?;
+        done.freed = self
+            .write_and_compact()
+            .await
+            .map_err(StorageError::Failed)?;
         Ok(done)
     }
 
-    fn reset(&mut self, dry_run: bool) -> Result<Emptied, String> {
+    async fn reset(&mut self, dry_run: bool) -> Result<Emptied, String> {
         let mut done = Emptied::default();
         for (_, t) in self.tables.iter() {
             let held = self.held(t).map_err(|e| e.to_string())?;
@@ -301,24 +311,26 @@ impl Core {
             .push((Space::Stream, Vec::new(), STREAM_END.to_vec()));
         self.seqs.clear();
         self.tokens.clear();
-        done.freed = self.write_and_compact()?;
+        done.freed = self.write_and_compact().await?;
         Ok(done)
     }
 
     /// Writes what changed and compacts; answers the bytes the disk got back.
-    fn write_and_compact(&mut self) -> Result<u64, String> {
+    async fn write_and_compact(&mut self) -> Result<u64, String> {
         let mut writes = std::mem::take(&mut self.pending);
         writes
             .meta
             .extend(self.stage_meta().map_err(|e| e.to_string())?);
         // WHY: the writer finishes what it was handed before compaction pauses it, so the deletes are on disk first.
         drop(self.disk.submit(writes));
-        self.compact_file()
+        self.compact_file().await
     }
 
-    fn compact_file(&mut self) -> Result<u64, String> {
+    /// Compacts on a blocking thread: the region's calls wait, the rest of the server does not.
+    async fn compact_file(&mut self) -> Result<u64, String> {
         self.disk
-            .compact()
+            .compact_off_loop()
+            .await
             .map(|c| c.freed())
             .map_err(|e| e.to_string())
     }
@@ -333,9 +345,13 @@ impl Dynamodb {
             ask,
             reply,
         };
-        let done = actor.call(Request::Data(Box::new(asked))).await.ok()?;
+        let (done, number) = actor
+            .call_numbered(Request::Data(Box::new(asked)))
+            .await
+            .ok()?;
         // An emptied table may have held the item the time-to-live timer was sleeping to.
-        self.expiry.arm(region, &actor, done.next_due);
+        self.expiry
+            .arm_ordered(region, &actor, done.next_due, number);
         answer.await.ok()
     }
 

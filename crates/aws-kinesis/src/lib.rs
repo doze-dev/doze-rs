@@ -21,7 +21,6 @@ mod records;
 mod req;
 mod reshard;
 mod settings;
-mod signals;
 mod storage;
 mod streams;
 mod subscribe;
@@ -33,7 +32,6 @@ mod tests;
 use std::sync::Arc;
 
 use crate::core::Core;
-pub use crate::signals::Signal;
 use aws_model_kinesis::Operation;
 use aws_model_kinesis::meta::META;
 use aws_model_kinesis::tables::TABLES;
@@ -43,6 +41,7 @@ use aws_schema::tables::Tables;
 use aws_wire::ApiError;
 use aws_wire::rest::Download;
 use aws_wire::service::{BoxFuture, Call, Reply, Service};
+pub use doze_runtime::Signal;
 use doze_runtime::{Ctx, Keyed};
 
 /// The order a sequence number sorts at, as a number: what a reader that orders records (a Lambda event source mapping) compares.
@@ -67,7 +66,7 @@ pub struct Kinesis {
     actors: Keyed<Core>,
     /// The streams consumers wait on, by `region/name`, each woken when records are appended to it (and are on disk)
     /// ([`Kinesis::watch_stream`]).
-    signals: Arc<signals::Signals>,
+    signals: Arc<doze_runtime::Signals>,
     /// The open `SubscribeToShard` subscriptions.
     subs: Arc<subscribe::Subscriptions>,
     ctx: Arc<Ctx>,
@@ -142,8 +141,9 @@ impl Kinesis {
         {
             return Err(ApiError::internal(format!("could not save: {e}")));
         }
-        for name in &answer.appended {
-            self.signals.tell(&key(&region, name));
+        for (name, shards) in &answer.appended {
+            self.signals
+                .tell_parts(&key(&region, name), shards.iter().map(String::as_str));
         }
         answer.reply
     }

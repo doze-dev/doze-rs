@@ -3,6 +3,7 @@
 //! never changed afterwards, so a published version can share it with `$LATEST`.
 
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use aws_core::base64;
 use aws_peers::{Need, Peers};
@@ -174,19 +175,35 @@ const TRASH: &str = "code-trash";
 
 /// Removes the directories of `code/` that none of `keep` names. Called after anything that drops a reference, from the actor: each
 /// is renamed into `code-trash/` here (one rename, whatever its size), and the trash is emptied by one job on a blocking thread
-/// (a Node package's tree can take a second to delete). What an earlier run left in the trash goes with it.
-pub(crate) fn sweep(base: &Path, keep: &std::collections::BTreeSet<String>) {
+/// (a Node package's tree can take a second to delete). A tree changed within `grace` is left for a later sweep: an operation
+/// unpacks its code before the actor is asked to keep it (a `CreateFunction` under way while another call drops a reference).
+pub(crate) fn sweep(base: &Path, keep: &std::collections::BTreeSet<String>, grace: Duration) {
     let Ok(read) = std::fs::read_dir(base.join("code")) else {
         return;
     };
     let trash = base.join(TRASH);
+    let now = std::time::SystemTime::now();
+    let settled = |e: &std::fs::DirEntry| {
+        e.metadata()
+            .and_then(|m| m.modified())
+            .is_ok_and(|at| now.duration_since(at).unwrap_or_default() >= grace)
+    };
     for entry in read.filter_map(Result::ok) {
         let name = entry.file_name().to_string_lossy().into_owned();
-        if !keep.contains(&name) && std::fs::create_dir_all(&trash).is_ok() {
+        if !keep.contains(&name) && settled(&entry) && std::fs::create_dir_all(&trash).is_ok() {
             // WHY: a tree that cannot be moved stays where it is, and the next sweep tries again.
             drop(std::fs::rename(entry.path(), trash.join(&name)));
         }
     }
+    if std::fs::read_dir(&trash).is_ok_and(|mut d| d.next().is_some()) {
+        empty_later(trash);
+    }
+}
+
+/// At a region's start (its open, already on a blocking thread): what an earlier run left in the trash is emptied by a job of its
+/// own, so the open does not wait for it and a run that never drops code again does not keep it.
+pub(crate) fn empty_left_trash(base: &Path) {
+    let trash = base.join(TRASH);
     if std::fs::read_dir(&trash).is_ok_and(|mut d| d.next().is_some()) {
         empty_later(trash);
     }
@@ -262,6 +279,7 @@ mod tests {
         sweep(
             &base,
             &std::collections::BTreeSet::from(["kept".to_owned()]),
+            Duration::ZERO,
         );
         assert!(base.join("code/kept").is_dir());
         assert!(
@@ -280,6 +298,36 @@ mod tests {
             0,
             "the trash is emptied, an earlier run's too"
         );
+        drop(std::fs::remove_dir_all(&base));
+    }
+
+    /// Before: a tree a `CreateFunction` had just unpacked, not yet kept by the actor, was swept by a delete running beside it.
+    #[test]
+    fn a_tree_just_unpacked_is_left_by_a_sweep_until_its_grace_has_passed() {
+        let base =
+            std::env::temp_dir().join(format!("doze-lambda-sweep-grace-{}", std::process::id()));
+        drop(std::fs::remove_dir_all(&base));
+        std::fs::create_dir_all(base.join("code/unpacking/root")).unwrap();
+        let keep = std::collections::BTreeSet::new();
+        sweep(&base, &keep, Duration::from_secs(60));
+        assert!(
+            base.join("code/unpacking/root").is_dir(),
+            "left: it may be about to be kept"
+        );
+        sweep(&base, &keep, Duration::ZERO);
+        assert!(!base.join("code/unpacking").exists(), "swept once settled");
+        drop(std::fs::remove_dir_all(&base));
+    }
+
+    /// Before: what an earlier run left in `code-trash/` stayed until the first sweep of this run, which might never come.
+    #[test]
+    fn what_an_earlier_run_left_in_the_trash_is_emptied_at_start() {
+        let base =
+            std::env::temp_dir().join(format!("doze-lambda-left-trash-{}", std::process::id()));
+        drop(std::fs::remove_dir_all(&base));
+        std::fs::create_dir_all(base.join("code-trash/left/root")).unwrap();
+        empty_left_trash(&base);
+        assert_eq!(std::fs::read_dir(base.join(TRASH)).unwrap().count(), 0);
         drop(std::fs::remove_dir_all(&base));
     }
 }

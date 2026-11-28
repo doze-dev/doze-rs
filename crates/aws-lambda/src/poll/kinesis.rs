@@ -91,8 +91,9 @@ pub(super) async fn kinesis(run: Run, kinesis: Arc<aws_kinesis::Kinesis>) {
         peers,
         run,
     };
-    // Woken only by records appended to this mapping's stream.
+    // Woken only by records appended to this mapping's stream; the watch also counts the appends of each shard.
     let watch = kinesis.watch_stream(&poll.arn);
+    let (mut shards, mut relist, mut wants) = (Vec::new(), true, Wants::default());
     loop {
         if poll.run.stop.is_cancelled() {
             return;
@@ -101,10 +102,28 @@ pub(super) async fn kinesis(run: Run, kinesis: Arc<aws_kinesis::Kinesis>) {
         let appended = watch.notified();
         tokio::pin!(appended);
         appended.as_mut().enable();
+        let counts = watch.counts();
+        // The shards are listed again only when one the list does not hold took records (a reshard made it) or one was read to its
+        // end (its children are ready).
+        if relist
+            || counts
+                .keys()
+                .any(|id| !shards.iter().any(|s: &Shard| &s.id == id))
+        {
+            shards = poll.shards().await;
+            relist = false;
+        }
         let mut any = false;
-        let shards = poll.shards().await;
         for shard in poll.lineage.ready(&shards) {
-            let records = poll.read(&shard).await;
+            let count = counts.get(&shard.id).copied().unwrap_or(0);
+            if !wants.read(&shard.id, count) {
+                continue;
+            }
+            let Some(records) = poll.read(&shard).await else {
+                continue;
+            };
+            relist |= poll.lineage.finished.contains(&shard.id);
+            wants.done(&shard.id, count, !records.is_empty());
             if records.is_empty() {
                 continue;
             }
@@ -116,11 +135,37 @@ pub(super) async fn kinesis(run: Run, kinesis: Arc<aws_kinesis::Kinesis>) {
                 return;
             }
         }
-        if !any {
+        if !any && !relist {
             tokio::select! {
                 () = appended => {}
                 () = poll.run.stop.cancelled() => return,
             }
+        }
+    }
+}
+
+/// Which shards a wake reads: one never read, one whose last read found records (more may follow), and one that took records since
+/// it was last read (its count of appends moved). A quiet shard of a busy stream is not read on every wake.
+#[derive(Debug, Default)]
+pub(super) struct Wants {
+    /// The count of appends each shard had when it was last read.
+    seen: HashMap<String, u64>,
+    /// The shards whose last read found records.
+    more: HashSet<String>,
+}
+
+impl Wants {
+    pub(super) fn read(&self, shard: &str, count: u64) -> bool {
+        self.more.contains(shard) || self.seen.get(shard) != Some(&count)
+    }
+
+    /// A read of `shard`, begun when its count was `count`, found records or not.
+    pub(super) fn done(&mut self, shard: &str, count: u64, found: bool) {
+        self.seen.insert(shard.to_owned(), count);
+        if found {
+            self.more.insert(shard.to_owned());
+        } else {
+            self.more.remove(shard);
         }
     }
 }
@@ -212,11 +257,12 @@ impl Poll {
             .collect()
     }
 
-    /// The next records of a shard, and the iterator after them kept.
-    async fn read(&mut self, shard: &Shard) -> Vec<Rec> {
+    /// The next records of a shard, and the iterator after them kept; `None` when the shard could not be read (it is read again on the
+    /// next wake, as before).
+    async fn read(&mut self, shard: &Shard) -> Option<Vec<Rec>> {
         let horizon = self.lineage.starts_at_horizon(shard);
         let id = shard.id.as_str();
-        let Some(iterator) = shard_iterator(
+        let iterator = shard_iterator(
             &self.run,
             &self.peers,
             &self.arn,
@@ -224,14 +270,11 @@ impl Poll {
             &mut self.iterators,
             horizon,
         )
-        .await
-        else {
-            return Vec::new();
-        };
+        .await?;
         let ask = json!({"StreamARN": self.arn, "ShardIterator": iterator, "Limit": self.batch});
         let Some(got) = self.kinesis("GetRecords", ask).await else {
             self.iterators.remove(id);
-            return Vec::new();
+            return None;
         };
         let next = got.get("NextShardIterator").and_then(Value::as_str);
         // A shard that ends at its first read was still followed if the mapping holds a saved position in it (from before a restart).
@@ -252,9 +295,11 @@ impl Poll {
             .and_then(Value::as_array)
             .into_iter()
             .flatten();
-        records
-            .map(|r| kinesis_record(r, id, &self.arn, &self.run.region, &self.role))
-            .collect()
+        Some(
+            records
+                .map(|r| kinesis_record(r, id, &self.arn, &self.run.region, &self.role))
+                .collect(),
+        )
     }
 }
 
@@ -323,6 +368,26 @@ mod tests {
 
     fn ids(shards: &[Shard]) -> Vec<&str> {
         shards.iter().map(|s| s.id.as_str()).collect()
+    }
+
+    /// Before: every wake listed the shards and read every ready one; a quiet shard of a busy stream was read each time.
+    #[test]
+    fn a_wake_reads_the_shards_that_took_records_and_those_with_more() {
+        let mut w = Wants::default();
+        assert!(
+            w.read("a", 0) && w.read("b", 0),
+            "each is read once at first"
+        );
+        w.done("a", 0, false);
+        w.done("b", 0, true);
+        assert!(!w.read("a", 0), "quiet: not read again");
+        assert!(
+            w.read("b", 0),
+            "its last read found records: more may follow"
+        );
+        assert!(w.read("a", 3), "records were appended to it since");
+        w.done("b", 0, false);
+        assert!(!w.read("b", 0));
     }
 
     #[test]

@@ -19,7 +19,9 @@ pub mod rows;
 mod store;
 
 pub use backend::FileBackend;
-pub use db::Db;
+pub use db::{Db, scan};
 pub use error::StoreError;
 pub use group::{Ack, GroupCommit, Op};
+/// redb's read, named here so a service that walks rows in [`Db::read_off_loop`] needs no redb of its own.
+pub use redb::ReadTransaction;
 pub use store::{Compacted, Space, Store, WORTH_BYTES};

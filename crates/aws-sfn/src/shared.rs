@@ -72,8 +72,8 @@ impl Shared {
             .actors
             .actor(region)
             .map_err(|e| ApiError::internal(e.to_string()))?;
-        let mut answer = actor
-            .call(Asked {
+        let (mut answer, number) = actor
+            .call_numbered(Asked {
                 config: Arc::clone(&self.config),
                 req,
             })
@@ -88,7 +88,8 @@ impl Shared {
         answer.effects.sync = effects.sync.clone();
         answer.effects.taken = effects.taken;
         self.carry_out(caller, effects);
-        self.timers.arm(self, region, caller, answer.next_due);
+        self.timers
+            .arm(self, region, caller, (answer.next_due, number));
         Ok(answer)
     }
 

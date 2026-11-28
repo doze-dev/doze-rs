@@ -30,8 +30,14 @@ pub(crate) fn def(space: Space) -> Def {
 /// The file and its writer.
 #[derive(Debug)]
 pub(crate) struct Disk {
-    store: Store,
+    /// `None` only while [`Disk::compact_off_loop`] has it on a blocking thread (the actor waits then), or after the runtime stopped
+    /// during one.
+    store: Option<Store>,
     writer: GroupCommit,
+    /// How many writes were handed to the writer: a count made at one value is still exact while it holds.
+    writes: std::sync::atomic::AtomicU64,
+    /// Counts of entries and bytes under a prefix, made at the write count beside each (`sizes.rs`).
+    pub(crate) counted: std::collections::HashMap<(Space, Vec<u8>), (u64, crate::sizes::Count)>,
 }
 
 /// Everything one call changes, applied in one transaction.
@@ -115,17 +121,22 @@ impl Disk {
             txn.commit()?;
         }
         let writer = GroupCommit::start(store.clone())?;
-        Ok(Self { store, writer })
+        Ok(Self {
+            store: Some(store),
+            writer,
+            writes: std::sync::atomic::AtomicU64::new(0),
+            counted: std::collections::HashMap::new(),
+        })
     }
 
     /// The table records, as the rows of the `tables` table.
     pub(crate) fn read(&self) -> Result<redb::ReadTransaction, StoreError> {
-        Ok(self.store.begin_read()?)
+        Ok(self.store()?.begin_read()?)
     }
 
     /// The value filed under `key`.
     pub(crate) fn get(&self, space: Space, key: &[u8]) -> Result<Option<Vec<u8>>, StoreError> {
-        let txn = self.store.begin_read()?;
+        let txn = self.store()?.begin_read()?;
         let table = txn.open_table(def(space))?;
         Ok(table.get(key)?.map(|v| v.value().to_vec()))
     }
@@ -142,7 +153,7 @@ impl Disk {
         if lo >= hi {
             return Ok(());
         }
-        let txn = self.store.begin_read()?;
+        let txn = self.store()?.begin_read()?;
         let table = txn.open_table(def(space))?;
         let range = table.range::<&[u8]>(lo..hi)?;
         if reverse {
@@ -190,16 +201,24 @@ impl Disk {
             }
             Ok(())
         });
+        self.writes
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         Some(self.writer.submit(op))
     }
 
-    /// The entries from `lo` up to (not including) `hi`, and the bytes their keys and values hold.
+    /// The entries from `lo` up to (not including) `hi`, and the bytes their keys and values hold: the count made off the serving
+    /// thread when there is one since the last write (`sizes.rs`), else read here.
     pub(crate) fn measure(
         &self,
         space: Space,
         lo: &[u8],
         hi: &[u8],
     ) -> Result<(u64, u64), StoreError> {
+        if let Some(count) = self.counted(space, lo)
+            && hi == crate::keys::prefix_end(lo).as_slice()
+        {
+            return Ok(count);
+        }
         let (mut rows, mut bytes) = (0, 0);
         self.scan(space, lo, hi, false, |k, v| {
             rows += 1;
@@ -209,23 +228,43 @@ impl Disk {
         Ok((rows, bytes))
     }
 
-    /// How much of the file holds data.
-    pub(crate) fn space(&self) -> Result<doze_store::Space, StoreError> {
-        self.store.space()
+    pub(crate) fn store(&self) -> Result<&Store, StoreError> {
+        self.store.as_ref().ok_or(StoreError::Stopped)
     }
 
-    /// Gives the space deletes freed back to the disk, after the writer has finished what it was given.
-    pub(crate) fn compact(&mut self) -> Result<doze_store::Compacted, StoreError> {
-        self.writer.paused(&mut self.store, Store::compact)?
+    /// How many writes were handed to the writer so far.
+    pub(crate) fn writes(&self) -> u64 {
+        self.writes.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// How much of the file holds data, as a read sees it ([`Store::space_seen`]): it does not wait for a commit under way, which an
+    /// exact count would on the serving thread.
+    pub(crate) fn space(&self) -> Result<doze_store::Space, StoreError> {
+        self.store()?.space_seen()
+    }
+
+    /// Gives the space deletes freed back to the disk, after the writer has finished what it was given. On a thread of the blocking
+    /// pool: the region's calls wait, the rest of the server does not.
+    pub(crate) async fn compact_off_loop(&mut self) -> Result<doze_store::Compacted, StoreError> {
+        let store = self.store.take().ok_or(StoreError::Stopped)?;
+        let (store, done) = self
+            .writer
+            .paused_off_loop(store, Store::compact)
+            .await
+            .ok_or(StoreError::Stopped)?;
+        self.store = Some(store);
+        done?
     }
 
     /// Stops the writer after it has finished what it was given, gives back the space deletes left when that is worth it, and
     /// closes the database.
-    pub(crate) fn close(mut self) {
+    pub(crate) fn close(self) {
         self.writer.shutdown();
-        // WHY: one that cannot run now runs at a later close; the data is whole either way.
-        drop(self.store.compact_if_worth());
-        // WHY: every commit was flushed when it was made, so a failure to close costs only a longer start next time.
-        drop(self.store.close());
+        if let Some(mut store) = self.store {
+            // WHY: one that cannot run now runs at a later close; the data is whole either way.
+            drop(store.compact_if_worth());
+            // WHY: every commit was flushed when it was made, so a failure to close costs only a longer start next time.
+            drop(store.close());
+        }
     }
 }

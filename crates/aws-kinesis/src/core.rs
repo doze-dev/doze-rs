@@ -41,16 +41,18 @@ pub(crate) struct Core {
     pub(crate) patterns: Patterns,
     /// When each stream's expired records were last removed (not persisted: a restart sweeps once).
     pub(crate) trimmed: HashMap<String, i64>,
-    /// The streams the call in progress appended records to, so the service can wake whoever waits for them.
-    pub(crate) appended: std::collections::BTreeSet<String>,
+    /// The streams the call in progress appended records to, and the shards of each, so the service can wake whoever waits for them
+    /// and say which shards to read.
+    pub(crate) appended: std::collections::BTreeMap<String, std::collections::BTreeSet<u32>>,
 }
 
-/// What the actor answers: the reply, the commit it must wait for, and the streams records were appended to (by name).
+/// What the actor answers: the reply, the commit it must wait for, and the streams records were appended to (by name), each with
+/// the shards (by shard id) that took them.
 #[derive(Debug)]
 pub(crate) struct Answer {
     pub(crate) reply: Reply,
     pub(crate) durable: Option<Ack>,
-    pub(crate) appended: Vec<String>,
+    pub(crate) appended: Vec<(String, Vec<String>)>,
 }
 
 /// The operations this service runs. Every other is refused by name before its request is read.
@@ -133,7 +135,7 @@ impl doze_runtime::Service for Core {
             Ask::Call(call) => *call,
             Ask::Data(asked) => {
                 let crate::storage::Asked { region, ask, reply } = *asked;
-                if reply.send(self.data(&region, ask)).is_err() {
+                if reply.send(self.data(&region, ask).await).is_err() {
                     // WHY: the person stopped waiting; what was asked was done all the same.
                 }
                 return Answer::aside(None);
@@ -159,7 +161,13 @@ impl doze_runtime::Service for Core {
         Answer {
             reply,
             durable,
-            appended: std::mem::take(&mut self.appended).into_iter().collect(),
+            appended: std::mem::take(&mut self.appended)
+                .into_iter()
+                .map(|(name, shards)| {
+                    let ids = shards.into_iter().map(crate::model::shard_name).collect();
+                    (name, ids)
+                })
+                .collect(),
         }
     }
 
@@ -258,7 +266,7 @@ impl Core {
             peers,
             patterns: Patterns::new(&TABLES),
             trimmed: HashMap::new(),
-            appended: std::collections::BTreeSet::new(),
+            appended: std::collections::BTreeMap::new(),
         }
     }
 

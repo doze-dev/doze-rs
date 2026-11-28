@@ -18,8 +18,9 @@ redb = "=4.5.0"
 serde = "1"
 postcard = { version = "1", default-features = false, features = ["alloc"] }
 thiserror = "2"
-# Only its oneshot channel (no runtime): a writer answers each caller through one.
-tokio = { version = "1", default-features = false, features = ["sync"] }
+# Its oneshot channel (a writer answers each caller through one) and `spawn_blocking` (`Db::read_off_loop`); the runtime is the
+# server's, already linked.
+tokio = { version = "1", default-features = false, features = ["sync", "rt"] }
 
 [dev-dependencies]
 doze-fs = { path = "../doze-fs", features = ["sim"] }

@@ -347,3 +347,41 @@ fn transitional_states_last_as_long_as_the_window_says() {
         "ACTIVE"
     );
 }
+
+/// `DescribeTable` counts a table's items off the serving thread before the call and keeps the count until the next write: a
+/// waiter that asks again reads no item, and a write is seen at once.
+#[test]
+fn describe_counts_off_the_loop_and_a_write_is_seen_at_once() {
+    let mut w = World::new();
+    create(&mut w, "counted");
+    let put = |w: &mut World, pk: &str| {
+        w.ok(
+            "PutItem",
+            json!({"TableName": "counted", "Item": {"pk": {"S": pk}, "v": {"S": "x"}}}),
+        );
+    };
+    put(&mut w, "a");
+    put(&mut w, "b");
+    let count = |w: &mut World| {
+        w.ok("DescribeTable", json!({"TableName": "counted"}))["Table"]["ItemCount"].clone()
+    };
+    assert_eq!(count(&mut w), 2);
+    let id = w.core.as_ref().unwrap().tables.get("counted").unwrap().id;
+    assert!(
+        w.core
+            .as_ref()
+            .unwrap()
+            .disk
+            .counted(crate::keys::Space::Items, &id)
+            .is_some(),
+        "the count was made before the call and kept"
+    );
+    assert_eq!(count(&mut w), 2, "asked again, from the kept count");
+    put(&mut w, "c");
+    assert_eq!(count(&mut w), 3, "a write is seen at once");
+    w.ok(
+        "DeleteItem",
+        json!({"TableName": "counted", "Key": {"pk": {"S": "a"}}}),
+    );
+    assert_eq!(count(&mut w), 2);
+}

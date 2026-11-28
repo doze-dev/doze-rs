@@ -14,8 +14,11 @@
 //!
 //! `ConcurrentExecutions` (AWS: "the number of function instances that are processing events"; read it by `Maximum`) is the most
 //! invocations in flight in each minute, by `FunctionName` and across the region's functions (no dimensions), sampled as each
-//! invocation begins: a minute in which none begins but one is still running has no point (memory: the dimension sets). Not built:
-//! `IteratorAge`, the async and event source mapping metrics.
+//! invocation begins: a minute in which none begins but one is still running has no point (memory: the dimension sets).
+//!
+//! `AsyncEventsDropped` (from AWS's documentation, not a recording: events dropped without the function having run them; read it
+//! by `Sum`) counts the asynchronous invocations accepted and then dropped because the local queue was full (`async_invoke.rs`), in the same
+//! dimension sets. Not built: `IteratorAge`, `AsyncEventsReceived`, `AsyncEventAge` and the event source mapping metrics.
 
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex, PoisonError};
@@ -83,6 +86,8 @@ struct Slot {
     invocations: u64,
     errors: u64,
     throttles: u64,
+    /// Asynchronous invocations dropped by a full queue.
+    dropped: u64,
     durations: Vec<f64>,
     /// The most invocations in flight seen this minute.
     concurrent: u64,
@@ -106,6 +111,8 @@ pub(crate) enum Outcome {
     /// It failed before it began (the process could not start): an invocation and an error, with no duration.
     Failed,
     Throttled,
+    /// An asynchronous invocation accepted (202) and dropped because the queue was full (`async_invoke.rs`): `AsyncEventsDropped`.
+    Dropped,
 }
 
 impl Outcome {
@@ -150,6 +157,7 @@ impl Meter {
                     s.errors += 1;
                 }
                 Outcome::Throttled => s.throttles += 1,
+                Outcome::Dropped => s.dropped += 1,
             }
         }
         while slots.len() > MAX_SLOTS {
@@ -240,6 +248,9 @@ fn points(minute: i64, dims: &[(String, String)], s: &Slot) -> Vec<Value> {
     }
     if s.throttles > 0 {
         out.push(point("Throttles", "Count", &[(1.0, s.throttles)]));
+    }
+    if s.dropped > 0 {
+        out.push(point("AsyncEventsDropped", "Count", &[(1.0, s.dropped)]));
     }
     if s.concurrent > 0 {
         #[allow(clippy::cast_precision_loss)]

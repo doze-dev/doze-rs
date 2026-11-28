@@ -125,6 +125,39 @@ impl GroupCommit {
         Ok(out)
     }
 
+    /// [`GroupCommit::paused`] on a thread of the blocking pool: waiting out the queued commits, `f` (a compaction: whole seconds on
+    /// a large file) and the restart all run there, and the caller awaits them. `store` is moved there and handed back; `None` when
+    /// the runtime stopped before the job could run (the database is then closed with the job).
+    ///
+    /// # Errors
+    /// The writer's thread could not be started again (the store is handed back all the same); `f`'s own result is returned inside.
+    pub async fn paused_off_loop<T: Send + 'static>(
+        &mut self,
+        store: Store,
+        f: impl FnOnce(&mut Store) -> T + Send + 'static,
+    ) -> Option<(Store, Result<T, StoreError>)> {
+        let link = self.link.take();
+        let commits = Arc::clone(&self.commits);
+        let job = tokio::task::spawn_blocking(move || {
+            if let Some(link) = link {
+                link.close().wait();
+            }
+            let mut store = store;
+            let out = f(&mut store);
+            let link = writer::open(store.clone(), commits);
+            (store, out, link)
+        });
+        match job.await {
+            Ok((store, out, Ok(link))) => {
+                self.link = Some(link);
+                Some((store, Ok(out)))
+            }
+            Ok((store, _, Err(e))) => Some((store, Err(e))),
+            Err(e) if e.is_panic() => std::panic::resume_unwind(e.into_panic()),
+            Err(_) => None,
+        }
+    }
+
     /// Stops accepting operations, and waits until the writer has committed this database's queued ones and let go of it. Waits
     /// for this database alone: the thread goes on with the others.
     pub fn shutdown(mut self) {
