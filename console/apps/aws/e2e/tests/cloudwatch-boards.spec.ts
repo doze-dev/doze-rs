@@ -267,7 +267,11 @@ test("what the boards do not draw: an anomaly alarm from the wizard, a metric ma
   await choose(page, "Namespace", "Larder/Orders");
   await choose(page, "Metric name", "OrdersPlaced");
   await choose(page, "Dimensions", "Environment=prod");
+  // The dimensions list fades out after its choice, and a click while it is still drawn did not land (once in firefox, 2026-11-28):
+  // it is gone first, and the choice is checked before what follows from it.
+  await expect(page.locator("[cmdk-input]")).toHaveCount(0);
   await page.getByTestId("kind-anomaly").click();
+  await expect(page.getByTestId("kind-anomaly")).toHaveAttribute("aria-checked", "true");
   await expect(page.getByTestId("math-toggle")).toBeDisabled();
   await page.getByTestId("band").fill("3");
   await expect(code(page)).toContainText('"ThresholdMetricId": "ad1"');
