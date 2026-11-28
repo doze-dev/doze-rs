@@ -102,6 +102,9 @@ pub fn app_domains(cfg: &Config, host: &dyn Host) -> Result<()> {
                     "domain conflict: {} and {} both declare {dom}",
                     go_quote(other),
                     go_quote(&d.name)
+                ))
+                .with_fix(format!(
+                    "keep {dom} on one app in doze.hcl, then: doze lint"
                 )));
             }
             owner.insert(dom, &d.name);
@@ -111,12 +114,14 @@ pub fn app_domains(cfg: &Config, host: &dyn Host) -> Result<()> {
                 return Err(Error::msg(format!(
                     "{} declares domains, but names are switched off here (DOZE_ZONE); unset it to serve them",
                     go_quote(&d.name)
-                )));
+                ))
+                .with_fix("unset DOZE_ZONE, then: doze lint"));
             }
             return Err(Error::msg(format!(
                 "{} declares domains, which need names on: add `names = true` to the defaults block",
                 go_quote(&d.name)
-            )));
+            ))
+            .with_fix("add `names = true` to the defaults block in doze.hcl, then: doze lint"));
         }
     }
     Ok(())
@@ -135,7 +140,8 @@ pub fn domains(cfg: &Config) -> Result<()> {
                 "domain conflict: {} and {} both publish {dom} — rename one so the sanitized hostnames differ",
                 go_quote(other),
                 go_quote(&d.name)
-            )));
+            ))
+            .with_fix("rename one of them in doze.hcl, then: doze lint"));
         }
         owner.insert(dom, &d.name);
     }

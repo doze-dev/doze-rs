@@ -79,7 +79,7 @@ $ doze -c split --var nope=1 status
 exit 5
 stderr:
 | error[DZ0301]: --var nope: this stack declares no variable "nope"; did you mean port?
-|   fix: check the config's files can be read, then: doze lint
+|   fix: pass --var only for a variable doze.hcl declares, or declare variable "nope" { … }
 json exit 5
 json:
 | {
@@ -91,6 +91,6 @@ json:
 |     "message": "--var nope: this stack declares no variable \"nope\"; did you mean port?",
 |     "exit": 5,
 |     "id": "DZ0301",
-|     "fix": "check the config's files can be read, then: doze lint"
+|     "fix": "pass --var only for a variable doze.hcl declares, or declare variable \"nope\" { … }"
 |   }
 | }

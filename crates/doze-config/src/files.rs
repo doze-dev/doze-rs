@@ -73,7 +73,8 @@ fn newer_syntax(files: &Files, ds: Diagnostics, current: &str) -> Error {
             return Error::msg(format!(
                 "{name}: this stack needs doze {need} or newer; this doze is {}, and cannot read the file. Update doze (brew upgrade doze, or in the app: Settings › About)",
                 current.trim_start_matches('v')
-            ));
+            ))
+            .with_fix("update doze (brew upgrade doze, or in the app: Settings › About)");
         }
     }
     diag_error(files, ds)
@@ -188,7 +189,9 @@ pub fn read_all(host: &dyn Host, names: &[String], current: &str) -> Result<File
 
 /// Go's `os.ReadFile` of an auto-vars file: its error is the load's, as text.
 pub fn read_auto(host: &dyn Host, name: &str) -> Result<Files> {
-    std::fs::read(host.abs(Path::new(name)))
-        .map_err(|e| Error::msg(format!("read {name}: {}", io_text(&e))))?;
+    std::fs::read(host.abs(Path::new(name))).map_err(|e| {
+        Error::msg(format!("read {name}: {}", io_text(&e)))
+            .with_fix("check the config's files can be read, then: doze lint")
+    })?;
     read_all(host, &[name.to_owned()], "")
 }

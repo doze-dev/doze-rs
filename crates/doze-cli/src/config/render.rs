@@ -19,13 +19,18 @@ pub(crate) fn diagnose(e: &doze_config::Error, cwd: &Path) -> Diagnostic {
         .filter(|d| d.severity == Severity::Error)
         .map(|d| one(d, None, cwd));
     let Some(mut first) = drawn.next() else {
-        let id = if e.is_invalid() {
-            ids::CONFIG_INVALID
+        // A refusal without a position: its own fix when it knows one; else a config that does not hold together is
+        // corrected (it was read fine), and one that could not be read is looked at.
+        let (id, fix) = if e.is_invalid() {
+            (ids::CONFIG_INVALID, "correct doze.hcl, then: doze lint")
         } else {
-            ids::CONFIG_UNREADABLE
+            (
+                ids::CONFIG_UNREADABLE,
+                "check the config's files can be read, then: doze lint",
+            )
         };
         return Diagnostic::new(id, e.text.clone())
-            .fix("check the config's files can be read, then: doze lint");
+            .fix(e.fix.clone().unwrap_or_else(|| fix.into()));
     };
     let more: Vec<Diagnostic> = drawn.collect();
     let file = e

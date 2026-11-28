@@ -31,6 +31,9 @@
 //!     shape pass; the Rust CLI reads every doze.hcl through it while the daemon answers the values.
 //! 12. A `task` may list `outputs`, paths its run makes (a built program): one that is missing runs
 //!     the task again though its inputs did not change. Go had no such attribute.
+//! 13. `domains`, `cert` or `key` on a `service` or a `task` is refused the way a module's are (`domains` is for app
+//!     blocks), where Go said "Unsupported argument". And a refusal without a position carries its fix
+//!     (`Error::fix`) when it knows one, beside Go's text, which is unchanged.
 
 #![allow(
     clippy::unwrap_used,
@@ -230,6 +233,7 @@ fn names_switched_off_refuse_domains() {
         e.text,
         "\"web\" declares domains, but names are switched off here (DOZE_ZONE); unset it to serve them"
     );
+    assert_eq!(e.fix.as_deref(), Some("unset DOZE_ZONE, then: doze lint"));
 }
 
 /// A module that declares more than the fixtures do.
