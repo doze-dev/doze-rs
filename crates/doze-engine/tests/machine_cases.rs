@@ -162,3 +162,80 @@ fn an_unreachable_instance_is_failed_and_refuses_every_start() {
     assert_eq!(shown(&m).last_error, why);
     assert!(m.set_unreachable("nope", why).is_err(), "not declared");
 }
+
+/// Starts `name` (holding `needs`) and runs it: its unit's generation.
+#[allow(clippy::panic)] // test code
+fn running(m: &mut Machine, name: &str, needs: &[&str]) -> u64 {
+    let Decision::Start(boot) = m.wake(name, Cause::Command).0 else {
+        panic!("{name} did not start");
+    };
+    for n in needs {
+        m.need_held(name, boot, n);
+    }
+    let (generation, ok, _) = m.register(name, boot, unit(), Now::current());
+    assert!(ok, "{name} did not register");
+    let _ = m.boot_done(name, boot, Duration::ZERO, Now::current());
+    generation
+}
+
+/// The units a set of effects stops, by name.
+fn stops(fx: &[Effect]) -> Vec<String> {
+    fx.iter()
+        .filter_map(|f| match f {
+            Effect::StopUnit { name, .. } => Some(name.clone()),
+            _ => None,
+        })
+        .collect()
+}
+
+/// The shutdown stops a consumer before its broker: the 2026-11-28 larder `down` stopped kafka with its consumers, and
+/// one of them waited on its goodbye to kafka for its whole grace, then was killed. What it needs goes once it is gone.
+#[test]
+fn the_shutdown_stops_dependants_before_what_they_need() {
+    let mut m = Machine::new(["web", "api", "db"].map(String::from), "doze.hcl", None);
+    let db = running(&mut m, "db", &[]);
+    let api = running(&mut m, "api", &["db"]);
+    let web = running(&mut m, "web", &["api", "db"]);
+    assert_eq!(
+        stops(&m.shutdown()),
+        ["web"],
+        "only what nothing needs first"
+    );
+    // Asked again meanwhile (the engine's wait for quiet does): still only what is free.
+    assert!(stops(&m.stop_all(Cause::Shutdown)).is_empty());
+    assert_eq!(stops(&m.unit_gone("web", web, Now::current())), ["api"]);
+    assert_eq!(stops(&m.unit_gone("api", api, Now::current())), ["db"]);
+    assert!(stops(&m.unit_gone("db", db, Now::current())).is_empty());
+    assert!(m.quiet());
+}
+
+/// Needs that go round in a circle cannot wait for each other: with nothing free and nothing on its way out, all stop.
+#[test]
+fn needs_in_a_circle_still_stop() {
+    let mut m = Machine::new(["a", "b"].map(String::from), "doze.hcl", None);
+    let a = running(&mut m, "a", &["b"]);
+    let b = running(&mut m, "b", &["a"]);
+    let mut first = stops(&m.shutdown());
+    first.sort();
+    assert_eq!(first, ["a", "b"]);
+    let _ = m.unit_gone("a", a, Now::current());
+    let _ = m.unit_gone("b", b, Now::current());
+    assert!(m.quiet());
+}
+
+/// A stop of everything that is not the shutdown (`Engine::stop_all`) orders the same way; its caller asks again as
+/// each one goes.
+#[test]
+fn stop_all_leaves_what_is_still_needed_for_a_later_pass() {
+    let mut m = Machine::new(["api", "db"].map(String::from), "doze.hcl", None);
+    let db = running(&mut m, "db", &[]);
+    let api = running(&mut m, "api", &["db"]);
+    assert_eq!(stops(&m.stop_all(Cause::Command)), ["api"]);
+    assert!(
+        stops(&m.unit_gone("api", api, Now::current())).is_empty(),
+        "no shutdown: the caller asks again"
+    );
+    assert_eq!(stops(&m.stop_all(Cause::Command)), ["db"]);
+    let _ = m.unit_gone("db", db, Now::current());
+    assert!(m.quiet());
+}

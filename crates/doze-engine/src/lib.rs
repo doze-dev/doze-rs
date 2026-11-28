@@ -34,6 +34,7 @@ pub mod steps;
 pub mod supervise;
 pub mod sync;
 pub mod tasks;
+pub mod warnings;
 pub mod watch;
 
 mod boot;

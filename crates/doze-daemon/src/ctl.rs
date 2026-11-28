@@ -26,8 +26,9 @@ const DOWNLOAD_WAIT: Duration = doze_fetch::child::CHILD_LIMIT;
 /// The longest a start waits in all, however busy the daemon says it is.
 const START_CEILING: Duration = Duration::from_secs(30 * 60);
 
-/// How long a stop waits for the daemon to go (Go's 200 × 100 ms: past the shutdown's 15 s reap budget).
-const STOP_WAIT: Duration = Duration::from_secs(20);
+/// How long a stop waits for the daemon to go, as `doze down` waits: past its whole stop (every wave under one 120 s
+/// deadline, at most 5 s for what it kills or hurries then, its runtime's 5 s).
+const STOP_WAIT: Duration = Duration::from_secs(140);
 
 /// A stack's run folder and the files in it.
 #[derive(Debug, Clone, PartialEq, Eq)]

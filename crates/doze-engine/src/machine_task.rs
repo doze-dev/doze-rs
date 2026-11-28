@@ -41,7 +41,7 @@ impl Machine {
         for h in &held {
             self.table.release(h, now);
         }
-        Vec::new()
+        self.shutdown_next()
     }
 
     /// Task run `boot` of `name` was stopped while its command ran (a stop, `off`, the shutdown), and the command is
@@ -100,8 +100,10 @@ impl Machine {
             self.table.release(h, now);
         }
         self.table.mark_done(name);
-        vec![Effect::Journal(
+        let mut fx = vec![Effect::Journal(
             Event::new(Kind::Ready, name).took(took).detail("exit 0"),
-        )]
+        )];
+        fx.extend(self.shutdown_next());
+        fx
     }
 }

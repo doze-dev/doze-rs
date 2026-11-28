@@ -26,7 +26,14 @@ impl std::fmt::Debug for Stop {
 
 impl Stop {
     /// Waits until this process is asked to stop (or was asked since [`install`]).
-    pub async fn requested(self) -> io::Result<()> {
+    pub async fn requested(mut self) -> io::Result<()> {
+        self.next().await
+    }
+
+    /// Waits for the next request to stop, the first one included (one asked since [`install`] counts): a daemon
+    /// that is stopping waits again on the same handlers, so a second request that comes at any moment is seen.
+    /// Requests that land together before this is polled count as one.
+    pub async fn next(&mut self) -> io::Result<()> {
         self.0.wait().await;
         Ok(())
     }
@@ -49,7 +56,7 @@ mod imp {
             })
         }
 
-        pub(crate) async fn wait(mut self) {
+        pub(crate) async fn wait(&mut self) {
             tokio::select! {
                 _ = self.term.recv() => {},
                 _ = self.int.recv() => {},
@@ -75,7 +82,7 @@ mod imp {
             })
         }
 
-        pub(crate) async fn wait(mut self) {
+        pub(crate) async fn wait(&mut self) {
             tokio::select! {
                 _ = self.brk.recv() => {},
                 _ = self.c.recv() => {},

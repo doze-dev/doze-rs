@@ -320,7 +320,8 @@ async fn a_wake_during_a_stop_waits_for_the_old_run() {
 }
 
 /// Audit 2, M2: a module's declared stop command is recorded in the instance's pidfiles while it runs (a host killed
-/// during it leaves nothing the sweep cannot find), and what it started goes with it when it overruns.
+/// during it leaves nothing the sweep cannot find), and what it started goes with it when it overruns. An overrun is
+/// then a SIGTERM, not a kill: whatever the process does on its way out still happens.
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_stop_command_is_recorded_while_it_runs() {
     let d = Dir::new("stopcmd");
@@ -348,8 +349,8 @@ async fn a_stop_command_is_recorded_while_it_runs() {
     assert!(eventually(Duration::from_secs(5), step_recorded).await);
     let stopped = stopping.await.unwrap();
     assert!(
-        matches!(stopped.first(), Some((_, Ok(Stopped::Forced(_))))),
-        "the stop command overran, the process was killed: {stopped:?}"
+        matches!(stopped.first(), Some((_, Ok(Stopped::Graceful(_))))),
+        "the stop command overran, SIGTERM stopped the process: {stopped:?}"
     );
     let child = pid_in(&left);
     assert!(child > 0 && all_gone(&[pid, child]).await);
