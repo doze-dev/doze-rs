@@ -196,15 +196,29 @@ mod tests {
         let k = r.read(want[0]).unwrap();
         assert_eq!(k.cmd, "sleep");
         assert!(k.rss > 0);
-        // Spend a known amount of CPU: the total is in nanoseconds, whatever the machine's tick.
+        // Spend a known amount of CPU: the total is in nanoseconds, whatever the machine's tick. The spin ends when the meter itself
+        // reads 300 ms more, not after 300 ms of the clock: on a loaded machine the thread gets only a share of the wall time (170 ms of
+        // CPU in 300 ms was seen at a load of 20). A cap on the wall time keeps a meter that never moves from hanging the test.
+        const WANT_NS: u64 = 300_000_000;
         let before = r.read(me).unwrap().cpu_ns;
         let t = std::time::Instant::now();
         let mut x = 0u64;
-        while t.elapsed() < std::time::Duration::from_millis(300) {
-            x = std::hint::black_box(x.wrapping_add(1));
-        }
-        let spent = r.read(me).unwrap().cpu_ns - before;
-        assert!((200_000_000..3_000_000_000).contains(&spent), "{spent} ns");
+        let spent = loop {
+            for _ in 0..100_000 {
+                x = std::hint::black_box(x.wrapping_add(1));
+            }
+            let spent = r.read(me).unwrap().cpu_ns - before;
+            if spent >= WANT_NS {
+                break spent;
+            }
+            assert!(
+                t.elapsed() < std::time::Duration::from_secs(10),
+                "after {:?} of wall time the process has used {spent} ns of CPU by the meter (wanted {WANT_NS} ns)",
+                t.elapsed()
+            );
+        };
+        // A meter reporting nonsense (far more than was spent) is caught here.
+        assert!((WANT_NS..3_000_000_000).contains(&spent), "{spent} ns");
         for k in &mut kids {
             let _ = k.kill();
             let _ = k.wait();
