@@ -264,7 +264,9 @@ async fn hooks_run_after_readiness_and_a_failure_says_why() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_stop_during_a_start_wins() {
     let d = Dir::new("stopstart");
-    let mut spec = listener(&d, 30_000);
+    // Ready on a line it never prints: a TCP check on its port passed when something else bound that port first
+    // (merge-queue run 46120552141), and the start won. Now it provably still waits for readiness when the stop lands.
+    let mut spec = listener(&d, 30_000).ready(doze_engine::Probe::Log("^never$".into()));
     spec.ready_timeout = Duration::from_secs(60);
     let e = Engine::builder("t", d.path())
         .service(svc("api", spec))
