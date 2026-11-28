@@ -116,6 +116,13 @@ app-preview out="target/bundle":
 app-bench *args:
     cargo run --profile release-app -p doze-app -- bench {{ args }}
 
+# ── This machine, for real ──────────────────────────────────────────────────────────────────────────────────────────
+
+# Networking and trust on this machine (keychain, /etc/resolver, launchd; resolved and the CA bundle on Linux), in a
+# private home it cleans up after: one sudo. --dry-run runs nothing as root; --help lists the rest (tools/machine-test).
+machine-test *args:
+    bun tools/machine-test/run.ts {{ args }}
+
 # ── Consoles (bun) ──────────────────────────────────────────────────────────────────────────────────────────────────
 
 # Install both consoles' packages as CI does.
