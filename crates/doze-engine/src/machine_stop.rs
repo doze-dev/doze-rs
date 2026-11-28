@@ -185,8 +185,7 @@ impl Machine {
         let free: Vec<String> = active
             .iter()
             .filter(|n| {
-                !self.needed_by_a_live_one(n)
-                    || self.ctl.get(n.as_str()).is_none_or(|c| c.unit.is_none())
+                !self.needed_by_live(n) || self.ctl.get(n.as_str()).is_none_or(|c| c.unit.is_none())
             })
             .cloned()
             .collect();
@@ -194,7 +193,7 @@ impl Machine {
             .ctl
             .values()
             .any(|c| !c.stopping.is_empty() || (c.boot.is_some() && c.cancel_boot));
-        let names = if free.is_empty() && !settling {
+        let names = if self.hurry || (free.is_empty() && !settling) {
             active
         } else {
             free
@@ -204,6 +203,27 @@ impl Machine {
             fx.extend(self.stop(&n, cause.clone()).unwrap_or_default());
         }
         fx
+    }
+
+    /// The shutdown in a hurry: what still runs is stopped now, needed or not (and stops made from here on use a short
+    /// grace, [`Machine::hurrying`]). One way.
+    pub fn hurry(&mut self) -> Vec<Effect> {
+        self.shutting = true;
+        self.hurry = true;
+        self.stop_all(Cause::Shutdown)
+    }
+
+    /// The generations of the units being stopped.
+    pub fn stopping_units(&self) -> Vec<u64> {
+        self.ctl
+            .values()
+            .flat_map(|c| c.stopping.keys().copied())
+            .collect()
+    }
+
+    /// Whether [`Machine::hurry`] was called.
+    pub fn hurrying(&self) -> bool {
+        self.hurry
     }
 
     /// From now on nothing starts or restarts; everything is stopped. One way.
@@ -317,8 +337,9 @@ impl Machine {
         self.ctl.values().map(|c| holds_on(c, name)).sum()
     }
 
-    /// Whether an instance that runs, is starting, or is still being stopped needs `name`.
-    fn needed_by_a_live_one(&self, name: &str) -> bool {
+    /// Whether an instance that runs, is starting, or is still being stopped needs `name` (the shutdown stops nothing
+    /// while this holds, unless the needs form a cycle or it is in a hurry).
+    pub fn needed_by_live(&self, name: &str) -> bool {
         self.ctl.values().any(|c| {
             (c.unit.is_some() || c.boot.is_some()) && c.held.iter().any(|h| h == name)
                 || c.stopping

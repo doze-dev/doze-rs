@@ -26,11 +26,11 @@ use serde::Serialize;
 use std::path::PathBuf;
 use std::time::{Duration, Instant, SystemTime};
 
-/// Past the daemon's own budget: it stops dependants before what they need, each with up to 8 s before a kill, and
-/// gives the whole shutdown 120 s (doze-engine's `SHUTDOWN_LIMIT`) and its runtime 5 s more. Go waited 20 s, which a
-/// stack two needs deep with a slow stopper at each level can pass; giving up then would report a failure while the
-/// daemon is still stopping things properly.
-const STOP_WAIT: Duration = Duration::from_secs(130);
+/// Past the daemon's whole stop: dependants before what they need, every wave under one 120 s deadline (doze-engine's
+/// `SHUTDOWN_LIMIT`), then at most 5 s for the kills and hurried stops it makes at the deadline, then its runtime's 5 s.
+/// Go waited 20 s, which a stack two needs deep with a slow stopper at each level can pass: `down` would report a
+/// failure and let go of the stack lock while the daemon was still stopping, and an `up` would race it.
+const STOP_WAIT: Duration = Duration::from_secs(140);
 const POLL: Duration = Duration::from_millis(100);
 /// The daemon writes its pid file just after its socket accepts; a `down` in that instant waits this long for it.
 const PID_WAIT: Duration = Duration::from_secs(2);

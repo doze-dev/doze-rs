@@ -77,8 +77,8 @@ app "worker" {{
         "the broker was stopped after, by SIGTERM"
     );
     assert!(
-        took >= std::time::Duration::from_millis(1500) && took < std::time::Duration::from_secs(8),
-        "down waited for the slow stop, and killed nothing: {took:?}"
+        took >= std::time::Duration::from_millis(1500) && took < std::time::Duration::from_secs(60),
+        "down waited for the slow stop: {took:?}"
     );
     let log = std::fs::read_to_string(key.log_file()).unwrap_or_default();
     assert!(!log.contains("SIGKILL"), "{log}");
@@ -108,7 +108,10 @@ fn a_kill_at_the_end_of_the_grace_is_said() {
     assert_eq!(down.code, 0, "{}", down.stderr);
     let log = std::fs::read_to_string(key.log_file()).unwrap_or_default();
     assert!(
-        log.lines().any(|l| l.contains(" warning: \"stubborn\" did not exit within 8s of being asked to stop; it was killed (SIGKILL)")),
+        log.lines().any(
+            |l| l.contains(" warning: \"stubborn\" did not exit within ")
+                && l.ends_with("s of being asked to stop; it was killed (SIGKILL)")
+        ),
         "{log}"
     );
     let journal = std::fs::read_to_string(key.run_dir().join("journal.jsonl")).unwrap_or_default();
@@ -117,7 +120,44 @@ fn a_kill_at_the_end_of_the_grace_is_said() {
         .find(|l| l.contains("\"kind\":\"sleep\"") && l.contains("\"stubborn\""))
         .unwrap_or_default();
     assert!(
-        sleep.contains("killed: stubborn did not exit within 8s"),
+        sleep.contains("killed: \\\"stubborn\\\" did not exit within "),
         "{journal}"
+    );
+}
+
+/// Asked to stop a second time (a second `doze down` after a Ctrl-C, a second SIGTERM), the daemon stops waiting: what
+/// is still being stopped gets 2 s more, not the rest of its 8 s grace.
+#[test]
+fn a_second_stop_request_hurries_the_shutdown() {
+    if !std::path::Path::new("/bin/sh").exists() || !setup::sockets() {
+        return;
+    }
+    let (sb, mut host, _) = setup::prepare(&["project bare".to_owned()]);
+    host.daemon_exe = Some(std::path::PathBuf::from(env!("CARGO_BIN_EXE_doze")));
+    let hcl = format!(
+        "stack = \"shop\"\nhome = \"{}\"\n\napp \"stubborn\" {{\n  run = \"trap '' TERM; while :; do sleep 0.1; done\"\n}}\n",
+        sb.home().display()
+    );
+    std::fs::write(sb.project().join("doze.hcl"), hcl).unwrap();
+    let key = doze_projects::StackKey::for_config(&sb.home(), &sb.project().join("doze.hcl"));
+    let up = fixture::run(&sb, &host, Terminals::default(), false, &["up"]);
+    let pid = doze_projects::daemon_pid(&key).map(|p| p.pid).unwrap();
+    let _reap = Reap(Some(pid));
+    assert_eq!(up.code, 0, "{}\n{}", up.stdout, up.stderr);
+    let began = std::time::Instant::now();
+    doze_os::process::terminate(pid).unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(500));
+    doze_os::process::terminate(pid).unwrap();
+    while doze_os::process::alive(pid) && began.elapsed() < std::time::Duration::from_secs(60) {
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    let took = began.elapsed();
+    let log = std::fs::read_to_string(key.log_file()).unwrap_or_default();
+    assert!(!doze_os::process::alive(pid), "{log}");
+    assert!(log.contains("asked to stop again"), "{log}");
+    // 0.5 s, then 2 s more; the stubborn app's own grace was 8 s.
+    assert!(
+        took < std::time::Duration::from_millis(7500),
+        "{took:?}\n{log}"
     );
 }

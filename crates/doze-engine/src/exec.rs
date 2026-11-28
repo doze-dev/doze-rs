@@ -7,7 +7,7 @@ use crate::logs::RunLog;
 use crate::pidfile::Pids;
 use crate::ready::{self, NotReady};
 use doze_module_proto::msg::run::{Plan, Process, StopHow};
-use doze_os::tree::{Stop, Stopped, Tree};
+use doze_os::tree::Tree;
 use std::future::Future;
 use std::pin::Pin;
 use std::process::{ExitStatus, Stdio};
@@ -22,6 +22,8 @@ pub struct Unit {
     log: Option<RunLog>,
     /// Where its short commands are recorded (a module's stop command among them).
     pids: Option<Pids>,
+    /// The processes a stop had to kill, and how long each had been given.
+    killed: Vec<Killed>,
 }
 
 /// The start order: each process after the ones it names; an unknown name or a cycle is an error (Go's `orderSpecs`,
@@ -149,6 +151,7 @@ pub async fn start(
         procs: Vec::new(),
         log: Some(log.clone()),
         pids: pids.cloned(),
+        killed: Vec::new(),
     };
     let several = ordered.len() > 1;
     for p in ordered {
@@ -264,54 +267,9 @@ fn lost_port(p: &Process, e: &NotReady) -> Option<u16> {
     (port != 0 && crate::ports::lost(port)).then_some(port)
 }
 
-/// The processes of a [`Unit::stop`] whose grace ran out, so they were killed.
-pub(crate) fn killed(stopped: &[(String, std::io::Result<Stopped>)]) -> Vec<String> {
-    stopped
-        .iter()
-        .filter(|(_, s)| matches!(s, Ok(Stopped::Forced(_))))
-        .map(|(n, _)| n.clone())
-        .collect()
-}
-
-/// How long a process gets to stop after it is asked, before its tree is killed (Go: 8 s for SIGTERM).
-pub const STOP_GRACE: Duration = Duration::from_secs(8);
-
-/// Stops one process the way its plan says. A module's stop command runs as a short command, recorded in the
-/// instance's pidfiles while it runs (audit 2, M2: a host killed during it must leave nothing unswept); the process's
-/// tree then gets `grace` to exit before it is killed.
-async fn stop_one(
-    p: &Process,
-    tree: &mut Tree,
-    grace: Duration,
-    pids: Option<&Pids>,
-) -> std::io::Result<Stopped> {
-    let how = match &p.stop {
-        Some(StopHow::Interrupt) => Stop::Interrupt,
-        Some(StopHow::Terminate) | None => Stop::Terminate,
-        Some(StopHow::Command(argv)) => {
-            let short = crate::short::Short {
-                argv,
-                env: None,
-                dir: None,
-                out: None,
-                capture: None,
-            };
-            return match crate::short::run(short, grace, pids).await {
-                Ok(()) => tree.stop_asked(Ok(()), grace).await,
-                // The command could not ask it (missing, refused, timed out): the signal asks instead, with the same
-                // grace, rather than a kill that skips whatever the process does on its way out.
-                Err(e) => {
-                    tracing::warn!(
-                        "the stop command for \"{}\" failed ({e}); asking it with SIGTERM instead",
-                        p.name
-                    );
-                    tree.stop(&Stop::Terminate, grace).await
-                }
-            };
-        }
-    };
-    tree.stop(&how, grace).await
-}
+#[path = "exec_stop.rs"]
+mod stopping;
+pub use stopping::{Killed, STOP_GRACE};
 
 impl Unit {
     /// The first process's pid (the unit's, as Go's `Composite.PID`).
@@ -356,31 +314,6 @@ impl Unit {
         {
             let _ = t.kill();
         }
-    }
-
-    /// Stops every process in reverse start order, each the way its plan said; how each ended.
-    pub async fn stop(&mut self, grace: Duration) -> Vec<(String, std::io::Result<Stopped>)> {
-        let mut out = Vec::new();
-        while let Some((p, mut tree)) = self.procs.pop() {
-            // A process that already exited (and was reaped) is not signalled again (audit 3, minor 2).
-            if tree.pid().is_none() {
-                continue;
-            }
-            let stopped = stop_one(&p, &mut tree, grace, self.pids.as_ref()).await;
-            if let Ok(Stopped::Forced(_)) = &stopped {
-                // Whatever it meant to do on the way out (a snapshot, a flush, a goodbye) did not happen.
-                tracing::warn!(
-                    "\"{}\" did not exit within {}s of being asked to stop; it was killed (SIGKILL)",
-                    p.name,
-                    grace.as_secs_f32()
-                );
-            }
-            out.push((p.name.clone(), stopped));
-        }
-        if let Some(log) = self.log.take() {
-            log.close().await;
-        }
-        out
     }
 }
 

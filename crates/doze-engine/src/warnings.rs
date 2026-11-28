@@ -5,6 +5,7 @@
 //! the daemon's log file, stamped, and nothing else; it holds no spans and costs no dependency beyond `tracing`.
 
 use std::fmt::Write as _;
+use std::io::Write as _;
 use tracing::field::{Field, Visit};
 use tracing::span::{Attributes, Id, Record};
 use tracing::{Event, Level, Metadata, Subscriber};
@@ -36,11 +37,9 @@ impl Subscriber for Warnings {
     fn record_follows_from(&self, _: &Id, _: &Id) {}
 
     fn event(&self, e: &Event<'_>) {
-        let line = line(e.metadata().level(), e);
-        #[allow(clippy::print_stderr)] // the daemon's stderr is its log file
-        {
-            eprintln!("{line}");
-        }
+        // One write, and no panic when it fails (a full disk): `eprintln!` would panic.
+        let line = format!("{}\n", line(e.metadata().level(), e));
+        let _ = std::io::stderr().lock().write_all(line.as_bytes());
     }
 
     fn enter(&self, _: &Id) {}

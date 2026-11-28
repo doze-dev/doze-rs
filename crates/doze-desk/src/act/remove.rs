@@ -11,7 +11,7 @@ use super::failure::Failure;
 use crate::StackKey;
 
 /// How long a daemon may take to stop (what `doze down` gives it: its whole shutdown, dependants first).
-pub const STOP_WAIT: Duration = Duration::from_secs(130);
+pub const STOP_WAIT: Duration = Duration::from_secs(140);
 
 /// Removes the stack `key`, named `name`. Blocks while its daemon stops.
 pub fn remove(key: &StackKey, name: &str) -> Result<String, Failure> {

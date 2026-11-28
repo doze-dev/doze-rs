@@ -15,6 +15,8 @@
 //!    whether to run again is in flight (audit 4, N2);
 //! 10. a restart whose timer went off keeps the stack from being quiet until its wake ran;
 //! 11. a task (`seed`) is never running and only it is ever `done`; its start registers no processes (E2).
+//! 12. the shutdown stops no unit while an instance that runs, starts or is being stopped still needs it (dependants
+//!     go first; a single stop and a refused register are not the shutdown's order).
 
 use doze_engine::lifecycle::Now;
 use doze_engine::machine::{Decision, Effect, Machine, Unit};
@@ -95,6 +97,8 @@ struct Shell {
     shut: bool,
     /// Task starts whose wake was journalled: their end is journalled too, once (Go's `runTask`).
     task_woke: BTreeSet<u64>,
+    /// The effects being absorbed come from a stop of one name or a refused register, not the shutdown's order.
+    unordered: bool,
 }
 
 fn pick<V: Clone>(m: &BTreeMap<u64, V>, i: usize) -> Option<(u64, V)> {
@@ -144,6 +148,11 @@ fn absorb(s: &mut Shell, m: &Machine, fx: Vec<Effect>) {
                 s.boots.insert(boot, name);
             }
             Effect::StopUnit { name, generation } => {
+                // Invariant 12 (the needs here never form a cycle).
+                assert!(
+                    !m.shutting_down() || s.unordered || !m.needed_by_live(&name),
+                    "{name} stopped by the shutdown while something live needs it"
+                );
                 assert!(
                     s.stopped.insert(generation),
                     "unit {generation} stopped twice"
@@ -239,7 +248,9 @@ fn step(m: &mut Machine, s: &mut Shell, now: &mut Now, i: &In) {
                 } else {
                     s.boots.remove(&b);
                 }
+                s.unordered = true;
                 absorb(s, m, fx);
+                s.unordered = false;
             }
         }
         In::ReadyFail(k) => {
@@ -274,7 +285,9 @@ fn step2(m: &mut Machine, s: &mut Shell, now: &mut Now, i: &In) {
             let name = NAMES.get(*n).copied().unwrap_or("db");
             cancel_timers(s, Some(name));
             let fx = m.stop(name, Cause::Command).unwrap_or_default();
+            s.unordered = true;
             absorb(s, m, fx);
+            s.unordered = false;
         }
         In::Gone(k) => {
             if let Some((g, name)) = pick(&s.stops, *k) {

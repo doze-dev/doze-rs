@@ -307,7 +307,7 @@ async fn run(config: &Path, version: &str) -> Result<(), String> {
     };
     // The idle reaper and the health prober (Go's `RunReaper`, `RunHealthProber`), and the module pool's own.
     let background = engine.background();
-    let modules = tokio::spawn(reap_modules(catalog.clone()));
+    let modules = tokio::spawn(running::reap_modules(catalog.clone()));
     let live = crate::live::Live::new(
         catalog.clone(),
         config,
@@ -340,23 +340,11 @@ async fn run(config: &Path, version: &str) -> Result<(), String> {
     modules.abort();
     meters.abort();
     drop(background);
-    // Open while the engine stops: dependants go first and still reach, on their way out, what they need through it.
-    engine.shutdown().await;
+    running::shut_down(&engine).await;
     front.close();
     zone.close().await;
     let _ = std::fs::remove_file(run.pid_file());
     Ok(())
-}
-
-/// Stops module processes nothing has called for a while: sleeps until the first could be due (the pool's idle limit
-/// with none running), not on a fixed 30 s tick. The floor keeps a pass that stops nothing from repeating at once.
-async fn reap_modules(catalog: Arc<Catalog>) {
-    const FLOOR: std::time::Duration = std::time::Duration::from_secs(1);
-    loop {
-        let wait = catalog.pool.next_reap().await.max(FLOOR);
-        tokio::time::sleep(wait).await;
-        catalog.pool.reap_idle().await;
-    }
 }
 
 /// The catalog for the stack at `config`: module builds through a `__fetch` child of this very program, the lock
@@ -443,6 +431,9 @@ pub(crate) use load::{parse_block, with_options};
 mod slow_start;
 #[cfg(debug_assertions)]
 pub use slow_start::SLOW_START_VAR;
+
+#[path = "entry_running.rs"]
+mod running;
 
 #[path = "entry_labels.rs"]
 mod labels;

@@ -80,11 +80,13 @@ pub(super) fn drain(m: &mut Machine, s: &mut Shell, now: Now) {
             let fx = if name == TASK {
                 m.task_skipped(&name, b, now)
             } else if s.registered.insert(b) {
+                s.unordered = true;
                 m.register(&name, b, unit(true), now).2
             } else {
                 m.boot_done(&name, b, Duration::ZERO, now).1
             };
             absorb(s, m, fx);
+            s.unordered = false;
         }
         let stops: Vec<(u64, String)> = s.stops.iter().map(|(g, n)| (*g, n.clone())).collect();
         for (g, name) in stops {

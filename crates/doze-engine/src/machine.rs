@@ -115,6 +115,8 @@ pub struct Machine {
     config: String,
     idle: Option<Duration>,
     shutting: bool,
+    /// Asked to stop again (or out of time): stops no longer wait for dependants.
+    hurry: bool,
     next: u64,
     /// Each name's declaration: a name removed and added again is a new one, so a connection to the old one cannot
     /// count against it.
@@ -143,6 +145,7 @@ impl Machine {
             config: config.into(),
             idle,
             shutting: false,
+            hurry: false,
             next: 0,
             generation: BTreeMap::new(),
             generations: 0,
