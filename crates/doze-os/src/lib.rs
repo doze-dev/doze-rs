@@ -29,6 +29,7 @@ pub mod channel;
 pub mod detach;
 pub mod foreground;
 pub mod fs;
+pub mod guard;
 pub mod home;
 pub mod interrupt;
 pub mod local;

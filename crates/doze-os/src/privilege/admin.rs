@@ -55,6 +55,7 @@ pub fn admin_supported() -> bool {
 
 /// Runs `script` as root after the system's prompt. `what` finishes "doze needs an administrator's password to …".
 pub fn admin(what: &str, script: &str) -> Result<(), AdminError> {
+    crate::guard::real_machine("the administrator prompt");
     if !imp::supported() {
         return Err(AdminError::Unsupported);
     }
