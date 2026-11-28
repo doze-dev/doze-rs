@@ -28,6 +28,8 @@ async fn an_app_listening_elsewhere_is_told_so() {
     }
     let d = Dir::new("porttrap");
     let mut spec = listener(&d, 0).env("LISTEN_ON", "0");
+    // The budget that is meant to run out (the helper never listens on $PORT); it bounds only the helper's start and
+    // bind, milliseconds. The question asked after it (ps, lsof) has the trap's own limit, `porttrap::ASK`.
     spec.ready_timeout = Duration::from_secs(2);
     let e = Engine::builder("t", d.path())
         .service(svc("web", spec))

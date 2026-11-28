@@ -153,7 +153,7 @@ pub fn start(run: &RunDir, s: &Start<'_>) -> Result<u32, String> {
 /// The wait is for progress, not for a fixed time (Go gave up after 10 s, which a module download on a slow network
 /// outlasts): a daemon that has written nothing for `START_WAIT` has failed to start, unless its `__fetch` child said
 /// a download is under way ([`doze_fetch::child::busy`]), which it is given `DOWNLOAD_WAIT` for; and none is waited
-/// for past `START_CEILING`. A daemon that exits is reported at once.
+/// for past `START_CEILING`. A daemon that exits is reported at once, with how it ended.
 pub fn start_relaying(
     run: &RunDir,
     s: &Start<'_>,
@@ -179,17 +179,39 @@ pub fn start_relaying(
     for (k, v) in s.vars {
         cmd.env(format!("DOZE_VAR_{k}"), v);
     }
-    let pid = doze_os::detach::spawn_detached(cmd).map_err(|e| format!("starting daemon: {e}"))?;
-    wait_up(run, pid, &mut lines, say)
+    let mut child =
+        doze_os::detach::spawn_detached_child(cmd).map_err(|e| format!("starting daemon: {e}"))?;
+    let up = wait_up(run, &mut child, &mut lines, say);
+    // Reaped by a thread of this process if it ends while this process still runs (the desktop app runs long), as
+    // `spawn_detached` does; one that ended already was reaped by the wait.
+    let reaper = std::thread::Builder::new()
+        .name("doze-reap".into())
+        .spawn(move || child.wait().map(drop));
+    drop(reaper);
+    up
 }
 
-/// Waits for the daemon `pid` started to serve, relaying its log (see [`start_relaying`]); its pid.
+/// Whether the daemon this start spawned still runs: its own exit status, asked of the child (`waitpid`), not
+/// whether its pid answers a signal, which another process may have taken once it was reaped. `Err` how it ended.
+fn still_running(child: &mut std::process::Child) -> Result<(), String> {
+    match child.try_wait() {
+        Ok(None) => Ok(()),
+        Ok(Some(status)) => Err(doze_os::process::exit_error(&status)),
+        // It cannot be waited for (a host program that ignores SIGCHLD reaps its children itself): its pid is all
+        // there is.
+        Err(_) if doze_os::process::alive(child.id()) => Ok(()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+/// Waits for the daemon `child` (this start's) to serve, relaying its log (see [`start_relaying`]); its pid.
 fn wait_up(
     run: &RunDir,
-    pid: u32,
+    child: &mut std::process::Child,
     lines: &mut LogLines,
     say: &mut dyn FnMut(&str),
 ) -> Result<u32, String> {
+    let pid = child.id();
     let t = Instant::now();
     let mut said = Instant::now();
     let mut downloads = 0usize;
@@ -208,13 +230,13 @@ fn wait_up(
             }
             say(&line);
         }
-        if !doze_os::process::alive(pid) {
+        if let Err(how) = still_running(child) {
             // What it wrote as it went.
             for line in lines.read() {
                 say(&line);
             }
             return Err(format!(
-                "daemon exited during startup: {}",
+                "daemon (pid {pid}) exited during startup ({how}): {}",
                 this_start(lines)
             ));
         }
@@ -430,5 +452,45 @@ mod blocks_tests {
         std::fs::write(run.blocks_file(), "[]").unwrap();
         assert_eq!(blocks(&run), None);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
+#[cfg(all(test, unix))]
+#[allow(clippy::unwrap_used, clippy::panic)]
+mod start_tests {
+    use super::*;
+
+    /// A start's daemon is judged by its own exit status: one still running is, one that ended says how (here killed
+    /// outright, as a daemon that wrote "serving" and then nothing was on a loaded machine), whatever its pid is now.
+    #[test]
+    fn a_daemon_that_ended_says_how_and_one_running_does_not() {
+        let mut up = std::process::Command::new("/bin/sh")
+            .args(["-c", "sleep 30"])
+            .spawn()
+            .unwrap();
+        assert_eq!(still_running(&mut up), Ok(()));
+        let _ = up.kill();
+        let _ = up.wait();
+        let mut killed = std::process::Command::new("/bin/sh")
+            .args(["-c", "kill -KILL $$"])
+            .spawn()
+            .unwrap();
+        let t = Instant::now();
+        let how = loop {
+            match still_running(&mut killed) {
+                Err(how) => break how,
+                Ok(()) if t.elapsed() < Duration::from_secs(30) => {
+                    std::thread::sleep(Duration::from_millis(10));
+                }
+                Ok(()) => panic!("still running"),
+            }
+        };
+        assert_eq!(how, "signal: killed");
+        let mut failed = std::process::Command::new("/bin/sh")
+            .args(["-c", "exit 3"])
+            .spawn()
+            .unwrap();
+        let _ = failed.wait();
+        assert_eq!(still_running(&mut failed), Err("exit status 3".into()));
     }
 }

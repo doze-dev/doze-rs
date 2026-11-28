@@ -9,8 +9,12 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::time::Duration;
 use tokio::process::Command;
 
-/// How long asking the system may take (Go's).
-const ASK: Duration = Duration::from_secs(3);
+/// How long asking the system may take. Go gave `ps` and `lsof` 3 s each, which a loaded machine outlasts: lsof
+/// answered right but late, and the hint was dropped, so a start that timed out said only "did not become ready"
+/// (porttrap.rs `an_app_listening_elsewhere_is_told_so` at load 49-73; an lsof made 3.5 s slow fails it every time).
+/// The question is asked only once a start has already failed, so a longer wait costs nothing on a start that works,
+/// and the person waiting gets the reason rather than a bare timeout.
+const ASK: Duration = Duration::from_secs(10);
 
 /// The `$PORT` doze gave a process, or 0 when it gave none.
 pub fn env_port(env: &BTreeMap<String, String>) -> u16 {
