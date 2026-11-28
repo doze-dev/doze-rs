@@ -37,6 +37,9 @@ step bun tools/check-registry-catalogue.ts
 # definition, every test name it quotes a real `fn`; the lean tree has no HTTP and the default tree has the console
 # (decision D1: `default = []` would take the console out and the size limits, being upper bounds, would not notice).
 step bun tools/check-console-catalogue.ts --lean-tree --default-tree
+# The machine test's pure parts (its safety scan of doze's privileged scripts above all); the test itself runs on a
+# real machine only (just machine-test).
+step bun test tools/machine-test
 # Public docs build without broken links.
 RUSTDOCFLAGS="-D warnings" step cargo doc --workspace --exclude doze-app --no-deps
 echo "::endgroup::"
