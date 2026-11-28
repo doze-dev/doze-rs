@@ -113,8 +113,12 @@ cannot be kept is a group with nothing.
 Test: `offsets::a_simple_consumers_commit_is_read_back_*`, `nothing_known_is_not_an_error_*`
 
 ### G6. Offsets are durable and go with their topic
-An acknowledged commit survives a power cut; deleting a topic removes its offsets in the same commit.
+An acknowledged commit survives a power cut; deleting a topic removes its offsets in the same commit. Commits that arrive
+together, from any groups (and share-partition states), share one transaction and one flush: each is acknowledged only once
+that flush is done, and a flush that fails fails every commit it held.
 Test: `offsets::a_commit_that_was_acknowledged_survives_*`, `deleting_a_topic_takes_the_offsets_*`;
+`together::tests::commits_from_different_groups_that_arrive_together_share_one_flush_*`,
+`together::tests::a_flush_that_fails_fails_every_commit_it_held`;
 `kafka-meta` crash sweep (commits and the cascade in the random workload)
 
 ### G7. DescribeGroups

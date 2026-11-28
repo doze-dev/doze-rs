@@ -8,7 +8,8 @@
 use kafka_wire::ids::{GroupId, PartitionId, TopicName};
 use redb::{ReadableDatabase, TableDefinition, TableError};
 
-use super::{MetaStore, lock};
+use super::MetaStore;
+use super::together::{Applied, Txn, Write};
 use crate::MetaError;
 use crate::offsets::Committed;
 
@@ -34,7 +35,19 @@ impl MetaStore {
         group: &GroupId,
         commits: &[(TopicName, PartitionId, i64)],
     ) -> Result<Vec<Committed>, MetaError> {
-        let _one_at_a_time = lock(&self.write);
+        self.together(Write::ZkOffsets {
+            group: group.clone(),
+            commits: commits.to_vec(),
+        })
+    }
+
+    /// Applies one v0 commit in the transaction of its batch (`store/together.rs`), under the lock topic changes take.
+    pub(super) fn apply_zk_offsets(
+        &self,
+        txn: &mut Txn<'_>,
+        group: &GroupId,
+        commits: &[(TopicName, PartitionId, i64)],
+    ) -> Applied {
         let outcomes: Vec<Committed> = commits
             .iter()
             .map(|(topic, partition, _)| match self.topic(topic) {
@@ -43,22 +56,18 @@ impl MetaStore {
             })
             .collect();
         if !outcomes.contains(&Committed::Stored) {
-            return Ok(outcomes);
+            return Ok(Ok(outcomes));
         }
-        let txn = self.begin()?;
-        {
-            let mut table = txn.open_table(ZK_OFFSETS)?;
-            for ((topic, partition, offset), outcome) in commits.iter().zip(&outcomes) {
-                if *outcome == Committed::Stored {
-                    table.insert(
-                        key(group, topic, *partition).as_slice(),
-                        offset.cast_unsigned(),
-                    )?;
-                }
+        let mut table = txn.begun()?.open_table(ZK_OFFSETS)?;
+        for ((topic, partition, offset), outcome) in commits.iter().zip(&outcomes) {
+            if *outcome == Committed::Stored {
+                table.insert(
+                    key(group, topic, *partition).as_slice(),
+                    offset.cast_unsigned(),
+                )?;
             }
         }
-        txn.commit()?;
-        Ok(outcomes)
+        Ok(Ok(outcomes))
     }
 
     /// What OffsetCommit v0 last stored for one partition of `group`.
