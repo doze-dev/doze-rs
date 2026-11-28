@@ -6,6 +6,9 @@
 use std::path::Path;
 
 use doze_fs::fs::{Fs, RealFs};
+use std::sync::Arc;
+
+use doze_store::pending::{Change, Overlaid, Span};
 use doze_store::records::Changes;
 use doze_store::{Ack, GroupCommit, Op, Store, StoreError};
 use redb::{ReadableDatabase, TableDefinition};
@@ -59,6 +62,34 @@ pub(crate) struct TxnOp(pub(crate) Op);
 impl std::fmt::Debug for TxnOp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("TxnOp")
+    }
+}
+
+/// The writes of [`Writes`] a read can see while they are queued: all but the work inside the transaction ([`Writes::ops`]), which is
+/// why a call with such work waits for its commit ([`crate::core::Core::save`]).
+struct Queued {
+    meta: Vec<Changes>,
+    puts: Vec<(Space, Vec<u8>, Vec<u8>)>,
+    dels: Vec<(Space, Vec<u8>)>,
+    ranges: Vec<(Space, Vec<u8>, Vec<u8>)>,
+}
+
+impl Overlaid for Queued {
+    /// In the order [`Disk::submit`] applies them.
+    fn changes(&self, table: &str, f: &mut dyn FnMut(Change<'_>)) {
+        for c in &self.meta {
+            c.seen(table, f);
+        }
+        let ours = |space: &Space| space.table_name() == table;
+        for (_, lo, hi) in self.ranges.iter().filter(|(s, ..)| ours(s)) {
+            f(Change::DeleteRange(lo, hi));
+        }
+        for (_, key) in self.dels.iter().filter(|(s, _)| ours(s)) {
+            f(Change::Delete(key));
+        }
+        for (_, key, value) in self.puts.iter().filter(|(s, ..)| ours(s)) {
+            f(Change::Put(key, value));
+        }
     }
 }
 
@@ -134,14 +165,18 @@ impl Disk {
         Ok(self.store()?.begin_read()?)
     }
 
-    /// The value filed under `key`.
+    /// The value filed under `key`, or left there by a write still queued.
     pub(crate) fn get(&self, space: Space, key: &[u8]) -> Result<Option<Vec<u8>>, StoreError> {
+        if let Some(queued) = self.writer.pending().view().get(space.table_name(), key) {
+            return Ok(queued);
+        }
         let txn = self.store()?.begin_read()?;
         let table = txn.open_table(def(space))?;
         Ok(table.get(key)?.map(|v| v.value().to_vec()))
     }
 
-    /// Calls `each` with the entries from `lo` up to (not including) `hi`, in order or in reverse, until it says stop.
+    /// Calls `each` with the entries from `lo` up to (not including) `hi`, in order or in reverse, until it says stop: those of the
+    /// file with the queued writes laid over them.
     pub(crate) fn scan(
         &self,
         space: Space,
@@ -153,9 +188,30 @@ impl Disk {
         if lo >= hi {
             return Ok(());
         }
+        // Taken before the read begins (doze_store::pending says why).
+        let view = self.writer.pending().view();
         let txn = self.store()?.begin_read()?;
         let table = txn.open_table(def(space))?;
         let range = table.range::<&[u8]>(lo..hi)?;
+        if !view.is_empty() {
+            let rows: Box<dyn Iterator<Item = _>> = if reverse {
+                Box::new(range.rev())
+            } else {
+                Box::new(range)
+            };
+            let span = Span {
+                table: space.table_name(),
+                lo,
+                hi,
+                reverse,
+            };
+            return Ok(view.merge(
+                span,
+                rows,
+                |(k, v)| (k.value(), v.value()),
+                |k, v| each(k, v) == Flow::Continue,
+            )?);
+        }
         if reverse {
             for row in range.rev() {
                 let (k, v) = row?;
@@ -174,14 +230,27 @@ impl Disk {
         Ok(())
     }
 
-    /// Queues the writes. The [`Ack`] resolves when they are on disk; `None` when there is nothing to write.
+    /// Queues the writes. The [`Ack`] resolves when they are on disk, and until then [`Disk::get`] and [`Disk::scan`] see them (all
+    /// but the work inside the transaction, [`Writes::ops`]); `None` when there is nothing to write.
     pub(crate) fn submit(&self, writes: Writes) -> Option<Ack> {
         if writes.is_empty() {
             return None;
         }
+        let Writes {
+            meta,
+            puts,
+            dels,
+            ranges,
+            ops,
+        } = writes;
+        let writes = Arc::new(Queued {
+            meta,
+            puts,
+            dels,
+            ranges,
+        });
+        let seen = Arc::clone(&writes);
         let op: Op = Box::new(move |txn| {
-            let mut writes = writes;
-            let ops = std::mem::take(&mut writes.ops);
             for c in &writes.meta {
                 c.apply(txn)?;
             }
@@ -203,7 +272,32 @@ impl Disk {
         });
         self.writes
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        Some(self.writer.submit(op))
+        Some(self.writer.submit_seen(op, seen))
+    }
+
+    /// Holds the writer until the sender is sent to or dropped: what is submitted meanwhile stays queued (for tests).
+    #[cfg(test)]
+    pub(crate) fn hold(&self) -> (std::sync::mpsc::Sender<()>, Ack) {
+        let (release, wait) = std::sync::mpsc::channel::<()>();
+        let (started, running) = std::sync::mpsc::channel::<()>();
+        let ack = self.writer.submit(Box::new(move |_| {
+            started.send(()).ok();
+            wait.recv().ok();
+            Ok(())
+        }));
+        running.recv().ok();
+        (release, ack)
+    }
+
+    /// Whether a write is queued and not yet committed (for tests).
+    #[cfg(test)]
+    pub(crate) fn queued(&self) -> bool {
+        !self.writer.pending().is_empty()
+    }
+
+    /// Waits until every write queued so far is committed: for a read the overlay cannot reach (a count off the serving thread).
+    pub(crate) async fn settled(&self) {
+        self.writer.pending().settled().await;
     }
 
     /// The entries from `lo` up to (not including) `hi`, and the bytes their keys and values hold: the count made off the serving

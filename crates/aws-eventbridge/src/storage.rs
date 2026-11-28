@@ -52,12 +52,12 @@ fn range(a: &Archive, before: Option<i64>) -> (String, String) {
 
 impl Core {
     /// Answers a data question. Deletes are written and on disk before the file is compacted.
-    pub(crate) fn data(&mut self, region: &str, ask: DataAsk) -> DataReply {
+    pub(crate) async fn data(&mut self, region: &str, ask: DataAsk) -> DataReply {
         match ask {
             DataAsk::Usage => DataReply::Usage(self.usage(region), self.file(region)),
-            DataAsk::Empty { name, prune } => DataReply::Emptied(self.empty(&name, &prune)),
-            DataAsk::Reset { dry_run } => DataReply::Emptied(Ok(self.reset(dry_run))),
-            DataAsk::Compact => DataReply::Compacted(self.compact()),
+            DataAsk::Empty { name, prune } => DataReply::Emptied(self.empty(&name, &prune).await),
+            DataAsk::Reset { dry_run } => DataReply::Emptied(Ok(self.reset(dry_run).await)),
+            DataAsk::Compact => DataReply::Compacted(self.compact().await),
         }
     }
 
@@ -130,7 +130,7 @@ impl Core {
         }
     }
 
-    fn empty(&mut self, name: &str, prune: &Prune) -> Result<Emptied, StorageError> {
+    async fn empty(&mut self, name: &str, prune: &Prune) -> Result<Emptied, StorageError> {
         if prune.prefix.is_some() || prune.old_versions || prune.unused {
             return Err(StorageError::Unsupported(
                 "an archive can be emptied whole, or of the events before a time (--older-than)"
@@ -168,11 +168,11 @@ impl Core {
                 a.bytes = a.bytes.saturating_sub(text);
             }
         }
-        done.freed = self.settle_data().map_err(StorageError::Failed)?;
+        done.freed = self.settle_data().await.map_err(StorageError::Failed)?;
         Ok(done)
     }
 
-    fn reset(&mut self, dry_run: bool) -> Emptied {
+    async fn reset(&mut self, dry_run: bool) -> Emptied {
         let mut done = Emptied::default();
         for (_, a) in self.archives.iter() {
             let (from, to) = range(a, None);
@@ -198,20 +198,24 @@ impl Core {
         self.purged.clear();
         self.last_caller = None;
         // WHY: a failed write is the writer's to report on the next call; the counts say what was asked.
-        done.freed = self.settle_data().unwrap_or(0);
+        done.freed = self.settle_data().await.unwrap_or(0);
         done
     }
 
     /// Writes what changed, waits for it to be on disk, and compacts; answers the bytes the disk got back.
-    fn settle_data(&mut self) -> Result<u64, String> {
+    async fn settle_data(&mut self) -> Result<u64, String> {
         // WHY: the writer finishes what it was handed before compaction pauses it, so the deletes are on disk first.
         drop(self.flush().map_err(|e| e.to_string())?);
-        self.compact()
+        self.compact().await
     }
 
-    fn compact(&mut self) -> Result<u64, String> {
+    async fn compact(&mut self) -> Result<u64, String> {
         match self.db.as_mut() {
-            Some(db) => db.compact().map(|c| c.freed()).map_err(|e| e.to_string()),
+            Some(db) => db
+                .compact_off_loop()
+                .await
+                .map(|c| c.freed())
+                .map_err(|e| e.to_string()),
             None => Ok(0),
         }
     }

@@ -26,7 +26,8 @@ fn fill(w: &mut World, url: &str, count: usize) {
 }
 
 fn empty_q(w: &mut World, name: &str, prune: Prune) -> Result<Emptied, StorageError> {
-    emptied(w.core.data(
+    emptied(data_now(
+        &mut w.core,
         "us-east-1",
         DataAsk::Empty {
             name: name.into(),
@@ -55,7 +56,8 @@ fn a_queue_is_measured_emptied_and_its_space_given_back() {
     fill(&mut w, &jobs, 300);
     fill(&mut w, &dlq, 2);
 
-    let DataReply::Usage(resources, file) = w.core.data("us-east-1", DataAsk::Usage) else {
+    let DataReply::Usage(resources, file) = data_now(&mut w.core, "us-east-1", DataAsk::Usage)
+    else {
         panic!()
     };
     let of = |name: &str| resources.iter().find(|r| r.name == name).unwrap().clone();
@@ -125,7 +127,12 @@ fn a_reset_removes_every_queue_and_survives_a_restart() {
     let mut w = on_disk(&dir.0);
     let jobs = w.queue("jobs");
     fill(&mut w, &jobs, 50);
-    let done = emptied(w.core.data("us-east-1", DataAsk::Reset { dry_run: false })).unwrap();
+    let done = emptied(data_now(
+        &mut w.core,
+        "us-east-1",
+        DataAsk::Reset { dry_run: false },
+    ))
+    .unwrap();
     assert_eq!(done.items, 50);
     assert!(w.core.queues.is_empty());
     let old = std::mem::replace(&mut w.core, Core::new(w.clock.clone()));
@@ -134,4 +141,17 @@ fn a_reset_removes_every_queue_and_survives_a_restart() {
     assert!(w.core.queues.is_empty());
     // The name is free at once: a reset is a fresh start, not a delete AWS would make you wait 60 seconds after.
     w.queue("jobs");
+}
+
+/// A data question, on a runtime of one thread as the server's (a compaction goes to its blocking pool).
+fn data_now(
+    core: &mut crate::core::Core,
+    region: &str,
+    ask: crate::storage::DataAsk,
+) -> crate::storage::DataReply {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(core.data(region, ask))
 }

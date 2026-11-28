@@ -24,11 +24,12 @@ fn a_reset_removes_every_topic_and_the_file_shrinks() {
             &json!({"Name": format!("t{n}"), "Tags": [{"Key": "pad", "Value": policy[..250]}]}),
         );
     }
-    let DataReply::Usage(file) = w.core.data("us-east-1", DataAsk::Usage) else {
+    let DataReply::Usage(file) = data_now(&mut w.core, "us-east-1", DataAsk::Usage) else {
         panic!()
     };
     assert!(file.bytes > 300 * 250, "{file:?}");
-    let DataReply::Emptied(Ok(done)) = w.core.data("us-east-1", DataAsk::Reset { dry_run: false })
+    let DataReply::Emptied(Ok(done)) =
+        data_now(&mut w.core, "us-east-1", DataAsk::Reset { dry_run: false })
     else {
         panic!()
     };
@@ -43,4 +44,17 @@ fn a_reset_removes_every_topic_and_the_file_shrinks() {
             .is_empty()
     );
     w.ok("CreateTopic", &json!({"Name": "t0"}));
+}
+
+/// A data question, on a runtime of one thread as the server's (a compaction goes to its blocking pool).
+fn data_now(
+    core: &mut crate::core::Core,
+    region: &str,
+    ask: crate::storage::DataAsk,
+) -> crate::storage::DataReply {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(core.data(region, ask))
 }

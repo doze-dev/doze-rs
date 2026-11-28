@@ -310,7 +310,7 @@ fn documents_and_settings_survive_a_restart() {
 }
 
 fn emptied(w: &mut World, ask: DataAsk) -> Emptied {
-    match w.core.data("us-east-1", ask) {
+    match data_now(&mut w.core, "us-east-1", ask) {
         DataReply::Emptied(done) => done.unwrap(),
         other => panic!("{other:?}"),
     }
@@ -330,7 +330,7 @@ fn data_sees_document_versions_and_a_reset_removes_documents_and_settings() {
         "UpdateServiceSetting",
         &json!({"SettingId": "/ssm/opsinsights/opscenter", "SettingValue": "Enabled"}),
     );
-    let DataReply::Usage(resources, _) = w.core.data("us-east-1", DataAsk::Usage) else {
+    let DataReply::Usage(resources, _) = data_now(&mut w.core, "us-east-1", DataAsk::Usage) else {
         panic!("no usage");
     };
     let doc = resources
@@ -368,4 +368,17 @@ fn data_sees_document_versions_and_a_reset_removes_documents_and_settings() {
         &json!({"SettingId": "/ssm/opsinsights/opscenter"}),
     );
     assert_eq!(s["ServiceSetting"]["Status"], "Default");
+}
+
+/// A data question, on a runtime of one thread as the server's (a compaction goes to its blocking pool).
+fn data_now(
+    core: &mut crate::core::Core,
+    region: &str,
+    ask: crate::storage::DataAsk,
+) -> crate::storage::DataReply {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(core.data(region, ask))
 }

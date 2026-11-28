@@ -126,13 +126,15 @@ impl Dynamodb {
             .actors
             .actor(region)
             .map_err(|e| ApiError::internal(e.to_string()))?;
-        let (answer, number) = actor
+        let (mut answer, number) = actor
             .call_numbered(Request::Sweep {
                 table: table.to_owned(),
             })
             .await
             .map_err(|e| ApiError::internal(e.to_string()))?;
-        self.tell(&answer);
+        let durable = std::mem::take(&mut answer.durable);
+        crate::core::durable(durable).await?;
+        self.tell_grown(&answer.grown);
         self.expiry
             .arm_ordered(region, &actor, answer.next_due, number);
         self.after(&actor, answer.work).await;

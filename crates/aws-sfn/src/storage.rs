@@ -14,7 +14,7 @@ use tokio::sync::oneshot;
 
 use crate::Sfn;
 use crate::core::{Asked, Core, HISTORY, Request, VERSION};
-use crate::model::{Execution, Run};
+use crate::model::Run;
 
 /// What the actor is asked about its data.
 #[derive(Debug)]
@@ -49,20 +49,20 @@ struct Tally {
     deleted: bool,
 }
 
-/// The name of the machine an execution ran.
-fn machine_of(e: &Execution) -> String {
-    crate::arn::target(&e.machine_arn)
-        .map_or_else(|| e.machine_arn.clone(), |(_, t)| t.machine().to_owned())
+/// The name of the machine an execution ran, by the machine's ARN.
+fn machine_of(machine_arn: &str) -> String {
+    crate::arn::target(machine_arn)
+        .map_or_else(|| machine_arn.to_owned(), |(_, t)| t.machine().to_owned())
 }
 
 impl Core {
     /// Answers a data question. Deletes are written and on disk before the file is compacted.
-    pub(crate) fn data(&mut self, region: &str, ask: DataAsk) -> DataReply {
+    pub(crate) async fn data(&mut self, region: &str, ask: DataAsk) -> DataReply {
         match ask {
             DataAsk::Usage => DataReply::Usage(self.usage(region), self.file(region)),
-            DataAsk::Empty { name, prune } => DataReply::Emptied(self.empty(&name, &prune)),
-            DataAsk::Reset { dry_run } => DataReply::Emptied(Ok(self.reset(dry_run))),
-            DataAsk::Compact => DataReply::Compacted(self.compact()),
+            DataAsk::Empty { name, prune } => DataReply::Emptied(self.empty(&name, &prune).await),
+            DataAsk::Reset { dry_run } => DataReply::Emptied(Ok(self.reset(dry_run).await)),
+            DataAsk::Compact => DataReply::Compacted(self.compact().await),
         }
     }
 
@@ -80,16 +80,36 @@ impl Core {
         by
     }
 
-    /// An execution's bytes: its row, its Map Runs' rows, and its history events.
-    fn bytes_of(&self, e: &Execution, history: &BTreeMap<String, u64>) -> u64 {
-        let row = record::encode("execution", VERSION, e).map_or(0, |b| b.len() as u64);
+    /// An execution's bytes: its row, its Map Runs' rows, and its history events. A finished one's row is as long as its summary
+    /// says, unless it is still in memory.
+    fn bytes_of(&self, arn: &str, history: &BTreeMap<String, u64>) -> u64 {
+        let row = match (self.executions.get(arn), self.index.summary(arn)) {
+            (Some(e), _) => record::encode("execution", VERSION, e).map_or(0, |b| b.len() as u64),
+            (None, Some(s)) => s.bytes,
+            (None, None) => 0,
+        };
         let runs: u64 = self
             .map_runs
             .iter()
-            .filter(|(_, m)| m.execution == e.arn)
+            .filter(|(_, m)| m.execution == arn)
             .map(|(_, m)| record::encode("map run", VERSION, m).map_or(0, |b| b.len() as u64))
             .sum();
-        row + runs + history.get(&e.arn).copied().unwrap_or(0)
+        row + runs + history.get(arn).copied().unwrap_or(0)
+    }
+
+    /// Every execution as `(ARN, machine ARN, status, when it stopped or started)`: the running ones from memory, the finished ones
+    /// by their summaries.
+    fn every_execution(&self) -> Vec<(String, String, Run, i64)> {
+        let running = self
+            .executions
+            .iter()
+            .filter(|(_, e)| e.status == Run::Running)
+            .map(|(k, e)| (k.to_owned(), e.machine_arn.clone(), e.status, e.start_ms));
+        let finished = self.index.summaries().map(|(k, s)| {
+            let when = s.stop_ms.unwrap_or(s.start_ms);
+            (k.to_owned(), s.machine_arn.clone(), s.status, when)
+        });
+        running.chain(finished).collect()
     }
 
     fn usage(&self, region: &str) -> Vec<Resource> {
@@ -99,18 +119,18 @@ impl Core {
             .iter()
             .map(|(_, m)| (m.name.clone(), Tally::default()))
             .collect();
-        for (_, e) in self.executions.iter() {
-            let t = by.entry(machine_of(e)).or_insert_with(|| Tally {
+        for (arn, machine, status, _) in self.every_execution() {
+            let t = by.entry(machine_of(&machine)).or_insert_with(|| Tally {
                 deleted: true,
                 ..Tally::default()
             });
-            let slot = if e.status == Run::Running {
+            let slot = if status == Run::Running {
                 &mut t.running
             } else {
                 &mut t.ended
             };
             slot.0 += 1;
-            slot.1 += self.bytes_of(e, &history);
+            slot.1 += self.bytes_of(&arn, &history);
         }
         by.into_iter()
             .map(|(name, t)| Resource {
@@ -136,38 +156,33 @@ impl Core {
         }
     }
 
-    fn empty(&mut self, name: &str, prune: &Prune) -> Result<Emptied, StorageError> {
+    async fn empty(&mut self, name: &str, prune: &Prune) -> Result<Emptied, StorageError> {
         if prune.prefix.is_some() || prune.old_versions || prune.unused {
             return Err(StorageError::Unsupported(
                 "a state machine can be emptied of its ended executions, whole or those that ended before a time (--older-than)"
                     .to_owned(),
             ));
         }
+        let every = self.every_execution();
         let known = self.machines.iter().any(|(_, m)| m.name == name)
-            || self.executions.iter().any(|(_, e)| machine_of(e) == name);
+            || every.iter().any(|(_, m, ..)| machine_of(m) == name);
         if !known {
             return Err(StorageError::NotFound);
         }
-        let goes = |e: &Execution| {
-            e.status != Run::Running
-                && machine_of(e) == name
-                && prune
-                    .before_ms
-                    .is_none_or(|before| e.stop_ms.unwrap_or(e.start_ms) < before)
-        };
-        let doomed: Vec<String> = self
-            .executions
-            .iter()
-            .filter(|(_, e)| goes(e))
-            .map(|(k, _)| k.to_owned())
+        let doomed: Vec<String> = every
+            .into_iter()
+            .filter(|(_, machine, status, when)| {
+                *status != Run::Running
+                    && machine_of(machine) == name
+                    && prune.before_ms.is_none_or(|before| *when < before)
+            })
+            .map(|(arn, ..)| arn)
             .collect();
         let history = self.history_bytes();
         let mut done = Emptied::default();
         for arn in &doomed {
-            if let Some(e) = self.executions.get(arn) {
-                done.items += 1;
-                done.bytes += self.bytes_of(e, &history);
-            }
+            done.items += 1;
+            done.bytes += self.bytes_of(arn, &history);
         }
         if prune.dry_run || doomed.is_empty() {
             return Ok(done);
@@ -175,7 +190,7 @@ impl Core {
         for arn in &doomed {
             self.forget(arn);
         }
-        done.freed = self.settle().map_err(StorageError::Failed)?;
+        done.freed = self.settle().await.map_err(StorageError::Failed)?;
         Ok(done)
     }
 
@@ -195,19 +210,23 @@ impl Core {
             .delete_range(&format!("{arn}/"), &format!("{arn}0"));
     }
 
-    fn reset(&mut self, dry_run: bool) -> Emptied {
+    async fn reset(&mut self, dry_run: bool) -> Emptied {
         let history = self.history_bytes();
         let mut done = Emptied::default();
-        for (_, e) in self.executions.iter() {
+        let every = self.every_execution();
+        for (arn, ..) in &every {
             done.items += 1;
-            done.bytes += self.bytes_of(e, &history);
+            done.bytes += self.bytes_of(arn, &history);
         }
         if dry_run {
             return done;
         }
         clear(&mut self.machines);
         clear(&mut self.activities);
-        clear(&mut self.executions);
+        for (arn, ..) in &every {
+            self.remove_execution(arn);
+        }
+        self.index.clear();
         clear(&mut self.map_runs);
         self.history.delete_range("", "\u{10ffff}");
         self.parsed.clear();
@@ -215,20 +234,25 @@ impl Core {
         self.spent.clear();
         self.last_caller = None;
         // WHY: a failed write is the writer's to report on the next call; the counts say what was asked.
-        done.freed = self.settle().unwrap_or(0);
+        done.freed = self.settle().await.unwrap_or(0);
         done
     }
 
     /// Writes what changed, waits for it to be on disk, and compacts; answers the bytes the disk got back.
-    fn settle(&mut self) -> Result<u64, String> {
+    async fn settle(&mut self) -> Result<u64, String> {
         // WHY: the writer finishes what it was handed before compaction pauses it, so the deletes are on disk first.
         drop(self.flush().map_err(|e| e.to_string())?);
-        self.compact()
+        self.compact().await
     }
 
-    fn compact(&mut self) -> Result<u64, String> {
+    /// Compacts on a blocking thread ([`doze_store::Db::compact_off_loop`]): the region's calls wait, the rest of the server does not.
+    async fn compact(&mut self) -> Result<u64, String> {
         match self.db.as_mut() {
-            Some(db) => db.compact().map(|c| c.freed()).map_err(|e| e.to_string()),
+            Some(db) => db
+                .compact_off_loop()
+                .await
+                .map(|c| c.freed())
+                .map_err(|e| e.to_string()),
             None => Ok(0),
         }
     }

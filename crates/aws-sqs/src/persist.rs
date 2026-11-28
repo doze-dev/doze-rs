@@ -89,7 +89,9 @@ pub(crate) struct Loaded {
 /// The open database and its writer.
 #[derive(Debug)]
 pub(crate) struct Persist {
-    store: Store,
+    /// `None` only while [`Persist::compact_off_loop`] has it on a blocking thread (the actor waits then), or after the runtime
+    /// stopped during one.
+    store: Option<Store>,
     writer: GroupCommit,
 }
 
@@ -107,27 +109,43 @@ impl Persist {
         })?;
         let loaded = load(&store)?;
         let writer = GroupCommit::start(store.clone())?;
-        Ok((Self { store, writer }, loaded))
+        Ok((
+            Self {
+                store: Some(store),
+                writer,
+            },
+            loaded,
+        ))
     }
 
-    /// How much of the file holds data.
+    /// How much of the file holds data, as a read sees it: it does not wait for a commit under way.
     pub(crate) fn space(&self) -> Result<doze_store::Space, StoreError> {
-        self.store.space()
+        self.store.as_ref().ok_or(StoreError::Stopped)?.space_seen()
     }
 
-    /// Gives the space deletes freed back to the disk, after the writer has finished what it was given.
-    pub(crate) fn compact(&mut self) -> Result<doze_store::Compacted, StoreError> {
-        self.writer.paused(&mut self.store, Store::compact)?
+    /// Gives the space deletes freed back to the disk, after the writer has finished what it was given. On a thread of the blocking
+    /// pool: the region's calls wait, the rest of the server does not.
+    pub(crate) async fn compact_off_loop(&mut self) -> Result<doze_store::Compacted, StoreError> {
+        let store = self.store.take().ok_or(StoreError::Stopped)?;
+        let (store, done) = self
+            .writer
+            .paused_off_loop(store, Store::compact)
+            .await
+            .ok_or(StoreError::Stopped)?;
+        self.store = Some(store);
+        done?
     }
 
     /// Stops the writer after it has finished what it was given, gives back the space deletes left when that is worth it, and
     /// closes the database.
-    pub(crate) fn close(mut self) {
+    pub(crate) fn close(self) {
         self.writer.shutdown();
-        // WHY: one that cannot run now runs at a later close; the data is whole either way.
-        drop(self.store.compact_if_worth());
-        // WHY: every commit was flushed when it was made, so a failure to close costs only a longer start next time.
-        drop(self.store.close());
+        if let Some(mut store) = self.store {
+            // WHY: one that cannot run now runs at a later close; the data is whole either way.
+            drop(store.compact_if_worth());
+            // WHY: every commit was flushed when it was made, so a failure to close costs only a longer start next time.
+            drop(store.close());
+        }
     }
 }
 

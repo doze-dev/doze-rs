@@ -28,7 +28,8 @@ pub(crate) fn redrive_status(e: &Execution) -> (&'static str, Option<String>) {
 
 impl Core {
     pub(crate) fn redrive(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
-        let mut e = self.execution(r.s("executionArn"))?.clone();
+        let mut e = self.execution(r.s("executionArn"))?.into_owned();
+        self.defs.adopt(&mut e.definition);
         let token = r.opt("clientToken").map(str::to_owned);
         if let Some(t) = &token
             && e.redrive_tokens.contains(t)

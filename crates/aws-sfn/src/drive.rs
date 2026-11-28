@@ -283,12 +283,14 @@ impl Core {
     /// Puts an execution back after a step. A finished Express execution is not kept: nothing can describe it (AWS keeps its
     /// history only in its log group).
     pub(crate) fn store(&mut self, e: Execution) {
-        if let Some(was) = self.executions.get(&e.arn) {
-            self.index.forget(was);
-        }
+        self.index.forget(&e.arn);
         if e.express && e.status != Run::Running {
             self.executions.remove(&e.arn);
             return;
+        }
+        if e.status != Run::Running {
+            // Its record leaves memory once staged (`flush`).
+            self.finished_now.push(e.arn.clone());
         }
         self.index.put(&e);
         self.executions.insert(e.arn.clone(), e);
@@ -296,9 +298,11 @@ impl Core {
 
     /// Removes an execution (its history and Map Runs are the caller's).
     pub(crate) fn remove_execution(&mut self, arn: &str) {
-        if let Some(gone) = self.executions.remove(arn) {
-            self.index.forget(&gone);
+        if self.executions.remove(arn).is_none() && self.index.summary(arn).is_some() {
+            // A finished one, on disk only.
+            self.executions.delete_stored(arn);
         }
+        self.index.forget(arn);
     }
 
     /// Keeps the newest executions of a machine and drops the oldest finished ones with their history. The machine's finished
@@ -306,10 +310,9 @@ impl Core {
     fn trim(&mut self, machine: &str, keep: &str) {
         const KEEP: usize = 1_000;
         let kept = self
-            .executions
-            .get(keep)
-            .filter(|x| x.machine_arn == machine && x.status != Run::Running)
-            .is_some();
+            .index
+            .summary(keep)
+            .is_some_and(|x| x.machine_arn == machine);
         let finished = self.index.finished_count(machine) - usize::from(kept);
         if finished < KEEP {
             return;

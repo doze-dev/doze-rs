@@ -49,6 +49,7 @@ mod stream;
 mod tables;
 mod tables_update;
 mod txn;
+mod windows;
 mod work;
 
 use std::sync::Arc;
@@ -100,12 +101,15 @@ impl Dynamodb {
             Arc::clone(&ctx),
             || Request::Tick,
             Box::new(move |answer: Answer| {
-                // A deletion by time to live is a REMOVE record: a consumer waiting on the stream looks again.
-                for stream in &answer.grown {
-                    wake.tell(stream);
-                }
                 let sender = sender.clone();
+                let wake = Arc::clone(&wake);
                 Box::pin(async move {
+                    // WHY: nobody waits on a tick; a failed commit fails the next call.
+                    drop(core::durable(answer.durable).await);
+                    // A deletion by time to live is a REMOVE record: a consumer waiting on the stream looks again.
+                    for stream in &answer.grown {
+                        wake.tell(stream);
+                    }
                     // ...and a record for a Kinesis streaming destination, which needs nothing back.
                     drop(work::run(sender.as_ref(), answer.work).await);
                     answer.next_due
@@ -159,8 +163,10 @@ impl Dynamodb {
             let Ok(actor) = self.actors.actor(&region) else {
                 continue;
             };
-            if let Ok(answer) = actor.call(Request::Tick).await {
-                self.tell(&answer);
+            if let Ok(mut answer) = actor.call(Request::Tick).await {
+                // WHY: nobody waits on a tick; a failed commit fails the next call.
+                drop(core::durable(std::mem::take(&mut answer.durable)).await);
+                self.tell_grown(&answer.grown);
                 self.expiry.arm(&region, &actor, answer.next_due);
             }
         }
@@ -224,8 +230,8 @@ impl Dynamodb {
     }
 
     /// Wakes the consumers of the streams an answer appended to.
-    pub(crate) fn tell(&self, answer: &Answer) {
-        for stream in &answer.grown {
+    pub(crate) fn tell_grown(&self, grown: &[String]) {
+        for stream in grown {
             self.signals.tell(stream);
         }
     }
@@ -263,13 +269,18 @@ impl Dynamodb {
             Ok(a) => a,
             Err(e) => return Err(ApiError::internal(e.to_string())),
         };
-        self.tell(&answer);
         let Answer {
             reply,
             next_due,
             work,
+            durable,
+            grown,
             ..
         } = answer;
+        // The caller hears once the call's writes are on disk; consumers of a stream it appended to are woken then too.
+        let saved = core::durable(durable).await;
+        self.tell_grown(&grown);
+        let reply = saved.and(reply);
         self.expiry.arm_ordered(&region, &actor, next_due, number);
         self.after(&actor, work).await;
         reply
@@ -282,7 +293,9 @@ impl Dynamodb {
             let done = work::run(self.peers.as_ref(), std::mem::take(&mut work)).await;
             for d in done {
                 if let Ok(answer) = actor.call(Request::Done(Box::new(d))).await {
-                    self.tell(&answer);
+                    // WHY: a failed commit fails the database's later writes too, and the next call says so.
+                    drop(core::durable(answer.durable).await);
+                    self.tell_grown(&answer.grown);
                     work.extend(answer.work);
                 }
             }

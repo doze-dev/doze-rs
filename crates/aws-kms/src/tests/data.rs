@@ -59,17 +59,19 @@ fn a_reset_leaves_kms_as_a_fresh_start_and_the_file_smaller() {
     ssm_encrypts(&mut w);
     assert!(aliases(&mut w).contains(&"alias/aws/ssm".to_owned()));
 
-    let DataReply::Usage(file) = w.core.data("us-east-1", DataAsk::Usage) else {
+    let DataReply::Usage(file) = data_now(&mut w.core, "us-east-1", DataAsk::Usage) else {
         panic!()
     };
     assert!(file.bytes > 300 * 300, "{file:?}");
-    let DataReply::Emptied(Ok(dry)) = w.core.data("us-east-1", DataAsk::Reset { dry_run: true })
+    let DataReply::Emptied(Ok(dry)) =
+        data_now(&mut w.core, "us-east-1", DataAsk::Reset { dry_run: true })
     else {
         panic!()
     };
     assert_eq!((dry.items, dry.freed), (602, 0));
 
-    let DataReply::Emptied(Ok(done)) = w.core.data("us-east-1", DataAsk::Reset { dry_run: false })
+    let DataReply::Emptied(Ok(done)) =
+        data_now(&mut w.core, "us-east-1", DataAsk::Reset { dry_run: false })
     else {
         panic!()
     };
@@ -92,4 +94,17 @@ fn a_reset_leaves_kms_as_a_fresh_start_and_the_file_smaller() {
         &json!({"CiphertextBlob": sealed["CiphertextBlob"]}),
     );
     assert_eq!(opened["Plaintext"], "aGk=");
+}
+
+/// A data question, on a runtime of one thread as the server's (a compaction goes to its blocking pool).
+fn data_now(
+    core: &mut crate::core::Core,
+    region: &str,
+    ask: crate::storage::DataAsk,
+) -> crate::storage::DataReply {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(core.data(region, ask))
 }

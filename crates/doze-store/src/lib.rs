@@ -13,6 +13,7 @@ mod backend;
 mod db;
 mod error;
 mod group;
+pub mod pending;
 pub mod record;
 pub mod records;
 pub mod rows;

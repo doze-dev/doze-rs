@@ -26,13 +26,13 @@ pub(crate) struct Asked {
     pub(crate) config: Arc<crate::Config>,
     pub(crate) req: Request,
 }
-use crate::model::{Activity, Execution, Machine, MapRun};
+use crate::model::{Activity, Execution, Machine, MapRun, Run};
 use crate::req::{Req, not_built};
 
 pub(crate) const FILE: &str = "states.redb";
 const MACHINES: &str = "machines";
 const ACTIVITIES: &str = "activities";
-const EXECUTIONS: &str = "executions";
+pub(crate) const EXECUTIONS: &str = "executions";
 const MAP_RUNS: &str = "mapruns";
 pub(crate) const HISTORY: &str = "history";
 /// The version of every record here.
@@ -72,9 +72,14 @@ pub(crate) struct Answer {
 pub(crate) struct Core {
     pub(crate) machines: Records<Machine>,
     pub(crate) activities: Records<Activity>,
+    /// The running executions, and the finished ones until their record is staged (then they live on disk: `finished.rs`).
     pub(crate) executions: Records<Execution>,
-    /// The running executions, and each machine's finished ones by start (kept with every `store`).
-    pub(crate) index: crate::model::ExecIndex,
+    /// The running executions, and each machine's finished ones by start with their summaries (kept with every `store`).
+    pub(crate) index: crate::finished::ExecIndex,
+    /// The executions that finished in this call, to let go of once staged.
+    pub(crate) finished_now: Vec<String>,
+    /// The definitions the executions run, shared.
+    pub(crate) defs: crate::finished::Defs,
     pub(crate) map_runs: Records<MapRun>,
     /// History events, a row each, keyed `<execution ARN>/<id>`.
     pub(crate) history: RowTable,
@@ -138,7 +143,7 @@ impl doze_runtime::Service for Core {
             }
             Request::Data(call) => {
                 let crate::storage::DataCall { region, ask, reply } = *call;
-                if reply.send(self.data(&region, ask)).is_err() {
+                if reply.send(self.data(&region, ask).await).is_err() {
                     // WHY: the person stopped waiting; what was asked was done all the same.
                 }
                 aws_wire::handler::empty()
@@ -178,10 +183,28 @@ impl Core {
             &[MACHINES, ACTIVITIES, EXECUTIONS, MAP_RUNS, HISTORY],
         )?;
         let read = db.read()?;
+        // Only the running executions are held; the finished ones leave a summary.
+        let mut index = crate::finished::ExecIndex::default();
+        let executions = Records::load_where(
+            EXECUTIONS,
+            "execution",
+            VERSION,
+            &read,
+            |arn, e: &Execution, len| {
+                if e.status == Run::Running {
+                    return true;
+                }
+                let mut s = crate::finished::Summary::of(e);
+                s.bytes = len as u64;
+                index.put_finished(arn.to_owned(), s);
+                false
+            },
+        )?;
         let tables = Tables {
             machines: Records::load(MACHINES, "state machine", VERSION, &read)?,
             activities: Records::load(ACTIVITIES, "activity", VERSION, &read)?,
-            executions: Records::load(EXECUTIONS, "execution", VERSION, &read)?,
+            executions,
+            index,
             map_runs: Records::load(MAP_RUNS, "map run", VERSION, &read)?,
             history: RowTable::new(HISTORY, false),
         };
@@ -190,11 +213,27 @@ impl Core {
     }
 
     fn with(clock: Arc<dyn Clock>, t: Tables, peers: Option<Arc<Peers>>, db: Option<Db>) -> Self {
+        let mut index = t.index;
+        let mut defs = crate::finished::Defs::default();
+        let mut executions = t.executions;
+        let running: Vec<String> = executions.iter().map(|(k, _)| k.to_owned()).collect();
+        for arn in running {
+            if let Some(e) = executions.get(&arn) {
+                index.put(e);
+            }
+            // WHY: only to share the text in memory; the record is the same, so this stages nothing.
+            if let Some(e) = executions.get_mut(&arn) {
+                defs.adopt(&mut e.definition);
+            }
+        }
+        drop(executions.stage());
         Self {
-            index: crate::model::ExecIndex::of(t.executions.iter().map(|(_, e)| e)),
+            index,
+            finished_now: Vec::new(),
+            defs,
             machines: t.machines,
             activities: t.activities,
-            executions: t.executions,
+            executions,
             map_runs: t.map_runs,
             history: t.history,
             db,
@@ -235,7 +274,8 @@ impl Core {
         reply_json(&TABLES, &self.patterns, call.op, &value)
     }
 
-    /// Sends what the call changed to the writer; the [`Ack`] resolves when it is on disk.
+    /// Sends what the call changed to the writer; the [`Ack`] resolves when it is on disk. The executions that finished let go of
+    /// their records in memory (with a database to read them back from).
     pub(crate) fn flush(&mut self) -> Result<Option<Ack>, StoreError> {
         let changes = vec![
             self.machines.stage()?,
@@ -243,6 +283,19 @@ impl Core {
             self.executions.stage()?,
             self.map_runs.stage()?,
         ];
+        if self.db.is_some() {
+            for arn in std::mem::take(&mut self.finished_now) {
+                let finished = self
+                    .executions
+                    .get(&arn)
+                    .is_some_and(|e| e.status != Run::Running);
+                if finished && let Some((_, len)) = self.executions.evict(&arn) {
+                    self.index.sized(&arn, len);
+                }
+            }
+        } else {
+            self.finished_now.clear();
+        }
         let rows = vec![self.history.stage()];
         Ok(self
             .db
@@ -320,6 +373,7 @@ struct Tables {
     machines: Records<Machine>,
     activities: Records<Activity>,
     executions: Records<Execution>,
+    index: crate::finished::ExecIndex,
     map_runs: Records<MapRun>,
     history: RowTable,
 }

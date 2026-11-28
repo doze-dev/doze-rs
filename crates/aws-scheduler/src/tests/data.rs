@@ -28,11 +28,12 @@ fn a_reset_removes_every_schedule_and_the_default_group_comes_back() {
         w.ok("CreateSchedule", &s);
     }
     saved(&mut w);
-    let DataReply::Usage(file) = w.core.data("us-east-1", DataAsk::Usage) else {
+    let DataReply::Usage(file) = data_now(&mut w.core, "us-east-1", DataAsk::Usage) else {
         panic!()
     };
     assert!(file.bytes > 300 * 200, "{file:?}");
-    let DataReply::Emptied(Ok(done)) = w.core.data("us-east-1", DataAsk::Reset { dry_run: false })
+    let DataReply::Emptied(Ok(done)) =
+        data_now(&mut w.core, "us-east-1", DataAsk::Reset { dry_run: false })
     else {
         panic!()
     };
@@ -54,4 +55,17 @@ fn a_reset_removes_every_schedule_and_the_default_group_comes_back() {
             .unwrap()
             .is_empty()
     );
+}
+
+/// A data question, on a runtime of one thread as the server's (a compaction goes to its blocking pool).
+fn data_now(
+    core: &mut crate::core::Core,
+    region: &str,
+    ask: crate::storage::DataAsk,
+) -> crate::storage::DataReply {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(core.data(region, ask))
 }

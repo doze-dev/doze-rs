@@ -27,6 +27,7 @@ use std::task::{Context, Poll};
 use redb::WriteTransaction;
 use tokio::sync::oneshot;
 
+use crate::pending::{Overlaid, Pending};
 use crate::{Store, StoreError};
 
 mod writer;
@@ -39,6 +40,29 @@ type Reply = oneshot::Sender<Result<(), StoreError>>;
 struct Job {
     op: Op,
     reply: Reply,
+    /// Where the job's writes are laid over the file until its commit ([`Pending`]), and their number there.
+    seen: Option<(Pending, u64)>,
+}
+
+impl Job {
+    /// Its commit failed, or it was refused: nothing queued for the database is laid over the file any more.
+    fn failed(&self) {
+        failed(self.seen.as_ref());
+    }
+}
+
+/// A job's writes are on disk, or its operation failed alone: a read no longer lays them over the file.
+fn settled(seen: Option<&(Pending, u64)>) {
+    if let Some((pending, id)) = seen {
+        pending.done(*id);
+    }
+}
+
+/// See [`Job::failed`].
+fn failed(seen: Option<&(Pending, u64)>) {
+    if let Some((pending, _)) = seen {
+        pending.fail();
+    }
 }
 
 /// The answer to a submitted operation: resolves once its commit has been flushed, or has failed.
@@ -75,6 +99,8 @@ pub struct GroupCommit {
     /// The database on its writer; `None` once stopped.
     link: Option<writer::Link>,
     commits: Arc<AtomicU64>,
+    /// What was submitted with [`GroupCommit::submit_seen`] and is not yet committed.
+    pending: Pending,
 }
 
 impl GroupCommit {
@@ -89,18 +115,38 @@ impl GroupCommit {
         Ok(Self {
             link: Some(link),
             commits,
+            pending: Pending::default(),
         })
     }
 
     /// Queues `op`. The returned [`Ack`] resolves after the commit holding it has been flushed.
     pub fn submit(&self, op: Op) -> Ack {
+        self.queue(op, None)
+    }
+
+    /// Queues `op`, whose writes are `seen`: until its commit, [`GroupCommit::pending`] lays them over the file for a read.
+    pub fn submit_seen(&self, op: Op, seen: Arc<dyn Overlaid>) -> Ack {
+        let id = self.pending.add(seen);
+        self.queue(op, id.map(|id| (self.pending.clone(), id)))
+    }
+
+    fn queue(&self, op: Op, seen: Option<(Pending, u64)>) -> Ack {
         let (reply, answer) = oneshot::channel();
-        let job = Job { op, reply };
+        let job = Job { op, reply, seen };
         match &self.link {
             Some(link) => link.submit(job),
-            None => respond(job.reply, Err(StoreError::Stopped)),
+            None => {
+                job.failed();
+                respond(job.reply, Err(StoreError::Stopped));
+            }
         }
         Ack(answer)
+    }
+
+    /// The writes queued with [`GroupCommit::submit_seen`] and not yet committed.
+    #[must_use]
+    pub fn pending(&self) -> &Pending {
+        &self.pending
     }
 
     /// How many commits (flushes) the writer has made of this database.
@@ -121,7 +167,8 @@ impl GroupCommit {
     ) -> Result<T, StoreError> {
         self.stop();
         let out = f(store);
-        *self = Self::start(store.clone())?;
+        self.link = Some(writer::open(store.clone(), Arc::clone(&self.commits))?);
+        self.pending.revive();
         Ok(out)
     }
 
@@ -150,6 +197,7 @@ impl GroupCommit {
         match job.await {
             Ok((store, out, Ok(link))) => {
                 self.link = Some(link);
+                self.pending.revive();
                 Some((store, Ok(out)))
             }
             Ok((store, _, Err(e))) => Some((store, Err(e))),

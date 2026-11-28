@@ -24,7 +24,7 @@ fn reopen(w: World, dir: &std::path::Path) -> World {
 }
 
 fn ask(w: &mut World, ask: DataAsk) -> Result<Emptied, StorageError> {
-    match w.core.data("us-east-1", ask) {
+    match data_now(&mut w.core, "us-east-1", ask) {
         DataReply::Emptied(done) => done,
         other => panic!("{other:?}"),
     }
@@ -58,7 +58,7 @@ fn a_secret_with_versions_is_listed_and_its_unlabelled_versions_removed() {
     }
     w.ok("CreateSecret", &json!({"Name": "one", "SecretString": "x"}));
 
-    let DataReply::Usage(resources, _) = w.core.data("us-east-1", DataAsk::Usage) else {
+    let DataReply::Usage(resources, _) = data_now(&mut w.core, "us-east-1", DataAsk::Usage) else {
         panic!()
     };
     assert_eq!(resources.len(), 1, "only a secret with versions");
@@ -120,4 +120,17 @@ fn a_reset_removes_every_secret_and_the_name_is_free() {
     assert!(all["SecretList"].as_array().unwrap().is_empty());
     // A secret scheduled for deletion holds its name on AWS; after a reset it is free at once.
     w.ok("CreateSecret", &json!({"Name": "db", "SecretString": "x"}));
+}
+
+/// A data question, on a runtime of one thread as the server's (a compaction goes to its blocking pool).
+fn data_now(
+    core: &mut crate::core::Core,
+    region: &str,
+    ask: crate::storage::DataAsk,
+) -> crate::storage::DataReply {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(core.data(region, ask))
 }

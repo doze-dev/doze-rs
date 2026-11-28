@@ -1,7 +1,7 @@
 //! What Step Functions keeps. Records are plain data the store writes as postcard behind a version byte; blocks the service only
 //! echoes (logging, tracing and encryption configurations) are kept as the JSON the caller sent.
 
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
@@ -105,8 +105,8 @@ pub(crate) struct Execution {
     pub(crate) error: Option<String>,
     pub(crate) cause: Option<String>,
     pub(crate) trace_header: Option<String>,
-    /// The definition it runs, frozen when it started.
-    pub(crate) definition: String,
+    /// The definition it runs, frozen when it started (shared with the other executions that run it).
+    pub(crate) definition: crate::finished::Def,
     pub(crate) role_arn: String,
     pub(crate) exec: aws_asl::Exec,
     pub(crate) endpoint: String,
@@ -153,63 +153,4 @@ pub(crate) struct MapRun {
     /// `(pending, running, succeeded, failed, aborted, total)` when the run ended; read from the execution while it runs.
     pub(crate) counts: [u64; 6],
     pub(crate) machine_arn: String,
-}
-
-/// Where the executions stand, kept beside their records so that nothing done per step or per finish reads them all: the running
-/// ones (what a wake-up, the next due time and a restart look at) and each machine's finished ones by start time (what `trim` drops
-/// the oldest of). It was a scan of every execution, with a clone and a sort of every ARN, on each finish.
-#[derive(Debug, Default)]
-pub(crate) struct ExecIndex {
-    running: BTreeSet<String>,
-    finished: HashMap<String, BTreeSet<(i64, String)>>,
-}
-
-impl ExecIndex {
-    /// The index of `all`.
-    pub(crate) fn of<'a>(all: impl Iterator<Item = &'a Execution>) -> Self {
-        let mut index = Self::default();
-        for e in all {
-            index.put(e);
-        }
-        index
-    }
-
-    /// `e` as it is now stored.
-    pub(crate) fn put(&mut self, e: &Execution) {
-        if e.status == Run::Running {
-            self.running.insert(e.arn.clone());
-        } else {
-            self.running.remove(&e.arn);
-            self.finished
-                .entry(e.machine_arn.clone())
-                .or_default()
-                .insert((e.start_ms, e.arn.clone()));
-        }
-    }
-
-    /// `e` is no longer stored as it was.
-    pub(crate) fn forget(&mut self, e: &Execution) {
-        self.running.remove(&e.arn);
-        if let Some(set) = self.finished.get_mut(&e.machine_arn) {
-            set.remove(&(e.start_ms, e.arn.clone()));
-            if set.is_empty() {
-                self.finished.remove(&e.machine_arn);
-            }
-        }
-    }
-
-    /// The running executions' ARNs.
-    pub(crate) fn running(&self) -> impl Iterator<Item = &str> {
-        self.running.iter().map(String::as_str)
-    }
-
-    /// The finished executions of `machine`, oldest first.
-    pub(crate) fn finished(&self, machine: &str) -> impl Iterator<Item = &(i64, String)> {
-        self.finished.get(machine).into_iter().flatten()
-    }
-
-    /// How many executions of `machine` have finished.
-    pub(crate) fn finished_count(&self, machine: &str) -> usize {
-        self.finished.get(machine).map_or(0, BTreeSet::len)
-    }
 }

@@ -10,7 +10,8 @@ use crate::req::{Req, token};
 
 impl Core {
     pub(crate) fn history_of(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
-        let arn = self.execution(r.s("executionArn"))?.arn.clone();
+        let arn = r.s("executionArn").to_owned();
+        self.execution_known(&arn)?;
         let size = r.page_size(100);
         let after = r.page_from()?;
         let reverse = r.flag("reverseOrder");

@@ -42,12 +42,12 @@ fn a_reset_leaves_iam_as_a_fresh_start_and_the_file_smaller() {
     w.ok("CreateUser", &json!({"UserName": "u"}));
     w.ok("CreateAccessKey", &json!({"UserName": "u"}));
 
-    let DataReply::Usage(file) = w.core.data(DataAsk::Usage) else {
+    let DataReply::Usage(file) = data_now(&mut w.core, DataAsk::Usage) else {
         panic!()
     };
     assert!(file.bytes > 200 * 2000, "{file:?}");
 
-    let DataReply::Emptied(dry) = w.core.data(DataAsk::Reset { dry_run: true }) else {
+    let DataReply::Emptied(dry) = data_now(&mut w.core, DataAsk::Reset { dry_run: true }) else {
         panic!()
     };
     assert_eq!((dry.items, dry.freed), (202, 0));
@@ -60,7 +60,7 @@ fn a_reset_leaves_iam_as_a_fresh_start_and_the_file_smaller() {
         200
     );
 
-    let DataReply::Emptied(done) = w.core.data(DataAsk::Reset { dry_run: false }) else {
+    let DataReply::Emptied(done) = data_now(&mut w.core, DataAsk::Reset { dry_run: false }) else {
         panic!()
     };
     assert!(done.freed > 0, "the file shrank: {done:?}");
@@ -83,4 +83,16 @@ fn a_reset_leaves_iam_as_a_fresh_start_and_the_file_smaller() {
         "CreateRole",
         &json!({"RoleName": "role-0", "AssumeRolePolicyDocument": TRUST}),
     );
+}
+
+/// A data question, on a runtime of one thread as the server's (a compaction goes to its blocking pool).
+fn data_now(
+    core: &mut crate::core::Core,
+    ask: crate::storage::DataAsk,
+) -> crate::storage::DataReply {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(core.data(ask))
 }

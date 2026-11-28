@@ -216,14 +216,20 @@ impl Core {
             ack.await.map_err(|e| format!("could not save: {e}"))?;
         }
         let mut freed: u64 = doomed.iter().map(|b| self.blobs.remove_counted(b)).sum();
-        freed += self.db.compact().map_err(|e| e.to_string())?.freed();
+        freed += self
+            .db
+            .compact_off_loop()
+            .await
+            .map_err(|e| e.to_string())?
+            .freed();
         Ok(freed)
     }
 
     /// Compacts the file; answers the bytes freed.
-    pub(crate) fn compact(&mut self) -> Result<u64, String> {
+    pub(crate) async fn compact(&mut self) -> Result<u64, String> {
         self.db
-            .compact()
+            .compact_off_loop()
+            .await
             .map(|c| c.freed())
             .map_err(|e| e.to_string())
     }

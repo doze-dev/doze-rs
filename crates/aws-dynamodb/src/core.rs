@@ -9,8 +9,8 @@ use aws_peers::{Mode, Peers};
 use aws_wire::ApiError;
 use aws_wire::service::{Call, Output, Reply};
 use doze_runtime::{Clock, Ctx};
-use doze_store::StoreError;
 use doze_store::records::{Changes, Records};
+use doze_store::{Ack, StoreError};
 use serde_json::Value as Json;
 
 use crate::disk::{Disk, TABLES, Writes};
@@ -24,42 +24,8 @@ use crate::work::{Done, Work};
 
 const VERSION: u8 = 1;
 
-/// How long a table or index stays in a transitional state (`CREATING`, `UPDATING`, `DELETING`), in milliseconds. AWS takes seconds
-/// to minutes; the default here is none, so a waiter passes on its first probe, and a test that wants to see the state turns them up
-/// (`doze-aws --dynamodb-create-ms` and its siblings; a host that passes none falls back to `DOZE_DDB_CREATE_MS`, `DOZE_DDB_UPDATE_MS`
-/// and `DOZE_DDB_DELETE_MS`).
-#[derive(Clone, Copy, Debug, Default)]
-pub struct Windows {
-    /// `CREATING`, after `CreateTable` (and an index added by `UpdateTable`: `CREATING` on the index).
-    pub create_ms: i64,
-    /// `UPDATING`, after `UpdateTable`.
-    pub update_ms: i64,
-    /// `DELETING`, after `DeleteTable`.
-    pub delete_ms: i64,
-}
-
-/// What the host hands each region's actor: the bus, and the transitional windows.
-#[derive(Debug)]
-pub(crate) struct Ext {
-    pub(crate) peers: Option<Arc<Peers>>,
-    pub(crate) windows: Windows,
-}
-
-impl Windows {
-    fn from_env() -> Self {
-        let read = |name: &str| {
-            std::env::var(name)
-                .ok()
-                .and_then(|v| v.parse().ok())
-                .unwrap_or(0)
-        };
-        Self {
-            create_ms: read("DOZE_DDB_CREATE_MS"),
-            update_ms: read("DOZE_DDB_UPDATE_MS"),
-            delete_ms: read("DOZE_DDB_DELETE_MS"),
-        }
-    }
-}
+pub(crate) use crate::windows::Ext;
+pub use crate::windows::Windows;
 
 /// What the actor is asked: a call from the wire, a read of a stream by whoever consumes it, what streams there are (the Streams
 /// API), or (from the timer) to delete the items whose time to live has passed.
@@ -105,6 +71,9 @@ pub(crate) struct Answer {
     pub(crate) work: Vec<Work>,
     /// The policy a `Policy` request asked for.
     pub(crate) policy: Option<String>,
+    /// The commits of what the request wrote: the caller is answered once they are on disk ([`durable`]). The actor does not wait
+    /// for them: the next call reads the queued writes ([`doze_store::pending`]).
+    pub(crate) durable: Vec<Ack>,
     /// What a forced sweep came to.
     pub(crate) swept: Option<Result<crate::forced::Sweep, ApiError>>,
 }
@@ -121,8 +90,18 @@ impl Answer {
             work: Vec::new(),
             policy: None,
             swept: None,
+            durable: Vec::new(),
         }
     }
+}
+
+/// Waits for the commits of an answer; the first that failed is the caller's answer.
+pub(crate) async fn durable(acks: Vec<Ack>) -> Result<(), ApiError> {
+    for ack in acks {
+        ack.await
+            .map_err(|e| ApiError::internal(format!("could not save: {e}")))?;
+    }
+    Ok(())
 }
 
 /// A call and what it asks, decoded once for the handler.
@@ -184,6 +163,8 @@ pub(crate) struct Core {
     pub(crate) work: Vec<Work>,
     /// Orders the recovery log's entries written in one millisecond.
     pub(crate) pitr_seq: u32,
+    /// The commits the request in progress queued (see [`Answer::durable`]).
+    pub(crate) durable: Vec<Ack>,
 }
 
 impl doze_runtime::Service for Core {
@@ -268,6 +249,7 @@ impl doze_runtime::Service for Core {
         };
         answer.next_due = self.ttl_due();
         answer.grown = std::mem::take(&mut self.grown).into_iter().collect();
+        answer.durable = std::mem::take(&mut self.durable);
         answer
     }
 
@@ -317,6 +299,7 @@ impl Core {
             extras,
             work: Vec::new(),
             pitr_seq: 0,
+            durable: Vec::new(),
         })
     }
 
@@ -358,7 +341,8 @@ impl Core {
         self.finish(outcome).await
     }
 
-    /// Ends a call: its writes go to disk (and are waited for, so the next call reads them), and the answer is made.
+    /// Ends a call: its writes are queued for the disk (the caller's answer waits for them, the next call reads them queued), and
+    /// the answer is made.
     async fn finish(&mut self, outcome: Result<(Operation, Json), ApiError>) -> Answer {
         let appended = std::mem::take(&mut self.appended);
         let work = std::mem::take(&mut self.work);
@@ -387,7 +371,8 @@ impl Core {
         ])
     }
 
-    /// Writes what the call changed, and waits for it.
+    /// Queues what the call changed. Its commit is waited for outside the actor, by the caller's answer ([`Answer::durable`]); a
+    /// write with work inside the transaction (a backup's or a restore's copy), which a read cannot see queued, is waited for here.
     pub(crate) async fn save(&mut self) -> Result<(), ApiError> {
         let mut writes = std::mem::take(&mut self.pending);
         writes.meta.extend(
@@ -397,11 +382,14 @@ impl Core {
         if !writes.is_empty() {
             self.ttl_stale = true;
         }
-        if let Some(saved) = self.disk.submit(writes)
-            && let Err(e) = saved.await
-        {
-            return Err(ApiError::internal(format!("could not save: {e}")));
+        let unseen = !writes.ops.is_empty();
+        let Some(saved) = self.disk.submit(writes) else {
+            return Ok(());
+        };
+        if unseen {
+            return durable(vec![saved]).await;
         }
+        self.durable.push(saved);
         Ok(())
     }
 

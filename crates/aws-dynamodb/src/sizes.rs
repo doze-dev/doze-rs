@@ -31,6 +31,9 @@ impl Disk {
         &mut self,
         wanted: Vec<(Space, Vec<u8>)>,
     ) -> Result<(), StoreError> {
+        // The count reads the file alone: what is queued must be in it first, or the count would be kept at a write number it
+        // does not hold.
+        self.settled().await;
         let at = self.writes();
         self.counted.retain(|_, (made, _)| *made == at);
         let wanted: Vec<(Space, Vec<u8>)> = wanted

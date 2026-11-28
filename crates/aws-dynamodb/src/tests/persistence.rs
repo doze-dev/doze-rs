@@ -111,3 +111,46 @@ fn a_deleted_table_takes_its_items_with_it() {
     w.table("tab", false);
     assert_eq!(w.ok("Scan", json!({"TableName": "tab"}))["Count"], 0);
 }
+
+/// A call does not wait for the one before it to be on disk: the next call reads the queued write, and the write's own answer waits
+/// for its commit; after the commit and a restart the item is there.
+#[test]
+fn a_read_sees_a_put_still_queued_and_the_put_answers_once_it_is_on_disk() {
+    let mut w = World::new();
+    w.table("tab", false);
+    let (release, held) = w.core.as_ref().unwrap().disk.hold();
+    let item = json!({"TableName": "tab", "Item": {"pk": {"S": "a"}, "v": {"S": "one"}}});
+    let (put, acks) = w.call_queued("PutItem", &item);
+    put.unwrap();
+    assert!(
+        !acks.is_empty(),
+        "the put's answer has a commit to wait for"
+    );
+    assert!(
+        w.core.as_ref().unwrap().disk.queued(),
+        "and it is still queued"
+    );
+    let key = json!({"TableName": "tab", "Key": {"pk": {"S": "a"}}});
+    let (got, none) = w.call_queued("GetItem", &key);
+    assert_eq!(got.unwrap()["Item"]["v"], json!({"S": "one"}));
+    assert!(none.is_empty(), "a read writes nothing");
+    let (scanned, _) = w.call_queued("Scan", &json!({"TableName": "tab"}));
+    assert_eq!(scanned.unwrap()["Count"], 1);
+    let (deleted, more) = w.call_queued("DeleteItem", &key);
+    deleted.unwrap();
+    let (gone, _) = w.call_queued("GetItem", &key);
+    assert!(
+        gone.unwrap().get("Item").is_none(),
+        "the queued delete is read too"
+    );
+    let (back, last) = w.call_queued("PutItem", &item);
+    back.unwrap();
+    release.send(()).unwrap();
+    held.wait().unwrap();
+    for ack in acks.into_iter().chain(more).chain(last) {
+        w.rt.block_on(ack).unwrap();
+    }
+    assert!(!w.core.as_ref().unwrap().disk.queued());
+    w.restart();
+    assert_eq!(w.ok("GetItem", key)["Item"]["v"], json!({"S": "one"}));
+}

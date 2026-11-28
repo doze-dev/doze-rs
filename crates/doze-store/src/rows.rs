@@ -14,6 +14,7 @@ use std::ops::Bound;
 
 use redb::{TableDefinition, WriteTransaction};
 
+use crate::pending::{Change, Span, View};
 use crate::{Db, StoreError};
 
 /// One change to a row table.
@@ -43,6 +44,20 @@ impl Rows {
     #[must_use]
     pub fn len(&self) -> usize {
         self.ops.len()
+    }
+
+    /// The changes to `table`, in the order [`Rows::apply`] makes them.
+    pub(crate) fn seen(&self, table: &str, f: &mut dyn FnMut(Change<'_>)) {
+        if self.table != table {
+            return;
+        }
+        for op in &self.ops {
+            f(match op {
+                RowOp::Put(key, bytes) => Change::Put(key.as_bytes(), bytes),
+                RowOp::Delete(key) => Change::Delete(key.as_bytes()),
+                RowOp::DeleteRange(from, to) => Change::DeleteRange(from.as_bytes(), to.as_bytes()),
+            });
+        }
     }
 
     /// Writes the changes, in the transaction of the batch they land in.
@@ -154,18 +169,23 @@ impl RowTable {
         let Some(db) = db else {
             return Ok(Vec::new());
         };
-        read_range(&db.read()?, self.table, (from, to), limit, reverse)
+        let view = db.view();
+        read_range(&db.read()?, &view, self.table, (from, to), limit, reverse)
     }
 
     /// The table as it is now, to be read later and elsewhere (a long query reads it on another thread while its owner goes on):
-    /// on disk a read transaction, which sees what was committed when it began; without a disk a copy of the rows.
+    /// on disk a read transaction, which sees what was committed when it began, with the writes queued then; without a disk a copy
+    /// of the rows.
     ///
     /// # Errors
     /// The database refused to start a read.
     pub fn snapshot(&self, db: Option<&Db>) -> Result<RowSnapshot, StoreError> {
         let source = match (&self.mem, db) {
             (Some(mem), _) => Source::Mem(mem.clone()),
-            (None, Some(db)) => Source::Disk(Box::new(db.read()?)),
+            (None, Some(db)) => {
+                let view = db.view();
+                Source::Disk(Box::new(db.read()?), view)
+            }
             (None, None) => Source::Mem(BTreeMap::new()),
         };
         Ok(RowSnapshot {
@@ -185,6 +205,9 @@ impl RowTable {
         let Some(db) = db else {
             return Ok(None);
         };
+        if let Some(queued) = db.view().get(self.table, key.as_bytes()) {
+            return Ok(queued);
+        }
         let read = db.read()?;
         let table = read.open_table(TableDefinition::<&str, &[u8]>::new(self.table))?;
         Ok(table.get(key)?.map(|v| v.value().to_vec()))
@@ -207,7 +230,7 @@ pub struct RowSnapshot {
 
 enum Source {
     Mem(BTreeMap<String, Vec<u8>>),
-    Disk(Box<redb::ReadTransaction>),
+    Disk(Box<redb::ReadTransaction>, View),
 }
 
 impl std::fmt::Debug for RowSnapshot {
@@ -243,22 +266,48 @@ impl RowSnapshot {
                     rows.take(limit).map(own).collect()
                 })
             }
-            Source::Disk(read) => read_range(read, self.table, (from, to), limit, reverse),
+            Source::Disk(read, view) => {
+                read_range(read, view, self.table, (from, to), limit, reverse)
+            }
         }
     }
 }
 
-/// The rows of `table` with keys in `from..to`, at most `limit`, newest first when `reverse`.
+/// The rows of `table` with keys in `from..to`, at most `limit`, newest first when `reverse`, with the queued writes of `view`.
 fn read_range(
     read: &redb::ReadTransaction,
-    table: &'static str,
+    view: &View,
+    name: &'static str,
     (from, to): (&str, &str),
     limit: usize,
     reverse: bool,
 ) -> Result<Vec<(String, Vec<u8>)>, StoreError> {
-    let table = read.open_table(TableDefinition::<&str, &[u8]>::new(table))?;
+    let table = read.open_table(TableDefinition::<&str, &[u8]>::new(name))?;
     let rows = table.range::<&str>(from..to)?;
     let mut out = Vec::new();
+    if !view.is_empty() {
+        let rows: Box<dyn Iterator<Item = _>> = if reverse {
+            Box::new(rows.rev())
+        } else {
+            Box::new(rows)
+        };
+        view.merge(
+            Span {
+                table: name,
+                lo: from.as_bytes(),
+                hi: to.as_bytes(),
+                reverse,
+            },
+            rows,
+            |(k, v)| (k.value().as_bytes(), v.value()),
+            |k, v| {
+                // WHY: every key of a row table is text.
+                out.push((String::from_utf8_lossy(k).into_owned(), v.to_vec()));
+                out.len() < limit
+            },
+        )?;
+        return Ok(out);
+    }
     let mut take = |row: Result<_, redb::StorageError>| -> Result<bool, StoreError> {
         let (k, v): (redb::AccessGuard<'_, &str>, redb::AccessGuard<'_, &[u8]>) = row?;
         out.push((k.value().to_owned(), v.value().to_vec()));

@@ -22,7 +22,7 @@ fn open(dir: &std::path::Path, clock: &Arc<ManualClock>) -> World {
 }
 
 fn emptied(w: &mut World, ask: DataAsk) -> Result<Emptied, StorageError> {
-    match w.core.data("us-east-1", ask) {
+    match data_now(&mut w.core, "us-east-1", ask) {
         DataReply::Emptied(done) => done,
         other => panic!("{other:?}"),
     }
@@ -39,7 +39,8 @@ fn empty(w: &mut World, prune: Prune) -> Result<Emptied, StorageError> {
 }
 
 fn usage(w: &mut World) -> Resource {
-    let DataReply::Usage(Ok((resources, _))) = w.core.data("us-east-1", DataAsk::Usage) else {
+    let DataReply::Usage(Ok((resources, _))) = data_now(&mut w.core, "us-east-1", DataAsk::Usage)
+    else {
         panic!()
     };
     resources.into_iter().find(|r| r.name == GROUP).unwrap()
@@ -216,4 +217,17 @@ fn a_reset_removes_every_group_and_survives_a_restart() {
     w.group(GROUP);
     w.stream(GROUP, "a");
     assert_eq!(events(&mut w, "a"), 0);
+}
+
+/// A data question, on a runtime of one thread as the server's (a compaction goes to its blocking pool).
+fn data_now(
+    core: &mut crate::core::Core,
+    region: &str,
+    ask: crate::storage::DataAsk,
+) -> crate::storage::DataReply {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(core.data(region, ask))
 }

@@ -38,7 +38,7 @@ const GLOBAL: &str = "global";
 
 impl Core {
     /// Answers a data question. Deletes are written and on disk before the file is compacted.
-    pub(crate) fn data(&mut self, ask: DataAsk) -> DataReply {
+    pub(crate) async fn data(&mut self, ask: DataAsk) -> DataReply {
         match ask {
             DataAsk::Usage => {
                 let space = self
@@ -52,12 +52,12 @@ impl Core {
                     reclaimable: space.reclaimable(),
                 })
             }
-            DataAsk::Reset { dry_run } => DataReply::Emptied(self.reset(dry_run)),
-            DataAsk::Compact => DataReply::Compacted(self.compact()),
+            DataAsk::Reset { dry_run } => DataReply::Emptied(self.reset(dry_run).await),
+            DataAsk::Compact => DataReply::Compacted(self.compact().await),
         }
     }
 
-    fn reset(&mut self, dry_run: bool) -> Emptied {
+    async fn reset(&mut self, dry_run: bool) -> Emptied {
         let (items, bytes) = self.count();
         let mut done = Emptied {
             items,
@@ -75,13 +75,17 @@ impl Core {
         *self = Self::fresh(std::sync::Arc::clone(&self.clock), db);
         self.mode = mode;
         drop(self.flush());
-        done.freed = self.compact().unwrap_or(0);
+        done.freed = self.compact().await.unwrap_or(0);
         done
     }
 
-    fn compact(&mut self) -> Result<u64, String> {
+    async fn compact(&mut self) -> Result<u64, String> {
         match self.db.as_mut() {
-            Some(db) => db.compact().map(|c| c.freed()).map_err(|e| e.to_string()),
+            Some(db) => db
+                .compact_off_loop()
+                .await
+                .map(|c| c.freed())
+                .map_err(|e| e.to_string()),
             None => Ok(0),
         }
     }

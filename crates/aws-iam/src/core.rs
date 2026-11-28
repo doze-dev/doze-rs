@@ -136,7 +136,7 @@ impl doze_runtime::Service for Core {
             }
             Ask::Data(asked) => {
                 let crate::storage::DataCall { ask, reply } = *asked;
-                if reply.send(self.data(ask)).is_err() {
+                if reply.send(self.data(ask).await).is_err() {
                     // WHY: the person stopped waiting; what was asked was done all the same.
                 }
                 return Answer::Data;

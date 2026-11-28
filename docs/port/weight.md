@@ -2062,3 +2062,77 @@ tell a change, which doubles every table's memory (a finished Step Functions exe
 subscriptions takes about 70 ms, nearly all of it ten durable SQS commits one after another (the bus's serialization is about 1%
 of it, so no typed fast path was added for it); idle RSS moves between 4.5 and 7.9 MB from start to start with the same 2.9 MB
 footprint, which is file-backed text paged in or not (the noise #36 records), not heap.
+
+## Workstream 7a: the store, read-your-writes, compaction everywhere, and the size of the round (2026-11-28, branch `perf-w7a`), release-aws, darwin/arm64
+
+Measured on throwaway servers (`--no-console`, fresh `--data-dir`) of `release-aws` builds, with bun drivers that sign under
+`--auth trust` and `tools/loop-probe.ts` (an SQS ListQueues every 10 ms; "stall" is its worst round trip). Base is `perf-round` at
+0a57d5545 (workstreams 1-6). The machine was building other branches throughout (load average 23 to 38): rates are noisy, memory
+and stalls much less so. Every row is two or more runs.
+
+| | base | after |
+|---|---|---|
+| Step Functions, 5,000 executions with 10 KB input, footprint after | 67.6 MB (RSS 47.3 MB) | **16.2 MB** (RSS 19.7 MB); 43.0 MB with the hash alone |
+| SQS, 100,000 messages sent, footprint after | 84.6 MB (RSS 21.8 MB) | 84.3 MB (RSS 20.8 MB): unchanged, see below |
+| DynamoDB PutItem, 16 clients, 2,000 items | 730 to 2,428 a second, server CPU 0.79 to 1.15 s | **5,457 to 15,901 a second**, CPU 0.21 to 0.34 s |
+| `doze-aws data compact` after deleting one of two 100,000-event log groups (53 MB back): stall | 568, 1,100, 1,287 ms | 3.8, 151, 196 ms |
+| idle (`cargo xtask weight doze-aws`) | | 5,184 KB (samples 7,744, 5,184, 4,800), after use 6,784 KB, 1 thread, 308 packages |
+
+**`Records` keeps a length and a hash of what it wrote, not the bytes.** `Row::written` held each record's encoding to tell a change,
+so every table was in memory twice. It is a 16-byte `Seen` now: the length and std's SipHash-1-3 (`DefaultHasher`, fixed keys,
+never stored) of the encoding. Two different encodings of one length that hash alike would skip one write: one in 2^64 a change, and
+no record can be made to collide on purpose without the keys. No new crate. SQS is unchanged by it: its messages were never
+`Records` (they say what changed themselves); what an SQS queue of 100,000 messages holds is the messages and their two indexes.
+
+**Read-your-writes (`doze_store::pending`).** A database's queued, not yet committed writes are kept by the store (an `Arc` of the
+batch the writer applies, so no copy) and laid over the file by `Db::get`, `Db::scan`, the row tables' reads and DynamoDB's
+`Disk::get`/`Disk::scan`, in the order the writer applies them. An entry leaves after its commit returned; a failed commit drops
+them all and the overlay takes no more while the writer refuses the database. A read that cannot see the overlay (`read_off_loop`,
+DynamoDB's counts) waits for the queued writes first. What each answer waits for:
+
+| service | before | after |
+|---|---|---|
+| DynamoDB | a write's answer waited for its commit, inside the actor, so the next call waited too | the answer still waits for its commit (outside the actor: `Answer::durable`); the next call runs at once and reads the queued write; stream consumers are woken after the commit; a backup's or restore's copy (work inside the transaction, which the overlay cannot show) still waits inside the actor; a time-to-live tick's commit is waited for by its timer task |
+| Step Functions | the answer waited for its commit outside the actor (`Answer::durable`) | the same; a finished execution is read back through the overlay, so a describe right after the finish sees it |
+| the others | the answer waits for its commit | unchanged (their writes are laid over too, which only matters to a read before the ack) |
+
+**Step Functions keeps finished executions on disk.** Once a finished execution's record is staged it leaves memory
+(`Records::evict`) and a `Summary` stays in the index (what ListExecutions shows and filters on, what `trim` and the data view
+count); describe, stop, redrive and DescribeStateMachineForExecution read the record back; a restart reads only the running ones
+(`Records::load_where`). The definition each execution carried as its own `String` is a shared `Arc<str>` (`finished::Def`), written
+as the same text: the record format and its version are unchanged, so old files read as before.
+
+**The data view's compaction is off the loop in thirteen more services** (apigateway, cloudformation, cloudwatch, eventbridge, iam,
+kms, logs, s3, scheduler, secrets, sns, sqs, ssm: `Db::compact_off_loop`; SQS's `Persist` as DynamoDB's `Disk`). Lambda's is the
+lambda workstream's. The residual 150 to 200 ms in the table is SQS's own compaction, which the probe (an SQS call) waits for.
+
+**The size of the round.** On darwin/arm64 a Mach-O segment is a whole number of 16 KiB pages, so the file grows in 16 KiB steps
+and hides or exaggerates a change; the sum of the sections (`size -m`) is the honest number. `release-aws`, each workstream's merge on
+`perf-round` (`cargo build --profile release-aws -p doze-aws`):
+
+| commit | file | sections | sections, change |
+|---|---|---|---|
+| main db6cbc2c8 | 12,237,920 | 11,987,667 | |
+| workstream 2 (a0219644c) | 12,305,040 | 12,059,227 | +71,560 |
+| workstream 1 (420201da9) | 12,321,696 | 12,073,499 | +14,272 |
+| workstream 3 (a2301ff44) | 12,338,576 | 12,094,223 | +20,724 |
+| workstream 4 (66b1d86ef) | 12,355,216 | 12,116,297 | +22,074 |
+| workstream 6, reads and compaction off the loop (290d7ef62) | 12,371,808 | 12,119,189 | +2,892 |
+| workstream 6, DescribeTable counts (222ca254d) | 12,371,968 | 12,134,117 | +14,928 |
+| workstream 6, numbered answers (77240eddb) | 12,388,512 | 12,141,513 | +7,396 |
+| workstream 6, the rest (to fc47014d5) | 12,388,544 | 12,148,185 | +6,672 |
+| workstream 5 and Step Functions' compaction (0a57d5545) | 12,405,264 | 12,169,021 | +20,836 |
+| this workstream, the hash (1f1379235) | 12,421,760 | 12,185,393 | +16,372 |
+| this workstream, all of it (4a9db5fb5) | 12,471,808 | 12,231,473 | +46,080 |
+
+The round is +233,888 B of file and +243,806 B of sections over main; the target was +100 KB and it is not met. What `cargo bloat`
+(the same profile with symbols) shows: no one generic is to blame. Workstream 6's guess, `Lazy::call_numbered` per service, is the
+7.4 KB of 77240eddb. Workstream 2's +71.6 KB is mostly the services' `open` and `close` moved out of their actors into
+`off_the_loop::blocking::<S>` (34 instances, 62 KB, with the actors' polls 66 KB smaller: a move plus the new timer, writer and
+gateway code). Under fat LTO a small change moves whole functions in or out of their callers (Step Functions', DynamoDB's and
+CloudWatch's `handle` came out of `serve` here: 68 KB out, 66 KB in), so a per-commit attribution finer than the table is noise of
+some KB. Two tries to shrink this workstream's part (the hash out of line, one compaction future for every service) measured
++1,408 B and were dropped. The one large structural waste found is old: the same generic instantiated in several crates (release
+builds do not share generics), 234,804 B of copies over 1,135 names on main and 246,552 B now; the largest are std's sorts of
+`String` (16 copies each) and hashbrown's rehash (25). Collapsing those (sorting through one non-generic helper, fewer distinct
+map types) is the trim pass's, not this workstream's.

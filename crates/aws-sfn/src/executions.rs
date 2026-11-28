@@ -1,6 +1,8 @@
 //! Starting, stopping, describing and listing executions. `StartExecution` with the name of an execution that is still running and
 //! the same input answers that execution (recorded: a finished one is `ExecutionAlreadyExists`, whatever the input).
 
+use std::borrow::Cow;
+
 use aws_asl::{Exec, Start};
 use aws_wire::ApiError;
 use serde_json::{Map, Value, json};
@@ -8,10 +10,9 @@ use serde_json::{Map, Value, json};
 use crate::arn::{self, Target};
 use crate::core::Core;
 use crate::drive::Work;
+use crate::finished::Def;
 use crate::model::{Execution, Run};
-use crate::req::{
-    Req, invalid_arn, invalid_name, no_execution, no_machine, put, secs, token, valid_name,
-};
+use crate::req::{Req, invalid_arn, invalid_name, no_execution, no_machine, put, secs, valid_name};
 
 /// The largest input (AWS's 256 KiB payload quota).
 const MOST_INPUT: usize = 262_144;
@@ -41,7 +42,7 @@ pub(crate) struct Begin {
 }
 
 /// The record of a new execution.
-fn record(l: Launch, b: Begin, exec: Exec, now: i64) -> Execution {
+fn record(l: Launch, b: Begin, exec: Exec, now: i64, def: Def) -> Execution {
     Execution {
         arn: b.arn,
         name: b.name,
@@ -57,7 +58,7 @@ fn record(l: Launch, b: Begin, exec: Exec, now: i64) -> Execution {
         error: None,
         cause: None,
         trace_header: b.trace,
-        definition: l.definition,
+        definition: def,
         role_arn: l.role_arn,
         exec,
         endpoint: l.endpoint,
@@ -135,8 +136,12 @@ impl Core {
             return Err(invalid_name(&name));
         }
         let arn = self.execution_arn(&l, &name, r.region(), r.account());
-        if let Some(found) = self.executions.get(&arn) {
-            if found.status == Run::Running && found.input == input && !sync {
+        if self.has_execution(&arn) {
+            if let Some(found) = self.executions.get(&arn)
+                && found.status == Run::Running
+                && found.input == input
+                && !sync
+            {
                 return Ok(json!({"executionArn": found.arn, "startDate": secs(found.start_ms)}));
             }
             return Err(ApiError::modeled(
@@ -205,7 +210,8 @@ impl Core {
         };
         let started = def.as_ref().map(|d| Exec::start(d, start, now));
         let (exec, first) = started.map_or((Exec::default(), None), |(x, ev)| (x, Some(ev)));
-        let mut e = record(l, b, exec, now);
+        let text = self.defs.share(&l.definition);
+        let mut e = record(l, b, exec, now, text);
         if let (Some(d), Some(first)) = (def, first) {
             let step = aws_asl::Step {
                 events: vec![first],
@@ -217,8 +223,31 @@ impl Core {
         e
     }
 
-    /// An execution that this region keeps, by ARN, with AWS's refusals for an ARN that is not one.
-    pub(crate) fn execution(&self, given: &str) -> Result<&Execution, ApiError> {
+    /// An execution that this region keeps, by ARN, with AWS's refusals for an ARN that is not one: a running one from memory, a
+    /// finished one read from the database.
+    pub(crate) fn execution(&self, given: &str) -> Result<Cow<'_, Execution>, ApiError> {
+        self.execution_known(given)?;
+        if let Some(e) = self.executions.get(given) {
+            return Ok(Cow::Borrowed(e));
+        }
+        self.stored_execution(given)
+            .map(Cow::Owned)
+            .ok_or_else(|| no_execution(given))
+    }
+
+    /// Whether this region keeps the execution `arn`, running or finished.
+    pub(crate) fn has_execution(&self, arn: &str) -> bool {
+        self.executions.get(arn).is_some() || self.index.summary(arn).is_some()
+    }
+
+    /// A finished execution's record, read from the database (with what is queued for it).
+    fn stored_execution(&self, arn: &str) -> Option<Execution> {
+        let bytes = self.db.as_ref()?.get(crate::core::EXECUTIONS, arn).ok()??;
+        doze_store::record::decode("execution", crate::core::VERSION, &bytes).ok()
+    }
+
+    /// As [`Core::execution`], without reading a finished one's record: the ARN is checked and the execution known.
+    pub(crate) fn execution_known(&self, given: &str) -> Result<(), ApiError> {
         let p = arn::parts(given).ok_or_else(|| invalid_arn("Arn", given))?;
         if p.kind == "express" {
             // (memory)
@@ -230,18 +259,20 @@ impl Core {
         if p.kind != "execution" {
             return Err(invalid_arn("Arn", given));
         }
-        self.executions
-            .get(given)
-            .ok_or_else(|| no_execution(given))
+        if self.has_execution(given) {
+            Ok(())
+        } else {
+            Err(no_execution(given))
+        }
     }
 
     pub(crate) fn describe_execution(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
         let e = self.execution(r.s("executionArn"))?;
-        Ok(describe(e))
+        Ok(describe(&e))
     }
 
     pub(crate) fn stop_execution(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
-        let mut e = self.execution(r.s("executionArn"))?.clone();
+        let mut e = self.execution(r.s("executionArn"))?.into_owned();
         if e.status != Run::Running {
             return Ok(json!({"stopDate": secs(e.stop_ms.unwrap_or(e.start_ms))}));
         }
@@ -260,56 +291,6 @@ impl Core {
         self.store(e);
         self.process();
         Ok(json!({"stopDate": secs(stop)}))
-    }
-
-    pub(crate) fn list_executions(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
-        let by_run = r.opt("mapRunArn").filter(|s| !s.is_empty());
-        let given = r.s("stateMachineArn");
-        let filter_machine = if by_run.is_none() {
-            let l = self.launch(given)?;
-            if l.express {
-                // (memory)
-                return Err(ApiError::modeled(
-                    "StateMachineTypeNotSupported",
-                    "This operation is not supported by this type of state machine",
-                ));
-            }
-            Some((l.machine_arn, arn::target(given).map(|(_, t)| t)))
-        } else {
-            None
-        };
-        let status = r.opt("statusFilter");
-        let redriven = r.opt("redriveFilter");
-        let mut all: Vec<&Execution> = self
-            .executions
-            .iter()
-            .map(|(_, e)| e)
-            .filter(|e| !e.express && (by_run.is_some() || e.map_run.is_none()))
-            .filter(|e| match &filter_machine {
-                Some((m, Some(Target::Version(..)))) => {
-                    e.machine_arn == *m && e.version_arn.as_deref() == Some(given)
-                }
-                Some((m, Some(Target::Alias(..)))) => {
-                    e.machine_arn == *m && e.alias_arn.as_deref() == Some(given)
-                }
-                Some((m, _)) => e.machine_arn == *m,
-                None => e.map_run.as_deref() == by_run,
-            })
-            .filter(|e| status.is_none_or(|s| e.status.name() == s))
-            .filter(|e| match redriven {
-                Some("REDRIVEN") => e.exec.redrive_count > 0,
-                Some("NOT_REDRIVEN") => e.exec.redrive_count == 0,
-                _ => true,
-            })
-            .collect();
-        all.sort_by(|a, b| b.start_ms.cmp(&a.start_ms).then_with(|| b.arn.cmp(&a.arn)));
-        let (from, size) = (r.page_from()?, r.page_size(100));
-        let page: Vec<Value> = all.iter().skip(from).take(size).map(|e| item(e)).collect();
-        let mut out = json!({"executions": page});
-        if from + size < all.len() {
-            crate::req::set(&mut out, "nextToken", json!(token(from + size)));
-        }
-        Ok(out)
     }
 }
 
@@ -368,32 +349,6 @@ pub(crate) fn describe(e: &Execution) -> Value {
     let (status, reason) = crate::redrive::redrive_status(e);
     m.insert("redriveStatus".into(), json!(status));
     put(&mut m, "redriveStatusReason", reason.map(Value::String));
-    Value::Object(m)
-}
-
-fn item(e: &Execution) -> Value {
-    let mut m = Map::new();
-    m.insert("executionArn".into(), json!(e.arn));
-    m.insert("stateMachineArn".into(), json!(e.machine_arn));
-    m.insert("name".into(), json!(e.name));
-    m.insert("status".into(), json!(e.status.name()));
-    m.insert("startDate".into(), secs(e.start_ms));
-    put(&mut m, "stopDate", e.stop_ms.map(secs));
-    put(&mut m, "mapRunArn", e.map_run.clone().map(Value::String));
-    put(
-        &mut m,
-        "stateMachineVersionArn",
-        e.version_arn.clone().map(Value::String),
-    );
-    put(
-        &mut m,
-        "stateMachineAliasArn",
-        e.alias_arn.clone().map(Value::String),
-    );
-    if e.exec.redrive_count > 0 {
-        m.insert("redriveCount".into(), json!(e.exec.redrive_count));
-        put(&mut m, "redriveDate", e.redrive_ms.map(secs));
-    }
     Value::Object(m)
 }
 

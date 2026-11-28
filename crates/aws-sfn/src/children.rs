@@ -69,7 +69,7 @@ impl Core {
         } else {
             crate::arn::execution(p.region, p.account, &launch.machine_name, &name)
         };
-        if self.executions.get(&arn).is_some() {
+        if self.has_execution(&arn) {
             return Outcome::Failed(Failure::new(
                 error_name("ExecutionAlreadyExists"),
                 format!("Execution Already Exists: '{arn}'"),
@@ -143,7 +143,7 @@ impl Core {
             });
             return;
         }
-        if self.executions.get(&arn).is_some() {
+        if self.has_execution(&arn) {
             return;
         }
         let launch = item_launch(parent, machine, &d.input);

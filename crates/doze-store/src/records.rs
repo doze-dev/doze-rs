@@ -1,23 +1,54 @@
 //! A keyed collection of records that lives in memory and in one redb table.
 //!
 //! The service changes records in memory (it knows nothing of the disk). [`Records::get_mut`], [`Records::insert`] and
-//! [`Records::remove`] note the key; after the call, [`Records::stage`] encodes the noted records, compares each with the bytes
+//! [`Records::remove`] note the key; after the call, [`Records::stage`] encodes the noted records, compares each with what was
 //! last written, and returns only the rows that differ. A change cannot be made and forgotten: the only way to a `&mut T` is
 //! the one that notes the key.
+//!
+//! What was last written is kept as its length and a 64-bit hash (`Seen`), not as the bytes: the bytes doubled every table's
+//! memory (weight.md, "Workstream 7a").
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::hash::Hasher;
+use std::num::NonZeroU32;
 
 use redb::{ReadTransaction, ReadableTable, TableDefinition, WriteTransaction};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
+use crate::pending::Change;
 use crate::{StoreError, record};
 
-/// A record and the bytes last written for it.
+/// A record, and what was last written for it (`None`: nothing yet, the record is not on disk).
 #[derive(Debug)]
 struct Row<T> {
     value: T,
-    written: Vec<u8>,
+    written: Option<Seen>,
+}
+
+/// The encoded bytes of a record as last written, as their length and a hash: 16 bytes in place of a copy of the record.
+///
+/// The hash is std's SipHash-1-3 (`DefaultHasher`, fixed keys; it is never stored, so a change of it between Rust versions
+/// costs one rewrite of each record at most). Two different encodings of one length that hash alike would skip a write; by
+/// chance that is one in 2^64 a change, against a disk that fails far more often. A keyed hash, so no record can be made to
+/// collide on purpose without the keys, and no new crate. It runs at about 1 GB/s, under the postcard encode it follows.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Seen {
+    /// An encoded record is never empty (it starts with its version byte); a length past `u32::MAX` is kept as that.
+    len: NonZeroU32,
+    hash: u64,
+}
+
+impl Seen {
+    fn of(bytes: &[u8]) -> Option<Self> {
+        let len = u32::try_from(bytes.len()).unwrap_or(u32::MAX);
+        let mut h = std::hash::DefaultHasher::new();
+        h.write(bytes);
+        Some(Self {
+            len: NonZeroU32::new(len)?,
+            hash: h.finish(),
+        })
+    }
 }
 
 /// The rows one call changed, ready for the writer.
@@ -54,6 +85,19 @@ impl Changes {
     #[must_use]
     pub fn rows(&self) -> usize {
         self.puts.len() + self.deletes.len()
+    }
+
+    /// The changes to `table`, in the order [`Changes::apply`] makes them.
+    pub fn seen(&self, table: &str, f: &mut dyn FnMut(Change<'_>)) {
+        if self.table != table {
+            return;
+        }
+        for key in &self.deletes {
+            f(Change::Delete(key.as_bytes()));
+        }
+        for (key, bytes) in &self.puts {
+            f(Change::Put(key.as_bytes(), bytes));
+        }
     }
 
     /// Writes the rows, in the transaction of the batch they land in.
@@ -116,7 +160,7 @@ impl<T: Serialize + DeserializeOwned> Records<T> {
                 key.value().to_owned(),
                 Row {
                     value,
-                    written: bytes.value().to_vec(),
+                    written: Seen::of(bytes.value()),
                 },
             );
         }
@@ -141,6 +185,54 @@ impl<T: Serialize + DeserializeOwned> Records<T> {
         }
     }
 
+    /// Reads the records of the table and keeps in memory those `keep` says to, handed each record and the length of its row. The
+    /// others stay on disk only: a service that keeps a summary of them reads one whole from the database when it needs it
+    /// ([`crate::Db::get`] and [`crate::record::decode`]).
+    ///
+    /// # Errors
+    /// A failed read, or a record this version cannot read.
+    pub fn load_where(
+        table: &'static str,
+        what: &'static str,
+        version: u8,
+        read: &ReadTransaction,
+        mut keep: impl FnMut(&str, &T, usize) -> bool,
+    ) -> Result<Self, StoreError> {
+        let mut records = Self::new(table, what, version);
+        let rows = read.open_table(TableDefinition::<&str, &[u8]>::new(table))?;
+        for row in rows.iter()? {
+            let (key, bytes) = row?;
+            let value = record::decode(what, version, bytes.value())?;
+            if keep(key.value(), &value, bytes.value().len()) {
+                let written = Seen::of(bytes.value());
+                records
+                    .items
+                    .insert(key.value().to_owned(), Row { value, written });
+            }
+        }
+        Ok(records)
+    }
+
+    /// Lets go of the record under `key` in memory, as it was last staged: it stays on disk (or queued for it), and is not
+    /// deleted. Answers it and the length of its row; `None` when it is not here or was never staged.
+    pub fn evict(&mut self, key: &str) -> Option<(T, usize)> {
+        let len = self.items.get(key)?.written?.len.get();
+        if self.touched.contains(key) {
+            // Changed since it was staged: it must be written first.
+            return None;
+        }
+        let row = self.items.remove(key)?;
+        Some((row.value, usize::try_from(len).unwrap_or(usize::MAX)))
+    }
+
+    /// Deletes the row under `key` from disk at the next [`Records::stage`], whether or not the record is held in memory (one
+    /// [`Records::evict`] let go of).
+    pub fn delete_stored(&mut self, key: &str) {
+        self.items.remove(key);
+        self.touched.remove(key);
+        self.gone.insert(key.to_owned());
+    }
+
     /// The record under `key`.
     #[must_use]
     pub fn get(&self, key: &str) -> Option<&T> {
@@ -160,11 +252,7 @@ impl<T: Serialize + DeserializeOwned> Records<T> {
     pub fn insert(&mut self, key: String, value: T) {
         self.gone.remove(&key);
         self.touched.insert(key.clone());
-        let written = self
-            .items
-            .remove(&key)
-            .map(|row| row.written)
-            .unwrap_or_default();
+        let written = self.items.remove(&key).and_then(|row| row.written);
         self.items.insert(key, Row { value, written });
     }
 
@@ -172,7 +260,7 @@ impl<T: Serialize + DeserializeOwned> Records<T> {
     pub fn remove(&mut self, key: &str) -> Option<T> {
         let row = self.items.remove(key)?;
         self.touched.remove(key);
-        if !row.written.is_empty() {
+        if row.written.is_some() {
             self.gone.insert(key.to_owned());
         }
         Some(row.value)
@@ -221,11 +309,78 @@ impl<T: Serialize + DeserializeOwned> Records<T> {
                 continue;
             };
             let bytes = record::encode(self.what, self.version, &row.value)?;
-            if bytes != row.written {
-                row.written.clone_from(&bytes);
+            let seen = Seen::of(&bytes);
+            if seen != row.written {
+                row.written = seen;
                 changes.puts.push((key, bytes));
             }
         }
         Ok(changes)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn staged(r: &mut Records<String>) -> (usize, usize) {
+        let c = r.stage().unwrap();
+        (c.puts.len(), c.deletes.len())
+    }
+
+    #[test]
+    fn only_a_record_that_changed_is_written_again() {
+        let mut r: Records<String> = Records::new("t", "thing", 1);
+        r.insert("a".into(), "one".into());
+        r.insert("b".into(), "two".into());
+        assert_eq!(staged(&mut r), (2, 0));
+        // Touched but the same: no write.
+        r.get_mut("a");
+        assert_eq!(staged(&mut r), (0, 0));
+        // Touched and changed, even to a value of the same length.
+        if let Some(v) = r.get_mut("a") {
+            *v = "uno".into();
+        }
+        assert_eq!(staged(&mut r), (1, 0));
+        // Put back as it was written: no write.
+        r.insert("a".into(), "uno".into());
+        assert_eq!(staged(&mut r), (0, 0));
+        // Removed after it was written: a delete; removed before: nothing.
+        r.remove("b");
+        r.insert("c".into(), "new".into());
+        r.remove("c");
+        assert_eq!(staged(&mut r), (0, 1));
+    }
+
+    #[test]
+    fn an_evicted_record_leaves_memory_not_the_disk_and_can_still_be_deleted() {
+        let mut r: Records<String> = Records::new("t", "thing", 1);
+        r.insert("a".into(), "one".into());
+        assert_eq!(
+            r.evict("a"),
+            None,
+            "not staged yet: it must be written first"
+        );
+        assert_eq!(staged(&mut r), (1, 0));
+        assert_eq!(
+            r.evict("a"),
+            Some(("one".into(), 5)),
+            "the version byte and four of postcard"
+        );
+        assert!(r.get("a").is_none());
+        assert_eq!(staged(&mut r), (0, 0), "letting go writes nothing");
+        r.delete_stored("a");
+        assert_eq!(staged(&mut r), (0, 1));
+    }
+
+    #[test]
+    fn a_row_keeps_sixteen_bytes_of_what_was_written_not_a_copy() {
+        assert_eq!(std::mem::size_of::<Option<Seen>>(), 16);
+        let big = vec![7u8; 100_000];
+        let mut other = big.clone();
+        other[50_000] = 8;
+        assert_ne!(Seen::of(&big), Seen::of(&other));
+        assert_eq!(Seen::of(&big), Seen::of(&big.clone()));
+        assert_eq!(Seen::of(&[]), None);
     }
 }

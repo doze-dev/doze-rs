@@ -43,7 +43,7 @@ fn fill(w: &mut World, count: i64) {
 }
 
 fn ask(w: &mut World, ask: DataAsk) -> Result<Emptied, StorageError> {
-    match w.core.data("us-east-1", ask) {
+    match data_now(&mut w.core, "us-east-1", ask) {
         DataReply::Emptied(done) => done,
         other => panic!("{other:?}"),
     }
@@ -69,7 +69,8 @@ fn an_archive_is_measured_emptied_and_its_space_given_back() {
     );
     fill(&mut w, 300);
 
-    let DataReply::Usage(resources, file) = w.core.data("us-east-1", DataAsk::Usage) else {
+    let DataReply::Usage(resources, file) = data_now(&mut w.core, "us-east-1", DataAsk::Usage)
+    else {
         panic!()
     };
     assert_eq!(resources.len(), 1);
@@ -166,4 +167,17 @@ fn a_reset_removes_everything_and_the_default_bus_comes_back() {
             .is_empty()
     );
     w.bus("shop");
+}
+
+/// A data question, on a runtime of one thread as the server's (a compaction goes to its blocking pool).
+fn data_now(
+    core: &mut crate::core::Core,
+    region: &str,
+    ask: crate::storage::DataAsk,
+) -> crate::storage::DataReply {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(core.data(region, ask))
 }

@@ -45,7 +45,7 @@ impl Core {
                 DataReply::Emptied(self.empty_bucket(&name, &prune).await)
             }
             DataAsk::Reset { dry_run } => DataReply::Reset(self.reset(dry_run).await),
-            DataAsk::Compact => DataReply::Compacted(self.compact()),
+            DataAsk::Compact => DataReply::Compacted(self.compact().await),
         }
     }
 

@@ -125,7 +125,7 @@ impl doze_runtime::Service for Core {
             } => Answer::Key(self.key_gate(&value, &api, &stage, now_ms)),
             Ask::Data(asked) => {
                 let crate::storage::DataCall { region, ask, reply } = *asked;
-                if reply.send(self.data(&region, ask)).is_err() {
+                if reply.send(self.data(&region, ask).await).is_err() {
                     // WHY: the person stopped waiting; what was asked was done all the same.
                 }
                 Answer::Data

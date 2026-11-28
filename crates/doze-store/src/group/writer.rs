@@ -14,7 +14,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError, mpsc};
 use std::thread;
 
-use super::{Job, respond};
+use super::{Job, failed, respond, settled};
 use crate::{Store, StoreError};
 
 /// The most operations one round takes. Bounds a batch's latency and its transactions' memory.
@@ -117,6 +117,7 @@ impl Link {
     pub(super) fn submit(&self, job: Job) {
         let id = self.id;
         if let Err(mpsc::SendError(Msg::Job { job, .. })) = self.queue.send(Msg::Job { id, job }) {
+            job.failed();
             respond(job.reply, Err(StoreError::Stopped));
         }
     }
@@ -212,6 +213,7 @@ fn run(queue: &mpsc::Receiver<Msg>) {
 fn commit_to(open: &mut HashMap<u64, Open>, id: u64, jobs: Vec<Job>) {
     let Some(db) = open.get_mut(&id) else {
         for job in jobs {
+            job.failed();
             respond(job.reply, Err(StoreError::Stopped));
         }
         return;
@@ -224,6 +226,7 @@ fn commit_to(open: &mut HashMap<u64, Open>, id: u64, jobs: Vec<Job>) {
 
 fn refuse(batch: Vec<Job>, why: &str) {
     for job in batch {
+        job.failed();
         respond(job.reply, Err(StoreError::Failed(why.to_owned())));
     }
 }
@@ -241,24 +244,28 @@ fn commit(store: &Store, batch: Vec<Job>, commits: &AtomicU64) -> Result<(), Str
     let results: Vec<_> = batch
         .into_iter()
         .map(|job| {
-            let op = job.op;
+            let Job { op, reply, seen } = job;
             // WHY: the thread serves every database; an operation that panics fails alone (a release build aborts anyway).
             let done = catch_unwind(AssertUnwindSafe(|| op(&txn)))
                 .unwrap_or_else(|_| Err(StoreError::Failed("the operation panicked".into())));
-            (job.reply, done)
+            (reply, seen, done)
         })
         .collect();
     match txn.commit() {
         Ok(()) => {
             commits.fetch_add(1, Ordering::Relaxed);
-            for (reply, result) in results {
+            // Each entry leaves the overlay after the commit returned (so a read begun now sees it in the file), and before its
+            // caller hears: an operation that failed alone wrote nothing, and leaves it too.
+            for (reply, seen, result) in results {
+                settled(seen.as_ref());
                 respond(reply, result);
             }
             Ok(())
         }
         Err(e) => {
             let why = e.to_string();
-            for (reply, _) in results {
+            for (reply, seen, _) in results {
+                failed(seen.as_ref());
                 respond(reply, Err(StoreError::Failed(why.clone())));
             }
             Err(why)

@@ -112,7 +112,8 @@ impl Core {
     }
 
     pub(crate) fn list_map_runs(&mut self, r: &Req<'_>) -> Result<Value, ApiError> {
-        let e = self.execution(r.s("executionArn"))?.arn.clone();
+        let e = r.s("executionArn").to_owned();
+        self.execution_known(&e)?;
         let mut all: Vec<&MapRun> = self
             .map_runs
             .iter()

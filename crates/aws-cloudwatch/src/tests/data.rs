@@ -32,7 +32,7 @@ fn fill(w: &mut World, namespace: &str, minutes: i64) {
 }
 
 fn ask(w: &mut World, ask: DataAsk) -> Result<Emptied, StorageError> {
-    match w.core.data("us-east-1", ask) {
+    match data_now(&mut w.core, "us-east-1", ask) {
         DataReply::Emptied(done) => done,
         other => panic!("{other:?}"),
     }
@@ -57,9 +57,7 @@ fn a_namespace_is_measured_emptied_and_its_space_given_back() {
         &json!({"DashboardName": "d", "DashboardBody": "{\"widgets\":[]}"}),
     );
 
-    let DataReply::Usage(resources, file) = w.core.data("us-east-1", DataAsk::Usage) else {
-        panic!()
-    };
+    let (resources, file) = usage(&mut w);
     let of = |name: &str| resources.iter().find(|r| r.name == name).unwrap().clone();
     assert_eq!(of("App").items, 600);
     assert!(of("App").bytes > 600 * 150 * 8, "{:?}", of("App"));
@@ -154,4 +152,25 @@ fn a_reset_removes_everything_and_survives_a_restart() {
             .is_empty()
     );
     w.alarm("high", &json!({}));
+}
+
+fn usage(w: &mut World) -> (Vec<aws_wire::storage::Resource>, aws_wire::storage::File) {
+    let DataReply::Usage(resources, file) = data_now(&mut w.core, "us-east-1", DataAsk::Usage)
+    else {
+        panic!()
+    };
+    (resources, file)
+}
+
+/// A data question, on a runtime of one thread as the server's (a compaction goes to its blocking pool).
+fn data_now(
+    core: &mut crate::core::Core,
+    region: &str,
+    ask: crate::storage::DataAsk,
+) -> crate::storage::DataReply {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(core.data(region, ask))
 }

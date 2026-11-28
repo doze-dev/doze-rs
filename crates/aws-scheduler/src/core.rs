@@ -109,7 +109,7 @@ impl doze_runtime::Service for Core {
             } => self.fire_checked(&account, &group, &name),
             Request::Data(asked) => {
                 let crate::storage::DataCall { region, ask, reply } = *asked;
-                if reply.send(self.data(&region, ask)).is_err() {
+                if reply.send(self.data(&region, ask).await).is_err() {
                     // WHY: the person stopped waiting; what was asked was done all the same.
                 }
                 Ok(Value::Null)

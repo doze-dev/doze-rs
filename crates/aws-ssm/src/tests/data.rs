@@ -22,7 +22,7 @@ fn reopen(w: World, dir: &std::path::Path) -> World {
 }
 
 fn ask(w: &mut World, ask: DataAsk) -> Result<Emptied, StorageError> {
-    match w.core.data("us-east-1", ask) {
+    match data_now(&mut w.core, "us-east-1", ask) {
         DataReply::Emptied(done) => done,
         other => panic!("{other:?}"),
     }
@@ -56,7 +56,7 @@ fn a_parameter_with_history_is_listed_and_its_old_versions_removed() {
         &json!({"Name": "/app/once", "Value": "x", "Type": "String"}),
     );
 
-    let DataReply::Usage(resources, _) = w.core.data("us-east-1", DataAsk::Usage) else {
+    let DataReply::Usage(resources, _) = data_now(&mut w.core, "us-east-1", DataAsk::Usage) else {
         panic!()
     };
     assert_eq!(resources.len(), 1, "only a parameter with history");
@@ -153,4 +153,17 @@ fn a_reset_removes_every_parameter() {
         "PutParameter",
         &json!({"Name": "a", "Value": "x", "Type": "String"}),
     );
+}
+
+/// A data question, on a runtime of one thread as the server's (a compaction goes to its blocking pool).
+fn data_now(
+    core: &mut crate::core::Core,
+    region: &str,
+    ask: crate::storage::DataAsk,
+) -> crate::storage::DataReply {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(core.data(region, ask))
 }

@@ -87,14 +87,14 @@ fn stream_keys(core: &Core, group: &str) -> Vec<(String, u32)> {
 
 impl Core {
     /// Answers a data question. Deletes are handed to the writer before the file is compacted, and compaction waits for them.
-    pub(crate) fn data(&mut self, region: &str, ask: DataAsk) -> DataReply {
+    pub(crate) async fn data(&mut self, region: &str, ask: DataAsk) -> DataReply {
         match ask {
             DataAsk::Usage => DataReply::Usage(self.usage(region).map_err(|e| e.to_string())),
-            DataAsk::Empty { name, prune } => DataReply::Emptied(self.empty(&name, &prune)),
+            DataAsk::Empty { name, prune } => DataReply::Emptied(self.empty(&name, &prune).await),
             DataAsk::Reset { dry_run } => {
-                DataReply::Emptied(self.reset(dry_run).map_err(StorageError::Failed))
+                DataReply::Emptied(self.reset(dry_run).await.map_err(StorageError::Failed))
             }
-            DataAsk::Compact => DataReply::Compacted(self.compact_file()),
+            DataAsk::Compact => DataReply::Compacted(self.compact_file().await),
         }
     }
 
@@ -207,7 +207,7 @@ impl Core {
         }
     }
 
-    fn empty(&mut self, name: &str, prune: &Prune) -> Result<Emptied, StorageError> {
+    async fn empty(&mut self, name: &str, prune: &Prune) -> Result<Emptied, StorageError> {
         if prune.prefix.is_some() || prune.old_versions || prune.unused {
             return Err(StorageError::Unsupported(
                 "a log group can be emptied whole, or of the events stamped before a time (--older-than)".to_owned(),
@@ -235,7 +235,10 @@ impl Core {
         for (key, no, held) in changed {
             self.forget(&key, no, cut, &held);
         }
-        done.freed = self.write_and_compact().map_err(StorageError::Failed)?;
+        done.freed = self
+            .write_and_compact()
+            .await
+            .map_err(StorageError::Failed)?;
         Ok(done)
     }
 
@@ -262,7 +265,7 @@ impl Core {
         }
     }
 
-    fn reset(&mut self, dry_run: bool) -> Result<Emptied, String> {
+    async fn reset(&mut self, dry_run: bool) -> Result<Emptied, String> {
         let mut done = Emptied::default();
         for (name, _) in self.groups.iter() {
             let held = self.group_held(name, 0).map_err(|e| e.to_string())?;
@@ -292,20 +295,24 @@ impl Core {
         self.events.delete_range("", "g");
         self.swept.clear();
         self.defaulted.clear();
-        done.freed = self.write_and_compact()?;
+        done.freed = self.write_and_compact().await?;
         Ok(done)
     }
 
     /// Writes what changed and compacts; answers the bytes the disk got back.
-    fn write_and_compact(&mut self) -> Result<u64, String> {
+    async fn write_and_compact(&mut self) -> Result<u64, String> {
         // WHY: the writer finishes what it was handed before compaction pauses it, so the deletes are on disk first.
         drop(self.flush().map_err(|e| e.to_string())?);
-        self.compact_file()
+        self.compact_file().await
     }
 
-    fn compact_file(&mut self) -> Result<u64, String> {
+    async fn compact_file(&mut self) -> Result<u64, String> {
         match self.db.as_mut() {
-            Some(db) => db.compact().map(|c| c.freed()).map_err(|e| e.to_string()),
+            Some(db) => db
+                .compact_off_loop()
+                .await
+                .map(|c| c.freed())
+                .map_err(|e| e.to_string()),
             None => Ok(0),
         }
     }

@@ -70,8 +70,30 @@ impl World {
             core,
             Request::Call(Box::new(call)),
         ));
+        // The answer waits for its commits, as the service's does.
+        self.rt.block_on(crate::core::durable(answer.durable))?;
         let out = answer.reply?;
         Ok(self.h.json(ix, &out))
+    }
+
+    /// Runs a request and answers without waiting for its commits: they are handed back.
+    pub(crate) fn call_queued(
+        &mut self,
+        op: &str,
+        req: &Value,
+    ) -> (Result<Value, ApiError>, Vec<doze_store::Ack>) {
+        let ix = self.h.op(op);
+        let call = match self.h.call(ix, req) {
+            Ok(call) => call,
+            Err(e) => return (Err(e), Vec::new()),
+        };
+        let core = self.core.as_mut().unwrap();
+        let answer = self.rt.block_on(doze_runtime::Service::handle(
+            core,
+            Request::Call(Box::new(call)),
+        ));
+        let out = answer.reply.map(|out| self.h.json(ix, &out));
+        (out, answer.durable)
     }
 
     pub(crate) fn ok(&mut self, op: &str, req: Value) -> Value {
