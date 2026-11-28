@@ -50,6 +50,9 @@ impl Serialize for Script {
             shell: Option<&'static str>,
             #[serde(skip_serializing_if = "Option::is_none")]
             script: Option<&'a str>,
+            /// What runs as the person after `script`, where macOS asks in its own dialog (its trust settings).
+            #[serde(skip_serializing_if = "Option::is_none")]
+            as_user: Option<&'a str>,
         }
         let p = self.plan.as_ref();
         Body {
@@ -62,6 +65,9 @@ impl Serialize for Script {
                 Shell::PowerShell => "powershell",
             }),
             script: p.map(|p| p.script.as_str()),
+            as_user: p
+                .map(|p| p.as_user.as_str())
+                .filter(|s| !s.trim().is_empty()),
         }
         .serialize(s)
     }

@@ -59,6 +59,120 @@ pub fn run(o: &mut Options<'_>, plan: &Plan) -> Result<(), Error> {
         write!(o.out, "{}", pasteable(plan))?;
         return Ok(());
     }
+    run_root(o, plan)?;
+    if !plan.as_user.trim().is_empty() {
+        writeln!(o.out, "macOS asks in its own dialog: {USER_PART}")?;
+        run_as_user(plan).map_err(|e| failed(plan, io::Error::other(e.to_string())))?;
+    }
+    Ok(())
+}
+
+/// What the person's part is, said before macOS's dialog shows.
+const USER_PART: &str = "trust settings for doze's certificate authority";
+
+/// Why the person's part of a plan ([`Plan::as_user`]) did not finish.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum UserRefused {
+    /// The person closed macOS's dialog.
+    Cancelled,
+    /// macOS had no session to show its dialog in (over ssh, or with nobody logged in at the screen).
+    NoDialog,
+    /// It ran and failed; what it said.
+    Failed(String),
+}
+
+impl std::fmt::Display for UserRefused {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            UserRefused::Cancelled => f.write_str(
+                "macOS's dialog to trust doze's certificate authority was cancelled, so https:// names are not \
+                 trusted yet: run it again and allow the change",
+            ),
+            UserRefused::NoDialog => f.write_str(
+                "macOS could not show its dialog to trust doze's certificate authority (no login session at the \
+                 screen here): run the command in Terminal on this Mac",
+            ),
+            UserRefused::Failed(why) => write!(f, "trusting doze's certificate authority failed: {why}"),
+        }
+    }
+}
+
+/// Runs the plan's person part ([`Plan::as_user`]) as the person, in their login session, so macOS can show its own
+/// authorization dialog: directly when this process is the person (a terminal, or the app's child); as the person who
+/// ran sudo when this process is root (`launchctl asuser`, which puts the command in their session). Nothing to run
+/// is success.
+pub fn run_as_user(plan: &Plan) -> Result<(), UserRefused> {
+    if plan.as_user.trim().is_empty() {
+        return Ok(());
+    }
+    let script = format!("set -e\n{}", plan.as_user);
+    let root = doze_os::privilege::is_privileged().unwrap_or(false);
+    let sudo_uid = std::env::var("SUDO_UID")
+        .ok()
+        .filter(|u| !u.is_empty() && u.bytes().all(|b| b.is_ascii_digit()) && u != "0");
+    let mut c = match (root, sudo_uid) {
+        (true, Some(uid)) => {
+            let mut c = Command::new("launchctl");
+            c.args([
+                "asuser",
+                &uid,
+                "sudo",
+                "-u",
+                &format!("#{uid}"),
+                "sh",
+                "-c",
+                &script,
+            ]);
+            c
+        }
+        _ => {
+            let mut c = Command::new("sh");
+            c.args(["-c", &script]);
+            c
+        }
+    };
+    let out = c
+        .stdin(Stdio::null())
+        .output()
+        .map_err(|e| UserRefused::Failed(e.to_string()))?;
+    let said = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    if !said.trim().is_empty() {
+        eprint!("{said}");
+    }
+    user_outcome(out.status.success(), &said)
+}
+
+/// What the person's part came to, from its exit and what `security` said: Security framework's own words for a
+/// cancelled dialog (errAuthorizationCanceled) and for one it could not show (errAuthorizationInteractionNotAllowed).
+pub fn user_outcome(ok: bool, said: &str) -> Result<(), UserRefused> {
+    if ok {
+        return Ok(());
+    }
+    let low = said.to_ascii_lowercase();
+    if low.contains("canceled by the user") || low.contains("cancelled by the user") {
+        return Err(UserRefused::Cancelled);
+    }
+    if low.contains("no user interaction was possible") {
+        return Err(UserRefused::NoDialog);
+    }
+    let last = said
+        .lines()
+        .rev()
+        .map(str::trim)
+        .find(|l| !l.is_empty())
+        .unwrap_or("it exited without saying why");
+    Err(UserRefused::Failed(last.to_owned()))
+}
+
+/// The plan's root part, unless it has none (all that is left is the person's part: no password prompt for nothing).
+fn run_root(o: &mut Options<'_>, plan: &Plan) -> Result<(), Error> {
+    if plan.script.trim().is_empty() {
+        return Ok(());
+    }
     // Already privileged: run it, and do not ask for a program that is probably not there. This is the container
     // case, and it used to fail twice over: sudo is absent from most base images (alpine, debian:stable-slim), so a
     // process running as root with every permission it needs shelled out to a missing binary and reported that the
@@ -167,14 +281,28 @@ fn finish(plan: &Plan, status: io::Result<std::process::ExitStatus>) -> Result<(
 /// first of them ends the quoting, so the pasted command breaks in a way that is tedious to diagnose. Feeding it on
 /// stdin through a quoted heredoc sidesteps quoting entirely, and nests with the heredocs inside the script because the
 /// delimiters differ. A PowerShell script is pasted into an elevated PowerShell as it is.
+///
+/// The person's part ([`Plan::as_user`]) follows, without sudo and said to be so: under sudo, macOS refuses the trust
+/// change wherever it cannot show its dialog.
 pub fn pasteable(plan: &Plan) -> String {
     match plan.shell {
         Shell::Sh => {
             const DELIM: &str = "DOZE_SETUP";
-            format!(
-                "sudo sh <<'{DELIM}'\n{}\n{DELIM}\n",
-                plan.script.trim_end_matches('\n')
-            )
+            const USER_DELIM: &str = "DOZE_AS_YOU";
+            let mut out = String::new();
+            if !plan.script.trim().is_empty() {
+                out.push_str(&format!(
+                    "sudo sh <<'{DELIM}'\n{}\n{DELIM}\n",
+                    plan.script.trim_end_matches('\n')
+                ));
+            }
+            if !plan.as_user.trim().is_empty() {
+                out.push_str(&format!(
+                    "{AS_YOU_NOTE}\nsh <<'{USER_DELIM}'\n{}\n{USER_DELIM}\n",
+                    plan.as_user.trim_end_matches('\n')
+                ));
+            }
+            out
         }
         Shell::PowerShell => format!(
             "# in a PowerShell run as administrator:\n{}\n",
@@ -182,6 +310,10 @@ pub fn pasteable(plan: &Plan) -> String {
         ),
     }
 }
+
+/// The line before the person's part in a pasteable script (the app looks for it to say that macOS asks too).
+pub const AS_YOU_NOTE: &str =
+    "# then as you, not under sudo: macOS asks for your password in its own dialog";
 
 /// `s` as one single-quoted shell word. The script is assembled from parts and handed to a shell, so quoting is not
 /// optional even where the parts are our own constants.

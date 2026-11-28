@@ -42,6 +42,12 @@ pub trait Hands {
     fn doze(&mut self, dir: Option<&std::path::Path>, args: &[String]) -> Result<(), Fail>;
     /// Runs `script` as root after the system's prompt; `what` finishes "doze needs an administrator's password to …".
     fn admin(&mut self, what: &str, script: &str) -> Result<(), Fail>;
+    /// Runs `script` as the person, where macOS can show its own authorization dialog (the System trust settings,
+    /// which it refuses to root under the app's prompt). Hands that cannot refuse.
+    fn as_user(&mut self, what: &str, script: &str) -> Result<(), Fail> {
+        let _ = script;
+        Err(Fail::Failed(format!("{what}: these hands cannot run it")))
+    }
     /// Asks process `pid` to stop.
     fn terminate(&mut self, pid: u32) -> Result<(), Fail>;
     /// Stops process `pid` at once.

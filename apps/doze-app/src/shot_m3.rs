@@ -158,6 +158,8 @@ fn machine(many: bool) -> Machine {
             used: false,
         }),
         admin: true,
+        // The shot shows the authority as a leftover, which it is only with the names off.
+        names_https: false,
         user_home: Some("/Users/you".into()),
         home,
     }

@@ -33,6 +33,10 @@ impl Hands for Record {
             Ok(())
         }
     }
+    fn as_user(&mut self, what: &str, script: &str) -> Result<(), Fail> {
+        self.asked.push(format!("as you {what}: {script}"));
+        Ok(())
+    }
     fn terminate(&mut self, pid: u32) -> Result<(), Fail> {
         self.asked.push(format!("term {pid}"));
         Ok(())

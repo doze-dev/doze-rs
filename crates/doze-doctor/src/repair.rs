@@ -180,30 +180,43 @@ pub fn combine<'a>(plans: impl IntoIterator<Item = &'a Plan>) -> Option<Plan> {
         .map(|p| p.what.trim_end_matches('.'))
         .collect::<Vec<_>>()
         .join("; and ");
+    let script = join(shell, plans.iter().map(|p| p.script.as_str()));
+    let as_user = join(shell, plans.iter().map(|p| p.as_user.as_str()));
+    Some(Plan {
+        what,
+        shell,
+        script,
+        as_user,
+    })
+}
+
+/// Parts' scripts as one, each in its own subshell or script block; a part with nothing in it adds nothing, and
+/// nothing at all is the empty script (a repair whose root part is empty asks for no password).
+fn join<'a>(shell: Shell, parts: impl Iterator<Item = &'a str>) -> String {
+    let parts: Vec<&str> = parts.filter(|s| !s.trim().is_empty()).collect();
+    if parts.is_empty() {
+        return String::new();
+    }
     let mut script = String::new();
     match shell {
         Shell::Sh => {
             script.push_str("set -e\n");
-            for p in &plans {
+            for p in &parts {
                 script.push_str("(\n");
-                script.push_str(p.script.trim_end_matches('\n'));
+                script.push_str(p.trim_end_matches('\n'));
                 script.push_str("\n)\n");
             }
         }
         Shell::PowerShell => {
             script.push_str("$ErrorActionPreference = 'Stop'\n");
-            for p in &plans {
+            for p in &parts {
                 script.push_str("& {\n");
-                script.push_str(p.script.trim_end_matches('\n'));
+                script.push_str(p.trim_end_matches('\n'));
                 script.push_str("\n}\n");
             }
         }
     }
-    Some(Plan {
-        what,
-        shell,
-        script,
-    })
+    script
 }
 
 #[cfg(test)]

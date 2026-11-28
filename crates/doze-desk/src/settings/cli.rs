@@ -17,6 +17,10 @@ use super::repair::PROMPT_ENV;
 /// test's echoing script). Never set in a shipped app.
 pub const CLI_ENV: &str = "DOZE_APP_CLI";
 
+/// How a dry run (`doze dns-setup --dry-run`) marks the part it runs as the person, not under sudo: macOS's trust
+/// settings, which macOS asks for in its own dialog. The run sheet says so beside the script.
+pub const AS_YOU_MARK: &str = "# then as you, not under sudo";
+
 /// What the app asks the CLI for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Verb {
@@ -112,6 +116,11 @@ impl Cli {
 #[cfg(test)]
 mod tests {
     use super::{Cli, Verb};
+
+    #[test]
+    fn the_as_you_mark_is_the_one_a_dry_run_prints() {
+        assert!(doze_names::setup::AS_YOU_NOTE.starts_with(super::AS_YOU_MARK));
+    }
 
     #[test]
     fn the_cli_speaks_its_words() {

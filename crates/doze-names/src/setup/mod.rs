@@ -26,7 +26,10 @@ mod windows;
 
 #[doc(hidden)]
 pub use linux_units::netd_serves;
-pub use run::{How, Options, pasteable, run as run_plan, shell_quote};
+pub use run::{
+    AS_YOU_NOTE, How, Options, UserRefused, pasteable, run as run_plan, run_as_user, shell_quote,
+    user_outcome,
+};
 pub use who::{setup_home, setup_user};
 
 use crate::Error;
@@ -96,7 +99,25 @@ pub enum Shell {
 pub struct Plan {
     pub what: String,
     pub shell: Shell,
+    /// What runs as root, under the one prompt. Empty when all that is left is [`Plan::as_user`]'s.
     pub script: String,
+    /// What runs as the person, in their own login session, once `script` has run: macOS's admin trust settings,
+    /// which only macOS's own authorization dialog can change. As root in a script with no window to show that dialog
+    /// in (the app's administrator prompt), the change is refused ("no user interaction was possible"), so it is never
+    /// part of `script`. Empty on every other system.
+    pub as_user: String,
+}
+
+impl Plan {
+    /// A plan whose every line runs as root.
+    pub fn root(what: impl Into<String>, shell: Shell, script: impl Into<String>) -> Plan {
+        Plan {
+            what: what.into(),
+            shell,
+            script: script.into(),
+            as_user: String::new(),
+        }
+    }
 }
 
 /// The system, decided at run time.
@@ -258,13 +279,19 @@ impl Setup {
 
     /// The script that removes everything an install wrote, and the domains' routes and the authority's trust.
     pub fn uninstall_plan(&self) -> Result<Plan, Error> {
-        let cleanup = trust::cleanup_script(self.os, &self.home);
-        match self.os {
-            Os::Mac => Ok(mac::uninstall_plan(self, &cleanup)),
-            Os::Linux => linux::uninstall_plan(self, &cleanup),
-            Os::Windows => Ok(windows::uninstall_plan(&cleanup)),
-            Os::Other => Err(Error::Setup(NOT_HERE.into())),
+        let (cleanup, as_user) = trust::cleanup_script(self.os, &self.home);
+        let mut plan = match self.os {
+            Os::Mac => mac::uninstall_plan(self, &cleanup),
+            Os::Linux => linux::uninstall_plan(self, &cleanup)?,
+            Os::Windows => windows::uninstall_plan(&cleanup),
+            Os::Other => return Err(Error::Setup(NOT_HERE.into())),
+        };
+        if !as_user.is_empty() {
+            plan.what.push_str("; ");
+            plan.what.push_str(trust::MAC_TRUST_DIALOG);
         }
+        plan.as_user = as_user;
+        Ok(plan)
     }
 
     /// Sets the machine up, in one prompt; idempotent.

@@ -271,6 +271,19 @@ impl Hands for SystemHands {
         }
     }
 
+    fn as_user(&mut self, what: &str, script: &str) -> Result<(), Fail> {
+        self.say(Said::Run(format!("as you: {what}")));
+        self.say(Said::Note(
+            "macOS asks for your password in its own dialog…".into(),
+        ));
+        let mut c = Command::new("sh");
+        c.arg("-c").arg(script);
+        let (ok, text) = self
+            .stream(c)
+            .map_err(|e| Fail::Failed(format!("could not run sh: {e}")))?;
+        super::as_you::outcome(ok, &text)
+    }
+
     fn terminate(&mut self, pid: u32) -> Result<(), Fail> {
         self.say(Said::Run(format!("kill -TERM {pid}")));
         doze_os::process::terminate(pid).map_err(|e| Fail::Failed(e.to_string()))

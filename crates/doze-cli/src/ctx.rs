@@ -113,6 +113,9 @@ pub enum Refused {
     Cancelled,
     /// There is no way to ask for root here.
     Unsupported,
+    /// macOS's own dialog for the person's part (the certificate authority's trust) was cancelled; what to say. The
+    /// root part, if any, ran.
+    Dialog(String),
     /// It ran and failed; what it said.
     Failed(String),
 }
@@ -126,7 +129,7 @@ impl std::fmt::Display for Refused {
             Refused::Unsupported => f.write_str(
                 "no way to ask for an administrator's password here: run the command in a terminal",
             ),
-            Refused::Failed(why) => f.write_str(why),
+            Refused::Dialog(why) | Refused::Failed(why) => f.write_str(why),
         }
     }
 }

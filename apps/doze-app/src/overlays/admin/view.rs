@@ -81,18 +81,36 @@ fn doze_body(
         return body;
     }
     match &s.root {
-        Some(r) if !r.is_empty() => body
-            .child(dim(
-                t,
-                "then, as root after the password prompt, it runs:".into(),
-            ))
-            .child(mono(t, ("root", i), r, 150.)),
+        Some(r) if !r.is_empty() => {
+            let as_you = r.contains(doze_desk::settings::AS_YOU_MARK);
+            body = body
+                .child(dim(
+                    t,
+                    if as_you {
+                        "then it runs this: the sudo part as root after the password prompt, the part marked \
+                         “as you” as you"
+                    } else {
+                        "then, as root after the password prompt, it runs:"
+                    }
+                    .into(),
+                ))
+                .child(mono(t, ("root", i), r, 150.));
+            if as_you {
+                body = body.child(dim(
+                    t,
+                    "macOS then asks for your password once more, in its own dialog, to trust doze's certificate \
+                     authority: that dialog is macOS's, not doze's"
+                        .into(),
+                ));
+            }
+            body
+        }
         _ if v.phase == Phase::Planning => {
             body.child(dim(t, "asking doze what it runs as root…".into()))
         }
         _ => body.child(dim(
             t,
-            "then it asks for the password once, for what is not set up here yet: the domains' routes (/etc/resolver) and, where the stack uses doze's authority, its trust in the System keychain. It prints the script as it runs; asked before Run it would write the domains' record, so it is not.".into(),
+            "then it asks for the password once, for what is not set up here yet: the domains' routes (/etc/resolver) and, where the stack uses doze's authority, its certificate in the System keychain; on macOS, macOS then asks for your password once more, in its own dialog, to trust that certificate. It prints the script as it runs; asked before Run it would write the domains' record, so it is not.".into(),
         )),
     }
 }
@@ -129,6 +147,14 @@ fn step(t: &Tokens, i: usize, s: &Shown, v: &AdminView) -> AnyElement {
             body = body
                 .child(dim(t, "as root, after the password prompt:".into()))
                 .child(mono(t, ("root", i), &cli_line, 150.));
+        }
+        Planned::AsYou { .. } => {
+            body = body
+                .child(dim(
+                    t,
+                    "as you; macOS asks for your password in its own dialog, not doze's:".into(),
+                ))
+                .child(mono(t, ("as-you", i), &cli_line, 150.));
         }
         Planned::Stop { .. } | Planned::Delete { .. } => {
             body = body.child(mono(t, ("cmd", i), &format!("$ {cli_line}"), 60.));

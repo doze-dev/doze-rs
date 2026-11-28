@@ -1,11 +1,7 @@
 use super::*;
 
 fn sh(what: &str, script: &str) -> Plan {
-    Plan {
-        what: what.into(),
-        shell: Shell::Sh,
-        script: script.into(),
-    }
+    Plan::root(what, Shell::Sh, script)
 }
 
 /// Go: TestShellQuote. The script is assembled by concatenation and handed to a shell, so a quote in any value must not
@@ -114,4 +110,52 @@ fn powershell_gets_the_script_encoded_whole() {
         &base64(&whole),
         "progress off, then the script"
     );
+}
+
+/// A plan with a person's part pastes it after root's, not under sudo, said so; one with only a person's part asks
+/// for no sudo at all.
+#[test]
+fn the_persons_part_is_pasted_without_sudo() {
+    let mut p = sh("x", "root-line\n");
+    p.as_user = "user-line\n".into();
+    assert_eq!(
+        pasteable(&p),
+        format!(
+            "sudo sh <<'DOZE_SETUP'\nroot-line\nDOZE_SETUP\n{AS_YOU_NOTE}\nsh <<'DOZE_AS_YOU'\nuser-line\nDOZE_AS_YOU\n"
+        )
+    );
+    p.script.clear();
+    let only = pasteable(&p);
+    assert!(!only.contains("sudo sh"), "{only}");
+    assert!(only.contains("user-line"), "{only}");
+    assert_eq!(
+        run_as_user(&sh("x", "y")),
+        Ok(()),
+        "no person's part: nothing runs"
+    );
+}
+
+/// What `security` says when macOS's dialog is cancelled, or cannot be shown, is told apart from a failure.
+#[test]
+fn the_persons_part_tells_a_cancel_from_a_missing_dialog() {
+    assert_eq!(user_outcome(true, "anything"), Ok(()));
+    assert_eq!(
+        user_outcome(
+            false,
+            "SecTrustSettingsSetTrustSettings: The authorization was canceled by the user.\n"
+        ),
+        Err(UserRefused::Cancelled)
+    );
+    assert_eq!(
+        user_outcome(
+            false,
+            "SecTrustSettingsSetTrustSettings: The authorization was denied since no user interaction was possible.\n"
+        ),
+        Err(UserRefused::NoDialog)
+    );
+    assert_eq!(
+        user_outcome(false, "first\nError reading file x\n\n"),
+        Err(UserRefused::Failed("Error reading file x".into()))
+    );
+    assert!(UserRefused::Cancelled.to_string().contains("cancelled"));
 }

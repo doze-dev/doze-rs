@@ -163,26 +163,37 @@ fn clear_authority(m: &Machine, hands: &mut dyn Hands) -> Result<String, Fail> {
             "a stack declares a domain again; the authority stays".into(),
         ));
     }
+    if m.names_https {
+        return Err(Fail::Failed(
+            "the .doze names serve https from the authority; it stays".into(),
+        ));
+    }
     if ca.trusted {
         if !m.admin {
             return Err(Fail::Failed(NO_PROMPT.into()));
         }
-        hands.admin(
-            "stop trusting doze's certificate authority",
-            &untrust_script(&ca.dir),
-        )?;
+        hands.admin(UNTRUST, &untrust_script())?;
+        hands.as_user(UNTRUST_AS_YOU, &untrust_as_user(&ca.dir))?;
     }
     hands.remove_dir(&ca.dir)?;
     Ok("removed doze's certificate authority".into())
 }
 
-/// Every doze root out of the System keychain (Go names `Untrust` with `UntrustAll`): its trust setting by file, then
-/// each certificate named doze's, until none is left.
-fn untrust_script(ca: &Path) -> String {
+const UNTRUST: &str = "stop trusting doze's certificate authority";
+const UNTRUST_AS_YOU: &str = "remove its System trust setting (macOS asks in its own dialog)";
+
+/// Every doze root out of the System keychain (Go names `Untrust` with `UntrustAll`): each certificate named doze's,
+/// until none is left. As root: the keychain is root's to write.
+fn untrust_script() -> String {
+    "while security delete-certificate -c 'doze local CA' /Library/Keychains/System.keychain >/dev/null 2>&1; do :; done"
+        .into()
+}
+
+/// The root's admin trust setting, by file, as the person: macOS changes the System trust settings only through its
+/// own dialog, which a script run as root under the app's prompt cannot show ("no user interaction was possible").
+fn untrust_as_user(ca: &Path) -> String {
     let root = crate::settings::quote(&ca.join("root.crt").to_string_lossy());
-    format!(
-        "security remove-trusted-cert -d {root} 2>/dev/null || true\nwhile security delete-certificate -c 'doze local CA' /Library/Keychains/System.keychain >/dev/null 2>&1; do :; done"
-    )
+    format!("security remove-trusted-cert -d {root}")
 }
 
 /// A machine leftover needs the administrator's password, and this face cannot ask for it (Go `errNoPrompt`).
@@ -213,8 +224,12 @@ pub fn plan(id: &str, m: &Machine) -> Vec<Planned> {
                 if let Some(ca) = m.authority.as_ref() {
                     if ca.trusted {
                         out.push(Planned::Admin {
-                            what: "stop trusting doze's certificate authority".into(),
-                            script: untrust_script(&ca.dir),
+                            what: UNTRUST.into(),
+                            script: untrust_script(),
+                        });
+                        out.push(Planned::AsYou {
+                            what: UNTRUST_AS_YOU.into(),
+                            script: untrust_as_user(&ca.dir),
                         });
                     }
                     out.push(Planned::Delete {

@@ -46,6 +46,8 @@ pub(crate) fn refused(r: &Refused, plan: &Plan) -> Diagnostic {
         Refused::Unsupported => {
             Diagnostic::new(ids::NO_PROMPT, r.to_string()).fix("run it in a terminal")
         }
+        // macOS's own trust dialog was closed: said in its own words, last, so the app shows them as they are.
+        Refused::Dialog(why) => Diagnostic::new(ids::PROMPT_CANCELLED, why.clone()),
         Refused::Failed(why) => Diagnostic::new(
             ids::PRIVILEGED_FAILED,
             format!("the privileged step failed ({}): {why}", plan.what),
@@ -67,7 +69,26 @@ pub(crate) fn missing(what: &str, fix: &str) -> Diagnostic {
 /// Runs `plan` as root on the real machine (the real process's [`crate::Host::privileged`]): its own shell when it is
 /// root already, the system's prompt when asked for and there is one (Go `adminprompt.Requested`), else sudo on the
 /// terminal. What the script prints goes to stderr, so `--json`'s stdout is the envelope alone.
+///
+/// Then the plan's person part ([`Plan::as_user`], macOS's trust settings) runs as the person, so macOS can show its
+/// own dialog for it: in root's script it is refused wherever there is no window for that dialog (the app's prompt).
 pub(crate) fn run_as_root(plan: &Plan, prompt: bool) -> Result<(), Refused> {
+    if !plan.script.trim().is_empty() {
+        root_part(plan, prompt)?;
+    }
+    if !plan.as_user.trim().is_empty() {
+        eprintln!(
+            "macOS asks for your password in its own dialog: trust settings for doze's certificate authority"
+        );
+        doze_names::setup::run_as_user(plan).map_err(|e| match e {
+            doze_names::setup::UserRefused::Cancelled => Refused::Dialog(e.to_string()),
+            _ => Refused::Failed(e.to_string()),
+        })?;
+    }
+    Ok(())
+}
+
+fn root_part(plan: &Plan, prompt: bool) -> Result<(), Refused> {
     use doze_os::privilege::{AdminError, admin, admin_supported, is_privileged};
     let root = is_privileged().unwrap_or(false);
     if plan.shell == Shell::Sh {

@@ -98,7 +98,11 @@ fn finds_what_no_stack_holds() {
         items[4].detail.rsplit(" · ").next(),
         Some("not trusted; its files only")
     );
-    assert_eq!(counts(&items), (4, 1));
+    assert!(
+        items[4].danger,
+        "the authority is asked on its own, never part of Clean up"
+    );
+    assert_eq!(counts(&items), (3, 2));
     assert_eq!(
         summary(&items),
         "5 things stacks left behind, out of step with doze"
@@ -121,8 +125,16 @@ fn clean_up_leaves_data_and_asks_once_for_the_routes() {
         .iter()
         .filter(|a| a.starts_with("admin"))
         .collect();
-    // The authority's trust, and every route in one prompt.
-    assert_eq!(admin.len(), 2, "{:?}", hands.asked);
+    // Every route in one prompt; the authority is never part of Clean up (it is asked on its own).
+    assert_eq!(admin.len(), 1, "{:?}", hands.asked);
+    assert!(
+        !hands
+            .asked
+            .iter()
+            .any(|a| a.contains("certificate") || a.ends_with("/ca")),
+        "{:?}",
+        hands.asked
+    );
     assert!(hands.asked.contains(&"term 101".to_owned()));
     assert!(hands.asked.contains(&"term 102".to_owned()));
     assert!(
@@ -198,4 +210,74 @@ fn a_shown_clean_up_touches_only_what_it_showed() {
         "nothing was left behind to clear"
     );
     assert!(none.asked.is_empty());
+}
+
+/// With the .doze names on, the authority serves every name over https: it is never left behind, so neither Clean up
+/// nor its plan touches a working, trusted authority, even with no stack declaring a domain (2026-11-28: Clean up
+/// deleted it and its trust, and https:// names failed until it was made and trusted again).
+#[test]
+fn the_names_authority_is_never_left_behind() {
+    let w = world();
+    let mut m = look(&w, true);
+    m.names_https = true;
+    assert!(
+        !find(&m).iter().any(|l| l.kind == "authority"),
+        "{:?}",
+        find(&m)
+    );
+    assert!(
+        !plan_clear("all", &m)
+            .iter()
+            .any(|p| p.what().contains("certificate authority")),
+        "Clean up plans nothing for the authority"
+    );
+    let mut hands = Record::default();
+    let done = clear_all(&m, &mut hands);
+    assert!(!done.bad, "{done:?}");
+    assert!(
+        !hands
+            .asked
+            .iter()
+            .any(|a| a.contains("certificate") || a.contains("/ca")),
+        "{:?}",
+        hands.asked
+    );
+    let done = clear("ca:", &m, &mut hands);
+    assert!(
+        done.bad && done.said.contains("no longer left behind"),
+        "{done:?}"
+    );
+}
+
+/// With the names off and no domain, the authority is a leftover; clearing it deletes the certificates as root and
+/// removes the admin trust setting as the person, where macOS can ask (never as root, where it is refused).
+#[test]
+fn clearing_the_authority_untrusts_it_as_the_person() {
+    let w = world();
+    let m = look(&w, true);
+    let planned = plan_clear("ca:", &m);
+    let admin = planned
+        .iter()
+        .find_map(|p| match p {
+            crate::settings::plan::Planned::Admin { script, .. } => Some(script.clone()),
+            _ => None,
+        })
+        .unwrap();
+    assert!(
+        admin.contains("delete-certificate") && !admin.contains("trusted-cert"),
+        "{admin}"
+    );
+    assert!(
+        planned.iter().any(|p| matches!(p, crate::settings::plan::Planned::AsYou { script, .. } if script.starts_with("security remove-trusted-cert -d "))),
+        "{planned:?}"
+    );
+    let mut hands = Record::default();
+    let done = clear("ca:", &m, &mut hands);
+    assert!(!done.bad, "{done:?}");
+    let order: Vec<&str> = hands
+        .asked
+        .iter()
+        .map(|a| a.split_whitespace().next().unwrap_or_default())
+        .collect();
+    assert_eq!(order, ["admin", "as", "rm"], "{:?}", hands.asked);
 }

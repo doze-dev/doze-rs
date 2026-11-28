@@ -4,6 +4,7 @@
 //! Nothing here acts on the machine by itself: a repair or a clean-up goes through [`Hands`], which the app makes
 //! from [`SystemHands`] (the real CLI, the real administrator prompt) and a test or a fixture from a recorder.
 
+mod as_you;
 pub mod cli;
 mod hands;
 pub mod leftovers;
@@ -14,7 +15,7 @@ mod record;
 pub mod repair;
 pub mod update;
 
-pub use cli::Cli;
+pub use cli::{AS_YOU_MARK, Cli};
 pub use hands::{Out, Said, SystemHands};
 pub use leftovers::{Leftover, Machine};
 pub use machine::{DozeAt, Part};

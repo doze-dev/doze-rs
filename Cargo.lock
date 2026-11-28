@@ -2984,6 +2984,7 @@ dependencies = [
  "doze-journal",
  "doze-map",
  "doze-module-proto",
+ "doze-names",
  "doze-os",
  "doze-projects",
  "regex",
