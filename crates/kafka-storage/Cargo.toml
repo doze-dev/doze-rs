@@ -29,7 +29,7 @@ sim = ["doze-fs/sim"]
 doze-fs = { path = "../doze-fs", features = ["sim"] }
 # Builds valid batches for the tests.
 kafka-wire = { path = "../kafka-wire", features = ["test-support"] }
-tokio = { version = "1", default-features = false, features = ["rt", "macros", "time"] }
+tokio = { version = "1", default-features = false, features = ["rt", "macros", "time", "test-util"] }  # test-util: the pool's paused-clock test
 # The simulation suite (tests/simulation) uses the crate with its simulated disk.
 kafka-storage = { path = ".", features = ["sim"] }
 # Counts allocations, so a test can say that the log never holds its data in memory.
