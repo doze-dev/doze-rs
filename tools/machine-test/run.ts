@@ -37,7 +37,7 @@ import { join, resolve } from "node:path";
 import { Abort, type Ctx, dz, remember, root, stackPids } from "./ctx";
 import { failed, isTestDomain, judgeDiff, parseArgs, proofFileName, randomLabel, summaryTable, testNames } from "./lib";
 import { restoreZone, s1Setup, s2Domain, s3Remove, s4Again, s5Rotate, s6DownC, zoneLinux, zoneMac } from "./scenarios";
-import { alive, keychainFingerprints, proofText, run, say, sleep, snapshot, SYSTEM_KEYCHAIN } from "./sys";
+import { alive, keychainFingerprints, proofText, rootTrusted, run, say, sleep, snapshot, SYSTEM_KEYCHAIN } from "./sys";
 
 const repo = resolve(import.meta.dir, "../..");
 
@@ -194,7 +194,9 @@ async function main(): Promise<number> {
     if (os === "mac" && args.withZone) await zoneMac(c);
   } catch (e) {
     say(`\n==> stopped: ${(e as Error).message}${e instanceof Abort ? "" : `\n${(e as Error).stack ?? ""}`}`);
-    c.results.push({ id: "!", title: "run stopped early", status: "FAIL", ms: 0, detail: (e as Error).message });
+    if (!(e instanceof Abort)) {
+      c.results.push({ id: "!", title: "run stopped early", status: "FAIL", ms: 0, detail: (e as Error).message });
+    }
   }
   return finish();
 }
@@ -216,7 +218,7 @@ function plan(c: Ctx): void {
       say("  + the zone for the test home (doze dns-setup): the dev.doze.netd job, its daemon copy, /etc/resolver/doze;");
       say(`    your copies are kept in ${c.zone.tar} and put back. Your .doze names do not answer meanwhile.`);
     }
-    say("macOS shows its own dialog when a CA's trust changes (doze trust, doze trust --rotate): approve it.");
+    say("macOS shows its own dialog when a CA's trust changes (doze trust, doze trust --rotate, and the cleanup if trust was set as you): approve it.");
   } else {
     say("  + the zone for the test home (doze dns-setup): the doze units, the daemon copy, sysctl, /etc/hosts' doze block,");
     say("    the doze0 routes and the CA in the system bundle; your copies are kept and put back, units restarted");
@@ -259,7 +261,13 @@ async function cleanup(c: Ctx): Promise<void> {
       const held = await keychainFingerprints();
       for (const fp of c.fingerprints.filter((f) => held.includes(f) || c.args.dryRun)) {
         if (c.protectedRoots.includes(fp)) continue; // never: it was there before the run
-        await root(c, ["security", "remove-trusted-cert", "-d", join(c.work, "roots", `${fp}.pem`)]);
+        const pem = join(c.work, "roots", `${fp}.pem`);
+        await root(c, ["security", "remove-trusted-cert", "-d", pem]);
+        // Trust set as the person (macOS's dialog, PR #187) may need the person to take it away: the same dialog.
+        if (!c.args.dryRun && (await rootTrusted("mac", pem))) {
+          say("   · the test root is still trusted: removing its trust as you (macOS asks in a dialog)");
+          await run(["security", "remove-trusted-cert", "-d", pem], { tty: true });
+        }
         await root(c, ["security", "delete-certificate", "-t", "-Z", fp.toUpperCase(), SYSTEM_KEYCHAIN]);
       }
     });

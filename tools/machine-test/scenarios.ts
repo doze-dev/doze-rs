@@ -151,9 +151,18 @@ export async function s4Again(c: Ctx): Promise<void> {
     const k = new Checks();
     const fp0 = fileFingerprint(rootCrt(c));
     const prev0 = previousFingerprints(c).join(",");
+    // trust --remove made the routes record forget this stack, so a doze trust now has no domain to set up until the
+    // daemon records them again at its next start: said, then the stack restarted first, as a person would.
+    const early = await dz(c, ["trust", "--dry-run"]);
+    if (/no domains recorded/.test(early.out)) {
+      say("   · after trust --remove, doze trust has no domain until the stack restarts (the record forgot it)");
+    }
+    await down(c);
+    await up(c);
+    k.ok(fileFingerprint(rootCrt(c)) === fp0, `the stack restarted with the same CA (${fp0?.slice(0, 12)})`);
     // Once the CA is trusted a second run has only the route S3 took away to write back; under --dry-run the CA was
     // never trusted, so trusting it is still in the plan.
-    const unexpected = (t: string) => /^(untrust|delete certificate)/.test(t) || (t.startsWith("trust ") && !c.args.dryRun);
+    const unexpected = (t: string) => /^(untrust|delete certificate)/.test(t) || (/^(trust|add certificate) /.test(t) && !c.args.dryRun);
     const again = await guarded(c, ["trust"]);
     k.ok(!again.touches.some(unexpected), `doze trust again only routes: ${again.touches.join("; ") || "nothing"}`);
     if (!c.args.dryRun) {
@@ -172,7 +181,7 @@ export async function s4Again(c: Ctx): Promise<void> {
     }
     await down(c);
     await up(c);
-    k.ok(fileFingerprint(rootCrt(c)) === fp0, `the stack restarted with the same CA (${fp0?.slice(0, 12)})`);
+    k.ok(fileFingerprint(rootCrt(c)) === fp0, `a second restart keeps the same CA (${fp0?.slice(0, 12)})`);
     k.ok(previousFingerprints(c).join(",") === prev0, "no root was rotated out");
     if (!c.args.dryRun) k.ok((await dz(c, ["trust", "--check"])).code === 0, "doze trust --check passes");
     const r = k.result();

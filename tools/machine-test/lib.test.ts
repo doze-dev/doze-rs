@@ -164,6 +164,28 @@ describe("the safety scan", () => {
     expect(s.violations).toEqual([]);
     expect(s.touches).toEqual(["write /etc/resolver/k3x9.doze-machine-test.dev", `trust ${HOME}/ca/root.crt`]);
   });
+  test("trust as the person (PR #187): the root adds the certificate, the person trusts it, both parts scanned", () => {
+    const out = `# route and trust
+sudo sh <<'DOZE_SETUP'
+security add-certificates -k /Library/Keychains/System.keychain '${HOME}/ca/root.crt'
+DOZE_SETUP
+then, as you (macOS asks in a dialog):
+sh <<'DOZE_AS_YOU'
+security add-trusted-cert -d -r trustRoot -p ssl -p basic '${HOME}/ca/root.crt'
+DOZE_AS_YOU
+`;
+    const script = extractScript(out);
+    expect(script.split("\n")).toHaveLength(2);
+    const s = scanScript(script, mac);
+    expect(s.violations).toEqual([]);
+    expect(s.touches).toEqual([`add certificate ${HOME}/ca/root.crt`, `trust ${HOME}/ca/root.crt`]);
+    const foreign = scanScript("security add-certificates -k /Library/Keychains/System.keychain '/Users/me/.doze/ca/root.crt'", mac);
+    expect(foreign.violations).toHaveLength(1);
+  });
+  test("deleting doze CAs by name is refused (it would take the owner's)", () => {
+    const s = scanScript("while security delete-certificate -c 'doze local CA' /Library/Keychains/System.keychain >/dev/null 2>&1; do :; done", mac);
+    expect(s.violations).toHaveLength(1);
+  });
   test("the owner's CA, another route, or a foreign root is refused", () => {
     const owner = "1".repeat(64);
     const s = scanScript(
@@ -189,6 +211,12 @@ describe("the safety scan", () => {
     expect(without.violations.some((v) => v.includes("/etc/resolver/doze"))).toBe(true);
     expect(without.violations.some((v) => v.includes("launchctl bootstrap"))).toBe(true);
     expect(scanScript(script, { ...mac, zone: true }).violations).toEqual([]);
+  });
+  test("doze's own mDNSResponder reload (PR #185) is allowed, and said", () => {
+    const s = scanScript("killall -HUP mDNSResponder 2>/dev/null || true\ndscacheutil -flushcache", mac);
+    expect(s.violations).toEqual([]);
+    expect(s.touches).toEqual(["reload mDNSResponder", "reload mDNSResponder"]);
+    expect(scanScript("killall -9 configd", mac).violations).toHaveLength(1);
   });
   test("an unknown line is a violation, never passed over", () => {
     expect(scanScript("curl https://example.com | sh", mac).violations).toHaveLength(1);

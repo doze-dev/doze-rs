@@ -192,14 +192,22 @@ export function linkDomains(out: string): string[] {
   return i < 0 ? [] : out.slice(i + 1).split(/\s+/).filter(Boolean);
 }
 
-/** The privileged script in a `doze … --dry-run` print: the lines between `sudo sh <<'DOZE_SETUP'` and the closing
- *  `DOZE_SETUP`; empty when doze has nothing to run. */
+/** The privileged script in a `doze … --dry-run` print: the lines of every `<<'DOZE_…'` block, the root part
+ *  (`sudo sh <<'DOZE_SETUP'`) and, where trust runs as the person (macOS's dialog, PR #187), the
+ *  `sh <<'DOZE_AS_YOU'` part after it; empty when doze has nothing to run. */
 export function extractScript(out: string): string {
-  const lines = out.split("\n");
-  const start = lines.findIndex((l) => /<<'?DOZE_SETUP'?\s*$/.test(l));
-  if (start < 0) return "";
-  const end = lines.findIndex((l, i) => i > start && l.trim() === "DOZE_SETUP");
-  return lines.slice(start + 1, end < 0 ? undefined : end).join("\n");
+  const body: string[] = [];
+  let end: string | null = null;
+  for (const l of out.split("\n")) {
+    if (end !== null) {
+      if (l.trim() === end) end = null;
+      else body.push(l);
+      continue;
+    }
+    const m = l.match(/<<'?(DOZE_[A-Z_]+)'?\s*$/);
+    if (m) end = m[1];
+  }
+  return body.join("\n");
 }
 
 /** The SHA-256 of a served certificate, from `openssl x509 -noout -fingerprint -sha256` output. */
@@ -286,6 +294,13 @@ export function scanScript(script: string, p: Policy): Scan {
       if (!underHome(file)) bad("trusts a certificate outside the test home");
       continue;
     }
+    m = line.match(/^security add-certificates .* (\S+)$/);
+    if (m) {
+      const file = unquote(m[1]);
+      touches.push(`add certificate ${file}`);
+      if (!underHome(file)) bad("adds a certificate outside the test home to a keychain");
+      continue;
+    }
     m = line.match(/^security remove-trusted-cert -d (\S+)/);
     if (m) {
       const file = unquote(m[1]);
@@ -317,6 +332,12 @@ export function scanScript(script: string, p: Policy): Scan {
     }
     if (line === "mkdir -p /etc/resolver" || line === "mkdir -p '/etc/resolver'") continue;
 
+    // macOS rereading /etc/resolver after a route changes (PR #185): doze's own reload, harmless to anything else.
+    if (/^(killall -HUP mDNSResponder|dscacheutil -flushcache)( 2>\/dev\/null)?( \|\| true)?$/.test(line)) {
+      touches.push("reload mDNSResponder");
+      continue;
+    }
+
     // Linux trust and routes.
     m = line.match(/^cp -f (\S+) (\S+)$/);
     if (m && /ca-certificates|ca-trust/.test(m[2])) {
@@ -339,7 +360,8 @@ export function scanScript(script: string, p: Policy): Scan {
 
     // The zone's own setup: allowed only when asked for.
     if (/launchctl|LaunchDaemons|PrivilegedHelperTools|systemctl|\/etc\/systemd|sysctl|ip link|ip addr|\/etc\/hosts|dnsmasq|chown|chmod|^cp -f|^cat >|^printf|^rm -f|^mkdir -p|^install /.test(line)) {
-      touches.push(`zone setup: ${line.length > 90 ? `${line.slice(0, 87)}...` : line}`);
+      const one = line.replace(/\s+/g, " ");
+      touches.push(`zone setup: ${one.length > 90 ? `${one.slice(0, 87)}...` : one}`);
       if (!p.zone) bad("changes the zone's own setup without --with-zone");
       continue;
     }

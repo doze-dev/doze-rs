@@ -45,7 +45,10 @@ export function dz(c: Ctx, argv: string[], o: RunOpts = {}): Promise<Ran> {
 }
 
 export function policy(c: Ctx, zone = false): Policy {
-  return { os: c.os, home: c.home, fingerprints: c.fingerprints, domains: [c.names.domain], zone };
+  // On Linux every route is a line in the zone unit's drop-in, so with the zone the test's own (--with-zone, required
+  // there) every doze script touches it.
+  const ours = zone || (c.os === "linux" && c.args.withZone);
+  return { os: c.os, home: c.home, fingerprints: c.fingerprints, domains: [c.names.domain], zone: ours };
 }
 
 /** Keeps a copy of the current root (the cleanup untrusts by file and fingerprint) and adds it to the run's own. */
@@ -85,7 +88,7 @@ export async function guarded(
   }
   if (!script) return { touches: [], ran: null };
   if (c.args.dryRun) {
-    say(`    [dry-run] doze ${argv.join(" ")} would run as root:`);
+    say(`    [dry-run] doze ${argv.join(" ")} would run (the sudo part as root, a DOZE_AS_YOU part as you):`);
     for (const l of script.split("\n")) say(`      ${l}`);
     return { touches: scan.touches, ran: null };
   }
