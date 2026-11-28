@@ -27,7 +27,6 @@ use std::sync::Arc;
 pub const LINT_ARG: &str = "--lint";
 
 /// Runs the daemon for `args` (what follows `__daemon`); its exit code.
-#[allow(clippy::print_stderr)] // the daemon's stderr is its log file
 pub fn main(args: &[String], version: &str) -> ExitCode {
     let config = args
         .iter()
@@ -45,7 +44,7 @@ pub fn main(args: &[String], version: &str) -> ExitCode {
     {
         Ok(rt) => rt,
         Err(e) => {
-            eprintln!("doze daemon: runtime: {e}");
+            running::say(&format!("doze daemon: runtime: {e}"));
             return ExitCode::FAILURE;
         }
     };
@@ -203,9 +202,8 @@ fn bind_all(zone: &Zone, fronted: &[Fronted], run_dir: &Path) -> Result<Binds, S
     Ok((grants, bound, unreachable))
 }
 
-#[allow(clippy::print_stderr)] // the daemon's stderr is its log file
 fn eprintln_daemon(line: &str) {
-    eprintln!("doze daemon: {line}");
+    running::say(&format!("doze daemon: {line}"));
 }
 
 /// Every app's own domains (`dev.acme.com`), for the routes record.
@@ -273,7 +271,6 @@ fn stack(
     (stack, modules)
 }
 
-#[allow(clippy::print_stderr)] // the daemon's stderr is its log file
 async fn run(config: &Path, version: &str) -> Result<(), String> {
     // The stop handlers first: once the socket or the pid file exists, a stop must be a graceful one, not the
     // default SIGTERM that ends the process mid-way (embed.rs on macOS: stopped by the signal, not after it).
@@ -324,11 +321,11 @@ async fn run(config: &Path, version: &str) -> Result<(), String> {
         .serve()
         .map_err(|e| format!("serving {}: {e}", run.socket().display()))?;
     ctl::write_pid(&run).map_err(|e| format!("writing the pid file: {e}"))?;
-    eprintln!(
+    running::say(&format!(
         "doze daemon: serving {} on {}",
         cfg.stack(),
         run.socket().display()
-    );
+    ));
     let asked = stop.next().await;
     running::say(&format!(
         "doze daemon: stopping ({})",
@@ -399,7 +396,9 @@ pub fn no_daemon_yet(config: &Path, version: &str) -> Result<(RunDir, std::fs::F
         Ok(()) => {
             // This daemon's alone now: what it starts with is recorded for `doze sync` (a failure only loses that).
             if let Err(e) = ctl::write_blocks(&run, &shape) {
-                eprintln!("doze daemon: could not record the blocks it starts with: {e}");
+                running::say(&format!(
+                    "doze daemon: could not record the blocks it starts with: {e}"
+                ));
             }
             Ok((run, held))
         }

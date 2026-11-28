@@ -31,7 +31,10 @@ pub(super) fn say(line: &str) {
 pub(super) async fn shut_down(engine: &doze_engine::Engine, mut stop: doze_os::signal::Stop) {
     let shutdown = engine.shutdown();
     tokio::pin!(shutdown);
+    // Biased, the shutdown first: a second request already pending when this is first polled must not hurry before
+    // the shutdown has made its own first stops.
     tokio::select! {
+        biased;
         () = &mut shutdown => return,
         _ = stop.next() => {}
     }
