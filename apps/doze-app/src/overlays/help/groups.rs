@@ -19,7 +19,6 @@ pub(crate) const GROUPS: &[(Scope, &[Named])] = &[
                     "Back",
                     "Forward",
                     "All logs",
-                    "Activity",
                     "Settings…",
                     "Needs you",
                 ],
@@ -50,7 +49,7 @@ pub(crate) const GROUPS: &[(Scope, &[Named])] = &[
         &[
             (
                 "Move and open",
-                &["Move", "Filter", "Open the service", "Its logs", "Activity"],
+                &["Move", "Filter", "Open the service", "Its logs"],
             ),
             (
                 "The service selected",

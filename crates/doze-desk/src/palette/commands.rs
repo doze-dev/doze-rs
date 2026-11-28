@@ -41,7 +41,7 @@ pub(crate) fn verb_on(key: &str, verb: &str, target: &str, ask: bool) -> Doing {
     }
 }
 
-/// A page of one service (`instance`, `logs`, `activity`), or of the stack when `target` is empty.
+/// A page of one service (`instance`, `logs`), or of the stack when `target` is empty.
 pub(crate) fn page(key: &str, page: &str, target: &str) -> Doing {
     Doing {
         page: page.to_owned(),

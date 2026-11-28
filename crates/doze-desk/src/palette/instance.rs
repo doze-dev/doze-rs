@@ -42,7 +42,6 @@ pub fn instance_commands(st: &StackView, s: Svc<'_>, _now: SystemTime) -> Vec<Ro
     let mut out = state_verbs(&key, s);
     out.extend(opens(&key, s));
     out.push(logs);
-    out.push(Row { note: "how long it slept, what woke it".into(), ..cmd("◷", format!("Activity of {n}"), "timeline history savings", page(&key, "activity", n)) });
     out.extend(copies(&key, s));
     out.extend(keeps(&key, s));
     out.push(open_page);

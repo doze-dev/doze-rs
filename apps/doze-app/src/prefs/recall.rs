@@ -86,9 +86,9 @@ pub(crate) fn take_window_closed() -> Option<SystemTime> {
 }
 
 /// The page the window last showed (Go: the page's `doze.last`), kept as `last`: `{"key": <stack folder>, "page":
-/// "home" | "instance" | "logs" | "activity" | "settings", "instance": <name>}` (Settings has no key), or none for the
-/// Library. The window opens on it again while
-/// its stack is still known (Go: "reopen where I was", on by default).
+/// "home" | "instance" | "logs" | "settings", "instance": <name>}` (Settings has no key), or none for the
+/// Library. The window opens on it again while its stack is still known (Go: "reopen where I was", on by default). A
+/// `last` saved before 2026-11-28 may name `activity`, a page since removed: it reopens the stack's page.
 pub(crate) fn last() -> Option<(String, String, String)> {
     let m = load();
     let l = m.get("last")?;

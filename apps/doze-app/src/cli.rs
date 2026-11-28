@@ -17,7 +17,7 @@
 //! doze-app bench --fixture medium-150 --map                         the Map: frames while it pans, zooms and hovers
 //! doze-app bench [--idle S] [--closed S]                         with no fixture: $DOZE_HOME (a fixture served apart)
 //!          [--display N] [--in-use | --hidden] [--at 12,30,60] [--check [--budget MB] [--per-minute N]]
-//!          [--real [N]] [--screen home|tiles|list|map|grid|service|logs|activity] [--select NAME] [--tab ID] [--on-top]
+//!          [--real [N]] [--screen home|tiles|list|map|grid|service|logs] [--select NAME] [--tab ID] [--on-top]
 //!          [--settled MB] [--closed-budget MB]      a real stack of N services under its own daemon (bench/real.rs)
 //!          [--churn]                                maximise, resize, minimise, hide and bring back (bench/churn.rs)
 //! doze-app fixture-serve NAME ROOT                               a fixture daemon alone, on its own socket under ROOT/home
@@ -62,8 +62,6 @@ pub(crate) enum Screen {
     Instance,
     /// All logs.
     Logs,
-    /// Activity: `--tab 1h|24h|7d`, `--select NAME` for one service alone, `--filter TEXT` for the find box.
-    Activity,
     /// Settings, at a part.
     General,
     Machine,
@@ -144,7 +142,7 @@ pub(crate) struct Bench {
     pub(crate) hidden: bool,
     /// Footprint readings this many seconds after the window opens (`--at 12,30,60`), as `footprint_at_s S MB`.
     pub(crate) at: Vec<u64>,
-    /// The page the idle window is left on (`--screen home|tiles|list|map|grid|service|logs|activity`), and the
+    /// The page the idle window is left on (`--screen home|tiles|list|map|grid|service|logs`), and the
     /// service a service's page shows (`--select NAME`).
     pub(crate) screen: crate::bench::stage::Screen,
     pub(crate) select: Option<String>,
@@ -291,13 +289,12 @@ fn shot(mut args: impl Iterator<Item = String>) -> Result<Shot, String> {
                     "grid" => Screen::Grid,
                     "instance" => Screen::Instance,
                     "logs" => Screen::Logs,
-                    "activity" => Screen::Activity,
                     "general" | "settings" => Screen::General,
                     "machine" => Screen::Machine,
                     "about" => Screen::About,
                     _ => {
                         return Err(format!(
-                            "--screen: no screen {v} (library, tiles, list, map, grid, palette, help, instance, logs, activity, general, machine, about)"
+                            "--screen: no screen {v} (library, tiles, list, map, grid, palette, help, instance, logs, general, machine, about)"
                         ));
                     }
                 }

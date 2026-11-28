@@ -1,9 +1,6 @@
-//! `doze-app shot --act …` for Activity and Settings (M3): the states a fixture's machine cannot show by itself, made
-//! up (`settings::Staged`), so a shot shows the real page in each state without touching this Mac: parts not in place
-//! with Repair, what stacks left behind with the danger ask, an update out, none, or GitHub unreachable. For Activity:
-//! a journal of a week written into the fixture's own (temporary) state folder, and a stretch under the pointer.
-
-use std::time::{Duration, SystemTime};
+//! `doze-app shot --act …` for Settings (M3): the states a fixture's machine cannot show by itself, made up
+//! (`settings::Staged`), so a shot shows the real page in each state without touching this Mac: parts not in place
+//! with Repair, what stacks left behind with the danger ask, an update out, none, or GitHub unreachable.
 
 use doze_desk::library::{Check, Doctor};
 use doze_desk::settings::leftovers::{Authority, Machine, Proc, StateDir};
@@ -31,7 +28,6 @@ pub(crate) fn start(
         "update-new" => update("0.3.0", ""),
         "update-none" => update(crate::VERSION.trim_start_matches('v'), ""),
         "update-offline" => update("", "could not reach GitHub to check"),
-        "journal" | "hover" => return Some(journal(root, act == "hover", cx)),
         "run-sheet" | "run-done" => return Some(run_sheet(root, act == "run-done", window, cx)),
         _ => return None,
     };
@@ -186,142 +182,6 @@ fn update(latest: &str, error: &str) -> Staged {
         }),
         ..Staged::default()
     }
-}
-
-/// A week of the shown stack's services waking and sleeping, written as the daemon writes its journal, into the
-/// fixture's own state folder; Activity reads it again. With `hover`, the pointer is put on the first service's first
-/// stretch.
-fn journal(root: &mut Root, hover: bool, cx: &mut Context<Root>) -> u64 {
-    let Some(key) = root.key().cloned() else {
-        return 0;
-    };
-    let Some(st) = root.hub().stack(&key) else {
-        return 0;
-    };
-    let names: Vec<String> = st
-        .instances
-        .iter()
-        .filter(|v| v.kind != "task")
-        .map(|v| v.name.clone())
-        .collect();
-    let now = root.hub().now();
-    let _ = std::fs::create_dir_all(key.run_dir());
-    let _ = std::fs::write(key.journal(), lines(&names, now));
-    if let Some(a) = root.pages.activity.clone() {
-        a.update(cx, |a, cx| {
-            a.read(cx);
-            if hover {
-                // Once the journal has been read and laid out (a read resets what the pointer was over).
-                cx.spawn(async move |this, cx| {
-                    cx.background_executor()
-                        .timer(Duration::from_millis(1800))
-                        .await;
-                    let _ = this.update(cx, |a, cx| {
-                        // The pointer on the middle of the first stretch, as a person would put it there.
-                        let b = a.tracks.borrow().get(&0).copied();
-                        let from = a
-                            .row_at(0)
-                            .and_then(|r| r.spans.first())
-                            .map(|s| (s.from + s.to) / 2.0);
-                        if let (Some(b), Some(f)) = (b, from) {
-                            let x = b.origin.x + b.size.width * (f as f32);
-                            a.point(0, gpui::point(x, b.origin.y + b.size.height / 2.), cx);
-                        }
-                    });
-                })
-                .detach();
-            }
-        });
-    }
-    2500
-}
-
-/// The journal's lines: each service wakes for a reason every few hours, is ready a moment later, and sleeps when
-/// idle; now and then one crashes; the stack goes down one night.
-fn lines(names: &[String], now: SystemTime) -> String {
-    let at = |h: f64| {
-        let t = now - Duration::from_secs_f64(h.max(0.0) * 3600.0);
-        doze_control::Timestamp::from_system_time(t)
-            .as_str()
-            .to_owned()
-    };
-    let (mut out, mut seq) = (String::new(), 0_u64);
-    let mut push = |h: f64, kind: &str, who: &str, extra: &str| {
-        seq += 1;
-        out.push_str(&format!(
-            "{{\"seq\":{seq},\"time\":\"{}\",\"kind\":\"{kind}\",\"instance\":\"{who}\"{extra}}}\n",
-            at(h)
-        ));
-    };
-    let causes = [
-        r#","cause":{"kind":"connection"}"#,
-        r#","cause":{"kind":"dependency","by":"web"}"#,
-        r#","cause":{"kind":"command"}"#,
-    ];
-    for (i, n) in names.iter().enumerate() {
-        let mut h = 167.0 - (i % 7) as f64 * 1.3;
-        let mut k = i;
-        while h > 0.3 {
-            let cause = causes.get(k % 3).copied().unwrap_or_default();
-            push(h, "wake", n, cause);
-            push(
-                h - 0.01,
-                "ready",
-                n,
-                &format!(",\"took\":{}", 120_000_000 + (k % 9) * 90_000_000),
-            );
-            if k % 23 == 7 {
-                push(
-                    h - 0.4,
-                    "crash",
-                    n,
-                    r#","detail":"exit status 1: connection refused""#,
-                );
-            } else {
-                push(
-                    h - 0.3 - (k % 4) as f64 * 0.5,
-                    "sleep",
-                    n,
-                    r#","cause":{"kind":"idle"}"#,
-                );
-            }
-            h -= 3.5 + (k % 5) as f64 * 1.7;
-            k += 1;
-        }
-    }
-    let mut v: Vec<&str> = out.lines().collect();
-    v.sort_by_key(|l| {
-        l.split("\"time\":\"")
-            .nth(1)
-            .map(|s| s.get(..20).unwrap_or(s))
-            .unwrap_or("")
-    });
-    v.join("\n") + "\n"
-}
-
-/// Activity as the shot asks: its span (`1h`, `24h`, `7d`), one service alone, the find box with words in it.
-pub(crate) fn activity(
-    root: &mut Root,
-    span: Option<&str>,
-    only: Option<&str>,
-    find: Option<&str>,
-    window: &mut Window,
-    cx: &mut Context<Root>,
-) {
-    let Some(a) = root.pages.activity.clone() else {
-        return;
-    };
-    a.update(cx, |a, cx| {
-        if let Some(s) = span {
-            a.set_span(doze_desk::activity::Span::parse(s), cx);
-        }
-        if let Some(n) = only {
-            a.set_only(n, cx);
-        }
-        if let Some(f) = find {
-            a.find_words(f, window, cx);
-        }
-    });
 }
 
 /// The run sheet over Settings › Machine: Repair's plan for a machine with its parts not in place, before it runs, or

@@ -83,16 +83,6 @@ pub(crate) const TABLE: &[Spec] = &[
         true
     ),
     spec!(
-        "Activity",
-        "what happened, when",
-        Activity,
-        ["shift-a"],
-        Global,
-        Some(Go),
-        false,
-        true
-    ),
-    spec!(
         "Settings…",
         "mode, density, the machine",
         Settings,

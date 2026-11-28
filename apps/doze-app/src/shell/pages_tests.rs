@@ -1,5 +1,5 @@
-//! Activity and Settings in a gpui test window over a fixture daemon (a throwaway home): their keys, their ways in and
-//! out, and that a fixture's Settings acts on nothing on this machine (the login item goes to a temporary folder).
+//! Settings in a gpui test window over a fixture daemon (a throwaway home): its keys, its ways in and out, and that a
+//! fixture's Settings acts on nothing on this machine (the login item goes to a temporary folder).
 #![allow(clippy::unwrap_used, clippy::indexing_slicing)]
 
 use gpui::{Entity, TestAppContext, VisualTestContext};
@@ -8,13 +8,6 @@ use super::tests::window;
 use super::{Root, Screen};
 use crate::settings::Section;
 
-fn activity(
-    root: &Entity<Root>,
-    vcx: &mut VisualTestContext,
-) -> Entity<crate::activity::ActivityView> {
-    vcx.update(|_, cx| root.read(cx).pages.activity.clone().unwrap())
-}
-
 fn settings(
     root: &Entity<Root>,
     vcx: &mut VisualTestContext,
@@ -22,70 +15,16 @@ fn settings(
     vcx.update(|_, cx| root.read(cx).pages.settings.clone().unwrap())
 }
 
-/// Waits for Activity's read of the journal (off the UI thread) to land.
-fn landed(root: &Entity<Root>, vcx: &mut VisualTestContext) {
-    let start = std::time::Instant::now();
-    loop {
-        vcx.run_until_parked();
-        let a = activity(root, vcx);
-        if vcx.update(|_, cx| a.read(cx).model.is_some()) {
-            return;
-        }
-        assert!(
-            start.elapsed() < std::time::Duration::from_secs(10),
-            "no activity"
-        );
-        std::thread::sleep(std::time::Duration::from_millis(20));
-    }
-}
-
+/// Activity's old keys (⇧A everywhere, ⇧T on a stack's page) are bound to nothing now: the page stays.
 #[gpui::test]
-fn shift_a_opens_activity_and_its_keys_work(cx: &mut TestAppContext) {
+fn activitys_old_keys_do_nothing(cx: &mut TestAppContext) {
     let (_src, root, vcx) = window(cx, "shop");
-    vcx.simulate_keystrokes("shift-a");
-    landed(&root, vcx);
-    assert!(vcx.update(|_, cx| matches!(root.read(cx).screen, Screen::Activity(_))));
-    let a = activity(&root, vcx);
-    let rows = vcx.update(|_, cx| a.read(cx).shown.len());
-    assert!(rows >= 5, "the shop's services: {rows}");
-    // ] is a week; [ [ an hour.
-    vcx.simulate_keystrokes("]");
-    landed(&root, vcx);
     vcx.run_until_parked();
-    assert_eq!(
-        vcx.update(|_, cx| a.read(cx).span),
-        doze_desk::activity::Span::Week
-    );
-    vcx.simulate_keystrokes("[ [");
+    let before = vcx.update(|_, cx| root.read(cx).screen.clone());
+    assert!(matches!(before, Screen::Stack(_)), "{before:?}");
+    vcx.simulate_keystrokes("shift-a shift-t");
     vcx.run_until_parked();
-    assert_eq!(
-        vcx.update(|_, cx| a.read(cx).span),
-        doze_desk::activity::Span::Hour
-    );
-    // j picks the first service, ⏎ shows it alone, esc lets go of it, esc again goes back to the stack.
-    vcx.simulate_keystrokes("j enter");
-    vcx.run_until_parked();
-    let only = vcx.update(|_, cx| a.read(cx).only.clone());
-    assert!(!only.is_empty());
-    vcx.simulate_keystrokes("escape");
-    vcx.run_until_parked();
-    assert!(vcx.update(|_, cx| a.read(cx).only.is_empty()));
-    vcx.simulate_keystrokes("escape");
-    vcx.run_until_parked();
-    assert!(vcx.update(|_, cx| matches!(root.read(cx).screen, Screen::Stack(_))));
-}
-
-#[gpui::test]
-fn the_find_box_narrows_the_rows(cx: &mut TestAppContext) {
-    let (_src, root, vcx) = window(cx, "shop");
-    vcx.simulate_keystrokes("shift-a");
-    landed(&root, vcx);
-    let a = activity(&root, vcx);
-    let all = vcx.update(|_, cx| a.read(cx).shown.len());
-    vcx.update(|window, cx| a.update(cx, |a, cx| a.find_words("db", window, cx)));
-    vcx.run_until_parked();
-    let found = vcx.update(|_, cx| a.read(cx).shown.len());
-    assert!(found >= 1 && found < all, "{found} of {all}");
+    assert_eq!(vcx.update(|_, cx| root.read(cx).screen.clone()), before);
 }
 
 #[gpui::test]

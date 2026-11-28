@@ -1,6 +1,6 @@
 //! The doze daemon's journal, written and read: every wake, sleep, crash and restart, with what caused it and how
-//! long it took. The app reads it for Activity ("woke in 38 ms, because worker asked") and for Away (what happened
-//! while you were gone).
+//! long it took. `doze why` reads it ("woke in 38 ms, because worker asked"), and the daemon serves its events on the
+//! `journal` topic, which the app reads for Needs you, Away and a service's Recent.
 //!
 //! The format is the Go `internal/journal`'s: one JSON object per line in `<project state>/run/journal.jsonl` (doze-projects
 //! names it), rotated to `<path>.1` when the live file would pass its cap (1 MiB by default), one rotated file

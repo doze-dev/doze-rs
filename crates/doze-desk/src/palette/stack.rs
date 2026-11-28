@@ -43,7 +43,6 @@ pub fn stack_commands(st: &StackView) -> Vec<Row> {
     };
     out.push(Row { note: "its overview".into(), ..cmd("→", format!("Open {name}"), "go show", page(&key, "home", "")) });
     out.push(Row { cli: "doze logs".into(), ..cmd("≡", format!("All logs of {name}"), "tail", page(&key, "logs", "")) });
-    out.push(Row { note: "how long each service slept, what woke it, what crashed".into(), key: "A".into(), ..cmd("◷", format!("Activity of {name}"), "timeline history events savings", page(&key, "activity", "")) });
     if !st.dir.is_empty() {
         out.extend(folder_rows(st, &key));
     }

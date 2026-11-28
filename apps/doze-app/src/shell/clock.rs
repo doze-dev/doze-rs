@@ -78,20 +78,11 @@ impl Root {
                 self.clock.took_state = None;
                 self.clock.origin = None;
                 self.glance(cx);
-                if let Some(a) = self.pages.activity.clone() {
-                    a.update(cx, |a, cx| a.wind(cx));
-                }
             }
             Mode::Use => {
                 self.clock.calm();
                 if let Some(b) = self.clock.pending.take() {
                     self.apply_now(&b, cx);
-                }
-                if let Some(a) = self.pages.activity.clone() {
-                    a.update(cx, |a, cx| {
-                        a.read(cx);
-                        a.wind(cx);
-                    });
                 }
                 self.reread(cx);
                 self.wind(cx);
