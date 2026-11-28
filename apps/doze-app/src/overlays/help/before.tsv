@@ -6,7 +6,6 @@ Global	cmd-0	Home
 Global	cmd-o	Open folder…
 Global	cmd-l	All logs
 Global	shift-l	All logs
-Global	shift-a	Activity
 Global	cmd-,	Settings…
 Global	cmd-[	Back
 Global	cmd-]	Forward
@@ -50,7 +49,6 @@ Overview	enter	Open the service
 Overview	space	Wake or sleep
 Overview	u	Up as last time
 Overview	c	Choose what starts…
-Overview	shift-t	Activity
 Overview	w	Wake
 Overview	s	Sleep
 Overview	r	Restart
@@ -119,14 +117,6 @@ Console	k	Row above
 Console	right	Open the folder
 Console	left	Close the folder
 Console	enter	Open the leaf
-Activity	[	Shorter span
-Activity	]	Longer span
-Activity	up	Service above
-Activity	k	Service above
-Activity	down	Service below
-Activity	j	Service below
-Activity	enter	That service alone
-Activity	/	Find a service
 Settings	up	Part above
 Settings	k	Part above
 Settings	down	Part below

@@ -41,7 +41,7 @@ pub(crate) enum Section {
 }
 
 /// The rail, in its order: everywhere, then the pages as a person meets them, then the words.
-pub(crate) const RAIL: [Section; 13] = [
+pub(crate) const RAIL: [Section; 12] = [
     Section::Keys(Scope::Global),
     Section::Keys(Scope::Library),
     Section::Keys(Scope::Overview),
@@ -50,7 +50,6 @@ pub(crate) const RAIL: [Section; 13] = [
     Section::Keys(Scope::Map),
     Section::Keys(Scope::Grid),
     Section::Keys(Scope::Console),
-    Section::Keys(Scope::Activity),
     Section::Keys(Scope::Settings),
     Section::Keys(Scope::Palette),
     Section::Keys(Scope::Bell),
@@ -71,7 +70,6 @@ impl Section {
                 Scope::Map => "Map",
                 Scope::Grid => "Grid",
                 Scope::Console => "A module's console",
-                Scope::Activity => "Activity",
                 Scope::Settings => "Settings",
                 Scope::Palette => "⌘K",
                 Scope::Bell => "Needs you",

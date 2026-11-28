@@ -56,7 +56,7 @@ impl Root {
         }
     }
 
-    /// A page: a stack's overview, a service's page, logs (filtered), activity.
+    /// A page: a stack's overview, a service's page, logs (filtered), Settings.
     fn open_page(&mut self, d: &Doing, window: &mut Window, cx: &mut Context<Self>) {
         let key = StackKey::new(&d.stack_key);
         match (d.page.as_str(), d.target.is_empty()) {
@@ -70,18 +70,6 @@ impl Root {
                     let only = std::collections::BTreeSet::from([d.target.clone()]);
                     l.update(cx, |l, cx| l.set_show(Some(only), cx));
                 }
-            }
-            ("activity", _) => {
-                self.go(Screen::Activity(key), window, cx);
-                if let Some(a) = self.pages.activity.clone() {
-                    let only = d.target.clone();
-                    a.update(cx, |a, cx| {
-                        if a.only != only {
-                            a.set_only(&only, cx);
-                        }
-                    });
-                }
-                return;
             }
             ("settings", _) => {
                 let at = crate::settings::Section::parse(&d.target);

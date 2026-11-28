@@ -240,17 +240,6 @@ fn stage(root: &mut Root, window: &mut gpui::Window, cx: &mut gpui::Context<Root
             }
         }
         Screen::Logs => root.open_logs(window, cx),
-        Screen::Activity => {
-            root.open_activity(window, cx);
-            crate::shot_m3::activity(
-                root,
-                s.tab.as_deref(),
-                s.select.as_deref(),
-                s.filter.as_deref(),
-                window,
-                cx,
-            );
-        }
         Screen::General | Screen::Machine | Screen::About => {
             let at = match s.screen {
                 Screen::Machine => crate::settings::Section::Machine,

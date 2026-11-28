@@ -63,7 +63,7 @@ fn source(b: &Bench) -> Result<(Rc<crate::source::Source>, Option<Rc<real::Real>
 fn pump(hub: doze_desk::Hub, cx: &mut App) {
     cx.spawn(async move |cx: &mut AsyncApp| {
         while let Ok(batch) = hub.updates().recv().await {
-            cx.update(|cx| crate::app::take(&hub, &batch, WINDOW.with(Cell::get), cx));
+            cx.update(|cx| crate::app::take(&batch, WINDOW.with(Cell::get), cx));
         }
     })
     .detach();

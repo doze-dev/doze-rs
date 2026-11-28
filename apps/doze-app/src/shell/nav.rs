@@ -21,8 +21,6 @@ pub(crate) enum Screen {
     Logs(StackKey),
     /// A folder with no doze.hcl yet: the three ways to start.
     Empty(std::path::PathBuf),
-    /// What a stack did over an hour, a day, a week.
-    Activity(StackKey),
     /// Settings: General, Machine, About.
     Settings,
 }
@@ -32,9 +30,7 @@ impl Screen {
     pub(crate) fn key(&self) -> Option<&StackKey> {
         match self {
             Screen::Library | Screen::Empty(_) | Screen::Settings => None,
-            Screen::Stack(k) | Screen::Instance(k, _) | Screen::Logs(k) | Screen::Activity(k) => {
-                Some(k)
-            }
+            Screen::Stack(k) | Screen::Instance(k, _) | Screen::Logs(k) => Some(k),
         }
     }
 }
@@ -66,7 +62,6 @@ pub(crate) fn title(screen: &Screen, stack: &str, logs: bool) -> String {
         Screen::Instance(_, name) if logs => format!("{name} logs · {stack} · doze"),
         Screen::Instance(_, name) => format!("{name} · {stack} · doze"),
         Screen::Logs(_) => format!("All logs · {stack} · doze"),
-        Screen::Activity(_) => format!("Activity · {stack} · doze"),
         Screen::Empty(_) => "A folder · doze".into(),
         Screen::Stack(_) if !stack.is_empty() => format!("{stack} · doze"),
         Screen::Stack(_) => "doze".into(),
@@ -133,11 +128,6 @@ impl Root {
                 self.library.update(cx, |l, cx| l.refresh(cx));
                 let f = self.library.focus_handle(cx);
                 window.focus(&f, cx);
-            }
-            Screen::Activity(k) => {
-                self.inside = None;
-                self.overview.update(cx, |o, _| o.hide());
-                self.enter_activity(k, window, cx);
             }
             Screen::Settings => {
                 self.inside = None;
@@ -289,12 +279,8 @@ mod tests {
             "api logs · shop · doze"
         );
         assert_eq!(
-            title(&Screen::Logs(k.clone()), "shop", false),
+            title(&Screen::Logs(k), "shop", false),
             "All logs · shop · doze"
-        );
-        assert_eq!(
-            title(&Screen::Activity(k), "shop", false),
-            "Activity · shop · doze"
         );
         assert_eq!(
             title(&Screen::Empty("/code/new".into()), "", false),

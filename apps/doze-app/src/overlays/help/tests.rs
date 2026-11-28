@@ -54,7 +54,8 @@ fn every_key_and_word_from_before_is_still_on_the_sheet() {
     let new: Vec<_> = now.difference(&before).collect();
     assert!(lost.is_empty(), "gone from the sheet: {lost:?}");
     assert!(new.is_empty(), "on the sheet but not before: {new:?}");
-    assert_eq!(before.len(), 160);
+    // 160 before Activity went (2026-11-28) with its ten lines: ⇧A, ⇧T and the page's own eight.
+    assert_eq!(before.len(), 150);
 }
 
 #[test]
@@ -107,19 +108,6 @@ fn runs_fold_and_digits_span() {
     assert!(
         map.iter()
             .any(|l| l.label == "The nearest card" && l.keys == ["↑↓←→", "hjkl"])
-    );
-    // Activity's ⏎ and / are lines of their own (the old sheet folded them into Move and showed two chips of four).
-    let act = model::scope_lines(Scope::Activity);
-    let labels: Vec<&str> = act.iter().map(|l| l.label.as_str()).collect();
-    assert_eq!(
-        labels,
-        [
-            "Shorter span",
-            "Longer span",
-            "Move",
-            "That service alone",
-            "Find a service"
-        ]
     );
 }
 

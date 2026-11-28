@@ -720,6 +720,8 @@ The menu bar's own Needs you list, notification rules and service submenus cost 
 
 ### M3 Activity and Settings (steps 3.3, 3.4), measured 2026-11-13
 
+Historical: the owner removed Activity on 2026-11-28 ("very little use"); the figures below are as measured with it in.
+
 Same machine and method (`release-app`; `doze-app bench --fixture larder --idle 30`, footprint of that pid at 12 s and
 27 s, two runs).
 
@@ -740,7 +742,7 @@ uses `curl` (`doze_desk::settings::update::fetch`): no bytes, no crates, and the
 asked (never in the background), so a subprocess per check costs nothing at rest. With no `curl`, About says it could not
 reach GitHub. When the Rust CLI has `doze version --check`, the app asks it instead.
 
-Activity at rest: it reads the journal again every ten seconds while shown (as Go's page did), off the UI thread, and
+Activity at rest (historical: Activity was removed 2026-11-28): it reads the journal again every ten seconds while shown (as Go's page did), off the UI thread, and
 redraws only when a figure changed; the strips are painted, so a 2,000-service stack builds only the rows in view
 (`doze-desk` lays out 2,000 services over 10,000 events in a few milliseconds, `tests/activity.rs`).
 
@@ -1609,7 +1611,7 @@ so no bench had ever measured a window following a live daemon.
 and daemon (as `tests/real_daemon.rs`), and a 14-service stack (nine bun HTTP servers, two `nc` listeners, two bun
 workers logging every 3 s, a bun driver hitting four of the servers every 0.7 s; seven dozing ones fell asleep after
 their two minutes, so the stack had both kinds). `doze-app bench` now opens the window on a page (`--screen
-home|tiles|list|service|logs|activity`, `--select NAME`), takes the hub's batches as a launch does (`app::take`),
+home|tiles|list|service|logs|activity`, `--select NAME`; `activity` went with the page on 2026-11-28), takes the hub's batches as a launch does (`app::take`),
 floats the window over the others (`--on-top`, `doze_os::ui::float_over`: a covered window is sent no frames, and
 the first readings here came from a window the system hid), counts the frames the renderer committed over 120 s after
 a 3 s settle, samples `footprint` every 5 s, reads the footprint again once 15 s have passed with no frame
@@ -1638,7 +1640,8 @@ redraw against the frames (a temporary `eprintln` trace, not kept).
    Library and the stack page heard the facts themselves with fine words (to the second) on a glanced window. A
    report the same as the last now wakes nothing (unless a repair waits for a fresh one), and the root alone hears the
    facts and reads the page shown in the window's words (`clock::hear_facts`).
-6. *Activity's clock ticked every 10 s for as long as the page lived, hidden or not.* It now waits 10 s in use, 60 s
+6. *Activity's clock ticked every 10 s for as long as the page lived, hidden or not* (historical: Activity was removed
+   2026-11-28). It now waits 10 s in use, 60 s
    glanced at, and stops while hidden; the window winds it again when it shows (`ActivityView::wind`).
 7. *One change, many frames.* A colour or a knob that changed ran its 120 ms transition (a dozen frames), and
    gpui-component's `AreaChart` (a service page's meters) re-derives its hover every frame: after a relayout under a
@@ -1662,7 +1665,7 @@ stack above; before = app-design 723f5907e with only the bench's harness added; 
 | Stack page, List | 68 → 0–4 | **224 MB** throughout | 74 / 74 / 78 | 74 | 38 → 38 |
 | A service's page (api, its logs following) | 121 → 0–3 | **255–257 MB** throughout | 82 / 83 / 92 | 83 (98 before PATCHES §6) | 40 → 40 |
 | All logs | 119 → 4 | **231 MB** throughout | 79 / 79 / 83 | 79 | 41 → 39 |
-| Activity | 2 → 2 | 76–77 MB | 75 / 75 / 80 | 75 | 41 → 39 |
+| Activity (historical: removed 2026-11-28) | 2 → 2 | 76–77 MB | 75 / 75 / 80 | 75 | 41 → 39 |
 
 The same through CI's check, `bench --real 13` (a fresh stack of sh and `nc`, its minute words turning; release-app, the
 window on top; before = the same harness over 723f5907e):

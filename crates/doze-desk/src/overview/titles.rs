@@ -6,10 +6,6 @@ use super::Row;
 /// The paused lock (`.lock`).
 pub const LOCK: &str = "enabled = false in doze.hcl: only the file brings it back";
 
-/// The head's Activity button.
-pub const ACTIVITY: &str =
-    "How long each service slept, what woke it, what crashed: the last hour, day or week (A)";
-
 /// The head's All logs button.
 pub const ALL_LOGS: &str = "Every service's logs, merged (L)";
 

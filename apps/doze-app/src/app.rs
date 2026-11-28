@@ -176,7 +176,7 @@ fn pump(cx: &mut App, hub: Hub) {
         while let Ok(batch) = hub.updates().recv().await {
             cx.update(|cx| {
                 let window = cx.try_global::<State>().and_then(|s| s.window);
-                take(&hub, &batch, window, cx);
+                take(&batch, window, cx);
             });
         }
     })
@@ -200,16 +200,10 @@ pub(crate) fn window_gone(cx: &mut App) {
     .detach();
 }
 
-/// A batch taken in: the menu-bar item and the notifications, Activity's memory, and the window when one is open. The
+/// A batch taken in: the menu-bar item and the notifications, and the window when one is open. The
 /// bench takes its batches here too, so its window is measured as a launch's is.
-pub(crate) fn take(
-    hub: &Hub,
-    batch: &doze_desk::Batch,
-    window: Option<WindowHandle<Root>>,
-    cx: &mut App,
-) {
+pub(crate) fn take(batch: &doze_desk::Batch, window: Option<WindowHandle<Root>>, cx: &mut App) {
     crate::around::on_batch(cx);
-    crate::activity::remember_batch(hub, batch, cx);
     if let Some(h) = window {
         let _ = h.update(cx, |root, _, cx| root.apply(batch, cx));
     }

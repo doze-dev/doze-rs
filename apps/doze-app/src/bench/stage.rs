@@ -1,5 +1,5 @@
 //! `bench --screen`: the page the idle window is left on, so each page's own redraws are counted: Home (the Library),
-//! a stack's page in one of its views, a service's page, All logs, Activity. The stack is the one shown, else the
+//! a stack's page in one of its views, a service's page, All logs. The stack is the one shown, else the
 //! first running one.
 
 use gpui::{Context, Window};
@@ -21,7 +21,6 @@ pub(crate) enum Screen {
     /// A service's page (`--select NAME`, else the stack's first service).
     Service,
     Logs,
-    Activity,
 }
 
 impl Screen {
@@ -34,7 +33,6 @@ impl Screen {
             "grid" => Screen::Grid,
             "service" | "instance" => Screen::Service,
             "logs" => Screen::Logs,
-            "activity" => Screen::Activity,
             _ => return None,
         })
     }
@@ -94,7 +92,6 @@ pub(crate) fn go(
             }
         }
         Screen::Logs => root.open_logs(window, cx),
-        Screen::Activity => root.open_activity(window, cx),
         _ => {}
     }
 }

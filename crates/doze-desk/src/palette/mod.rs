@@ -156,7 +156,7 @@ pub enum DoKind {
     /// Runs `verb` on `target` (or on the whole stack), through its dialog when `ask`.
     #[default]
     Verb,
-    /// Goes to `page` (`home`, `instance`, `logs`, `activity`) of `target`; `text` filters logs.
+    /// Goes to `page` (`home`, `instance`, `logs`, `settings`) of `target`; `text` filters logs.
     Page,
     /// Copies `text`.
     Copy,
