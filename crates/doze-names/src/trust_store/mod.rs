@@ -93,7 +93,7 @@ thread_local! {
 }
 
 /// For a test on this thread: what [`trusted_doze_roots`] answers in place of the machine's store (`None`: the store).
-#[cfg(test)]
+#[cfg(all(test, feature = "setup"))] // WHY: only the setup tests (trust_homes_tests) pretend; a netd-only build has none
 pub(crate) fn pretend_store_holds(fps: Option<Vec<String>>) {
     STORE_HOLDS.with(|s| *s.borrow_mut() = fps);
 }
