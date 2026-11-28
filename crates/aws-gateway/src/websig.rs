@@ -7,7 +7,7 @@
 //! trust, once its scope (the service's signing name) and its time are checked.
 
 use aws_auth::claim::Claim;
-use aws_auth::{AuthError, Credential, Credentials, Endpoint, Secret, WithExtra, begin};
+use aws_auth::{AuthError, Credential, Credentials, Endpoint, Secret, WithExtra, begin_claimed};
 use aws_wire::service::WebSignature;
 use aws_wire::{Family, from_auth};
 use bytes::Bytes;
@@ -66,12 +66,12 @@ pub(crate) async fn signature_of(
             session_token: claim.session_token.clone(),
             expires_at: None,
         });
-        return match begin(parts, now, endpoint, &anyone) {
+        return match begin_claimed(&claim, now, endpoint, &anyone) {
             Ok(_) => signed,
             Err(e) => refused(&e),
         };
     }
-    let finished = begin(parts, now, endpoint, &known).and_then(|pending| {
+    let finished = begin_claimed(&claim, now, endpoint, &known).and_then(|pending| {
         let hash = pending
             .needs_body_hash()
             .then(|| aws_auth::key::sha256_hex(body));

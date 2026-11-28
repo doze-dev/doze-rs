@@ -32,6 +32,7 @@ describe("the Needs a look chips as a filter", () => {
   });
   test("each kind is told apart by lookOf", () => {
     expect(lookOf(call({ function_error: "Unhandled" }))).toBe("function-error");
+    expect(lookOf(call({ action: "Invoke", status: 202, dropped: true }))).toBe("dropped");
     expect(lookOf(call({ would_be_denied: true }))).toBe("would-be-denied");
     expect(lookOf(call({ outcome: "not-built", status: 501 }))).toBe("not-built");
     expect(lookOf(call({ outcome: "denied", status: 403 }))).toBe("denied");

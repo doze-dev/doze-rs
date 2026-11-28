@@ -39,6 +39,14 @@ for (const [method, level] of Object.entries(LEVELS)) {
   };
 }
 
+// What the handler wrote, written out before its answer is posted: a write to a pipe is asynchronous on macOS, and once Lambda has
+// the answer it takes the invocation's lines and gives the process back, so a line still queued here would land in the next
+// invocation (and its time). A write's callback runs once every write before it has gone.
+function drained() {
+  const one = (s) => (s.writableLength > 0 ? new Promise((done) => s.write("", () => done())) : Promise.resolve());
+  return Promise.all([one(process.stdout), one(process.stderr)]);
+}
+
 // ---- the handler ----
 
 async function loadHandler(spec) {
@@ -169,10 +177,12 @@ async function main() {
     }
     try {
       const result = await invoke(handler, event, context(requestId, resp.headers));
+      await drained();
       await post(`invocation/${requestId}/response`, result === undefined ? "null" : JSON.stringify(result));
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e));
       console.error(`[ERROR] ${err.name}: ${err.message}\n${err.stack || ""}`);
+      await drained();
       await post(`invocation/${requestId}/error`, errorBody(err), err.name);
     }
   }

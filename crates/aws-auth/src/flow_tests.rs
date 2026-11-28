@@ -5,10 +5,11 @@
 use http::request::Parts;
 
 use crate::canonical::{Flavor, canonical_request, string_to_sign};
+use crate::claim::Claim;
 use crate::creds::{Credential, Secret, StaticCredentials};
 use crate::error::AuthError;
 use crate::key::{SigningKey, sha256_hex};
-use crate::verify::{Endpoint, begin};
+use crate::verify::{Endpoint, begin, begin_claimed};
 
 const SECRET: &str = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
 const AKID: &str = "AKIAIOSFODNN7EXAMPLE";
@@ -105,6 +106,28 @@ fn a_request_with_no_signed_payload_hash_is_checked_once_the_body_hash_is_suppli
         ),
         ("us-east-1", "sqs", T0)
     );
+}
+
+/// A claim the gateway has already read is checked as it is, not read from the head again: with the `Authorization` header gone
+/// from the parts (it is not one of the signed headers), the borrowed claim still verifies, where reading the head finds nothing.
+#[test]
+fn a_claim_already_read_is_checked_without_reading_the_head_again() {
+    let body = r#"{"QueueNamePrefix":"a"}"#;
+    let mut parts = signed_sqs(body, None, "sqs");
+    let claim = Claim::parse(&parts).unwrap().unwrap();
+    parts.headers.remove("authorization");
+    assert!(matches!(
+        begin(&parts, T0, SQS, &creds(None, None)),
+        Err(AuthError::Missing)
+    ));
+    let pending = begin_claimed(&claim, T0, SQS, &creds(None, None)).unwrap();
+    let verified = pending
+        .finish(&parts, Some(&sha256_hex(body.as_bytes())))
+        .unwrap();
+    assert_eq!(verified.access_key_id(), AKID);
+    assert_eq!(verified.scope().service, "sqs");
+    // The claim is the caller's still.
+    assert_eq!(claim.access_key_id, AKID);
 }
 
 #[test]
@@ -236,4 +259,27 @@ fn a_region_that_could_name_a_directory_is_not_a_scope() {
             "{region:?}"
         );
     }
+}
+
+/// What `begin_claimed` saves a verified request: one reading of the claim from its head. `cargo test -p aws-auth --release
+/// claim_read_bench -- --ignored --nocapture`.
+#[test]
+#[ignore = "a measurement, not a check"]
+fn claim_read_bench() {
+    let parts = signed_sqs("{}", Some("token"), "sqs");
+    let n = 200_000_u32;
+    let began = std::time::Instant::now();
+    for _ in 0..n {
+        std::hint::black_box(Claim::parse(std::hint::black_box(&parts)).unwrap());
+    }
+    let each = began.elapsed() / n;
+    let claim = Claim::parse(&parts).unwrap().unwrap();
+    let began = std::time::Instant::now();
+    for _ in 0..n {
+        std::hint::black_box(begin_claimed(&claim, T0, SQS, &creds(Some("token"), None)).unwrap());
+    }
+    println!(
+        "Claim::parse: {each:?} a request; begin_claimed: {:?}",
+        began.elapsed() / n
+    );
 }

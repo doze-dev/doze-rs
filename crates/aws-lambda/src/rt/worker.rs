@@ -18,6 +18,9 @@ use super::api::{Shared, Work, serve};
 use super::pump::{Held, Lines, pump};
 use super::spec::{Spec, environment, launch};
 
+/// The order processes were given back in, across the pool.
+static TURNS: AtomicU64 = AtomicU64::new(0);
+
 /// A line the process wrote, with when we read it.
 pub(crate) type Line = (i64, String);
 
@@ -37,6 +40,8 @@ pub(crate) struct Worker {
     #[cfg(unix)]
     pipes: Vec<std::os::fd::OwnedFd>,
     last_used_ms: AtomicI64,
+    /// When it was last given back, as a turn of [`TURNS`]: two processes given back in the same millisecond are still in order.
+    last_used_turn: AtomicU64,
     /// Whether it has served an invocation (the first one pays for the start and reports it as `Init Duration`).
     pub(crate) warm: AtomicBool,
     /// How the process ended, once it has.
@@ -86,6 +91,7 @@ impl Worker {
             #[cfg(unix)]
             pipes: second_handles(out.as_ref(), err.as_ref()),
             last_used_ms: AtomicI64::new(s.clock.now_ms()),
+            last_used_turn: AtomicU64::new(TURNS.fetch_add(1, Ordering::Relaxed)),
             warm: AtomicBool::new(false),
             exit: Mutex::new(None),
         });
@@ -126,6 +132,8 @@ impl Worker {
     /// Gives the worker back after an invocation.
     pub(crate) fn release(&self, now_ms: i64) {
         self.last_used_ms.store(now_ms, Ordering::Release);
+        self.last_used_turn
+            .store(TURNS.fetch_add(1, Ordering::Relaxed), Ordering::Release);
         self.busy.store(false, Ordering::Release);
         if self.retired.load(Ordering::Acquire) {
             self.kill();
@@ -136,10 +144,17 @@ impl Worker {
         self.dead.load(Ordering::Acquire)
     }
 
-    /// Whether it is alive and waiting for an invocation, and since when: what the pool's cap ends first.
-    pub(crate) fn idle_since(&self) -> Option<i64> {
+    /// Whether it is alive and waiting for an invocation, and since when (the millisecond, then the turn within it): what the pool's
+    /// cap ends first. The millisecond alone tied a warm invocation answered within the millisecond another process was given back,
+    /// and the tie went to whichever process the map listed first.
+    pub(crate) fn idle_since(&self) -> Option<(i64, u64)> {
         let free = !self.busy.load(Ordering::Acquire) && !self.is_dead();
-        free.then(|| self.last_used_ms.load(Ordering::Acquire))
+        free.then(|| {
+            (
+                self.last_used_ms.load(Ordering::Acquire),
+                self.last_used_turn.load(Ordering::Acquire),
+            )
+        })
     }
 
     /// Whether it has been told to end once it is idle.

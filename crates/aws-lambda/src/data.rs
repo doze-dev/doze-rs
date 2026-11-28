@@ -163,8 +163,13 @@ impl Core {
         if let Some(ack) = saved {
             ack.await.map_err(|e| format!("could not save: {e}"))?;
         }
-        // The rows are on disk first: a crash now leaves code nothing points at, which `unused` and the next delete sweep.
-        done.freed = files.iter().map(|p| remove(p)).sum::<u64>() + self.compact()?;
+        // The rows are on disk first: a crash now leaves code nothing points at, which `unused` and the next delete sweep. The code is
+        // removed and the file compacted off the event loop, a job each on the blocking pool: all the code of a region can be large.
+        let removed =
+            tokio::task::spawn_blocking(move || files.iter().map(|p| remove(p)).sum::<u64>())
+                .await
+                .map_err(|e| format!("could not remove the code: {e}"))?;
+        done.freed = removed + self.compact().await?;
         Ok((done, names))
     }
 
@@ -186,10 +191,14 @@ impl Core {
         self.live.busy.clear();
     }
 
-    /// Compacts the file; answers the bytes freed.
-    pub(crate) fn compact(&mut self) -> Result<u64, String> {
+    /// Compacts the file off the event loop (the store's blocking pool); answers the bytes freed.
+    pub(crate) async fn compact(&mut self) -> Result<u64, String> {
         match self.db.as_mut() {
-            Some(db) => db.compact().map(|c| c.freed()).map_err(|e| e.to_string()),
+            Some(db) => db
+                .compact_off_loop()
+                .await
+                .map(|c| c.freed())
+                .map_err(|e| e.to_string()),
             None => Ok(0),
         }
     }

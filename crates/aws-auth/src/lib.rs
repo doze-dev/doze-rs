@@ -23,7 +23,7 @@ pub mod verify;
 
 pub use creds::{Credential, CredentialSource, Credentials, Secret, StaticCredentials, WithExtra};
 pub use error::AuthError;
-pub use verify::{Endpoint, Pending, Scope, Verified, begin};
+pub use verify::{Endpoint, Pending, Scope, Verified, begin, begin_claimed};
 
 #[cfg(test)]
 mod crosscheck;

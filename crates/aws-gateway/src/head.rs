@@ -1,7 +1,7 @@
 //! The head of a request: who is calling, its signature, its session token and endpoint, and reading (and inflating) its body.
 
 use aws_auth::claim::Claim;
-use aws_auth::{AuthError, Endpoint, begin};
+use aws_auth::{AuthError, Endpoint, begin_claimed};
 use aws_wire::ApiError;
 use aws_wire::service::Caller;
 use bytes::Bytes;
@@ -82,12 +82,11 @@ pub(crate) fn endpoint_of(parts: &Parts) -> String {
     endpoint
 }
 
-/// Checks the head of the request in `Verify` mode; `None` in `Trust` mode.
-pub(crate) async fn authenticate(
+/// Checks the head of the request in `Verify` mode, from the claim already read from it (not read again); `None` in `Trust` mode.
+pub(crate) async fn authenticate<'c>(
     shared: &Shared,
-    parts: &Parts,
-    claim: &Claim,
-) -> Result<Option<aws_auth::Pending>, AuthError> {
+    claim: &'c Claim,
+) -> Result<Option<aws_auth::Pending<'c>>, AuthError> {
     let signing_name = claim.service.as_str();
     let Auth::Verify(creds) = &shared.config.auth else {
         return Ok(None);
@@ -115,7 +114,7 @@ pub(crate) async fn authenticate(
         fixed: creds.as_ref(),
         extra: extra.as_ref().map(|(id, c)| (id.as_str(), c)),
     };
-    begin(parts, now, endpoint, &with).map(Some)
+    begin_claimed(claim, now, endpoint, &with).map(Some)
 }
 
 pub(crate) async fn read_body(body: Incoming, limit: usize) -> Result<Bytes, ApiError> {

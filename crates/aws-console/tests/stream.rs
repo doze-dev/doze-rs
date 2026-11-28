@@ -60,6 +60,19 @@ async fn read_until(s: &mut TcpStream, needle: &str, within: Duration) -> String
     seen
 }
 
+/// `text` without the HTTP chunk framing (`\r\n<hex>\r\n`), which can fall inside an event's data once it is longer than one
+/// chunk; the events' own lines end in `\n` alone.
+fn unchunked(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for piece in text.split("\r\n") {
+        let framing = !piece.is_empty() && piece.chars().all(|c| c.is_ascii_hexdigit());
+        if !framing {
+            out.push_str(piece);
+        }
+    }
+    out
+}
+
 /// Reads the `ready` event (its id comes before its data).
 async fn ready(s: &mut TcpStream) -> String {
     read_until(s, "\"reset\":", Duration::from_secs(2)).await
@@ -111,7 +124,19 @@ async fn a_tail_opens_with_ready_is_silent_while_nothing_is_called_and_sends_a_c
     for _ in 0..40 {
         recorder.record(&sqs_call("ReceiveMessage", 200, ""), 2_000);
     }
-    let burst = read_until(&mut s, "\"seq\":41", Duration::from_secs(3)).await;
+    // The event is longer than one read: it is read to its end (an event ends with a blank line).
+    let mut raw = read_until(&mut s, "\"seq\":41", Duration::from_secs(3)).await;
+    for _ in 0..10 {
+        let ended = unchunked(&raw)
+            .split("\"seq\":41")
+            .nth(1)
+            .is_some_and(|rest| rest.contains("\n\n"));
+        if ended {
+            break;
+        }
+        raw.push_str(&read_some(&mut s, Duration::from_millis(500)).await);
+    }
+    let burst = unchunked(&raw);
     assert_eq!(burst.matches("event: calls").count(), 1, "{burst}");
     assert_eq!(
         burst.matches("\"action\":\"ReceiveMessage\"").count(),

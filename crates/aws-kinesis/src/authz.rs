@@ -1,9 +1,10 @@
 //! What a request asks to do, for the authorizer: the IAM action (`kinesis:PutRecord`) and the ARN of the stream it names.
 
 use aws_model_kinesis::Operation;
+use aws_model_kinesis::tables::TABLES;
 use aws_peers::Need;
+use aws_peers::input::In;
 use aws_wire::service::Call;
-use serde_json::Value;
 
 use crate::model::stream_arn;
 use crate::req::name_of_arn;
@@ -14,8 +15,9 @@ pub(crate) fn needs(call: &Call) -> Vec<Need> {
     let Some(op) = Operation::from_index(call.op) else {
         return Vec::new();
     };
-    let body: Value = serde_json::from_str(&call.body).unwrap_or(Value::Null);
-    let text = |key: &str| body.get(key).and_then(Value::as_str);
+    // Read from the input the gateway decoded, not by parsing the body again (a 5 MB PutRecords batch).
+    let body = In::of(&TABLES, call);
+    let text = |key: &str| body.text(key);
     let (region, account) = (&call.caller.region, &call.caller.account_id);
     let action = format!("kinesis:{op:?}");
     let resource = match op {

@@ -1,7 +1,10 @@
 //! The pool's limits and its cleanliness: one Runtime API connection per process, a cap on processes in all with the longest idle
 //! one making room, no entry kept for a version nothing runs, and nothing a process started outliving it, however it ended.
 
+use std::sync::Arc;
 use std::time::Duration;
+
+use doze_runtime::ManualClock;
 
 use serde_json::json;
 
@@ -31,19 +34,23 @@ async fn the_python_client_keeps_one_connection_to_the_runtime_api() {
     w.stop().await;
 }
 
+/// Before: idle longest was the millisecond a process was given back, and a warm invocation answered within the millisecond the
+/// other process was given back tied with it; the tie went to whichever the pool's map listed first (four failures in 45 runs of
+/// the crate). On a clock that does not move every release is the same millisecond, and the order still holds.
 #[tokio::test]
 async fn a_full_pool_ends_the_process_idle_longest_to_make_room() {
     if !have("python3") {
         return;
     }
-    let w = World::with_config(Config {
+    let config = Config {
         quiet: true,
         runtime: RuntimeConfig {
             max_processes: 2,
             ..RuntimeConfig::default()
         },
         ..Config::default()
-    });
+    };
+    let w = World::with_clock(config, Arc::new(ManualClock::at(1_700_000_000_000)));
     for name in ["a", "b", "c"] {
         w.create(
             name,
@@ -59,10 +66,21 @@ async fn a_full_pool_ends_the_process_idle_longest_to_make_room() {
     // "b" has waited longest: "c" takes its place.
     assert_eq!(w.invoke("c", &json!({"n": 3})).await["Payload"]["n"], 3);
     let rt = &w.lambda.inner.rt;
-    w.eventually("b's process is gone", || async {
-        rt.alive("us-east-1/b") == 0
-    })
-    .await;
+    for _ in 0..200 {
+        if rt.alive("us-east-1/b") == 0 {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    let alive = |f: &str| rt.alive(&format!("us-east-1/{f}"));
+    assert_eq!(
+        alive("b"),
+        0,
+        "b's process is gone: a {} b {} c {}",
+        alive("a"),
+        alive("b"),
+        alive("c")
+    );
     assert_eq!((rt.alive("us-east-1/a"), rt.alive("us-east-1/c")), (1, 1));
     w.stop().await;
 }

@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use aws_core::base64;
 use aws_wire::ApiError;
+use aws_wire::rest::RestReply;
 use aws_wire::service::Call;
 use bytes::Bytes;
 use serde_json::{Map, Value, json};
@@ -63,8 +64,8 @@ pub(crate) fn client_context_of(r: &Req) -> Option<String> {
     String::from_utf8(bytes).ok()
 }
 
-/// The answer of a synchronous invoke.
-pub(crate) fn sync_reply(out: &RunOut, executed: &str, tail: bool) -> Value {
+/// The answer of a synchronous invoke. The payload is not in it: the reply carries those bytes whole beside it (`answered`).
+fn sync_reply(out: &RunOut, executed: &str, tail: bool) -> Value {
     let mut reply = Map::new();
     reply.insert("StatusCode".into(), json!(200));
     reply.insert("ExecutedVersion".into(), json!(executed));
@@ -77,8 +78,26 @@ pub(crate) fn sync_reply(out: &RunOut, executed: &str, tail: bool) -> Value {
         let cut = bytes.get(from..).unwrap_or(bytes);
         reply.insert("LogResult".into(), json!(base64::encode(cut)));
     }
-    reply.insert("Payload".into(), json!(base64::encode(&out.payload)));
     Value::Object(reply)
+}
+
+/// The answer of an asynchronous invoke: `202`, whether the event was queued or dropped (AWS accepts it either way). A drop is
+/// marked for the console's Live record (`summary::DROPPED`, never sent on the wire).
+pub(crate) fn accepted(kept: bool) -> Value {
+    if kept {
+        json!({"StatusCode": 202})
+    } else {
+        json!({"StatusCode": 202, (aws_peers::summary::DROPPED): true})
+    }
+}
+
+/// The reply of a synchronous invoke: its JSON, and the function's answer held whole beside it, never written as base64 and read back.
+pub(crate) fn answered(out: RunOut, executed: &str, tail: bool) -> RestReply {
+    RestReply {
+        json: sync_reply(&out, executed, tail),
+        body: Some(aws_wire::rest::whole(out.payload)),
+        ..RestReply::default()
+    }
 }
 
 pub(crate) fn trace_of(call: &Call) -> String {
@@ -177,6 +196,28 @@ mod tests {
             e.message.starts_with("Could not parse request body into json: Could not parse payload into json: Unexpected character ('n' (code 110)): was expecting double-quote to start field name\n at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); line: 1, column: 2]"),
             "{}",
             e.message
+        );
+    }
+
+    /// Before: an event dropped by a full queue answered as any other `202`, so the console's Live record showed nothing. The drop is
+    /// read as the call's summary, and the answer on the wire stays AWS's.
+    #[test]
+    fn a_dropped_event_is_marked_for_the_record_and_not_on_the_wire() {
+        use aws_peers::summary::{Kind, Summary, from_output};
+        let invoke = crate::TABLES.find_op("Invoke").unwrap_or_default();
+        let read = |v: &Value| {
+            let mut s = Summary::NONE;
+            from_output("Lambda", "Invoke", v, &mut s);
+            s.kind
+        };
+        assert_eq!(read(&accepted(false)), Kind::Dropped);
+        assert_eq!(read(&accepted(true)), Kind::None);
+        let wire = aws_wire::rest::jsonout::render(&crate::TABLES, invoke, &accepted(false), None);
+        assert_eq!((wire.status, wire.body.len()), (202, 0));
+        assert!(
+            wire.headers.iter().all(|(k, _)| !k.contains("doze")),
+            "{:?}",
+            wire.headers
         );
     }
 }

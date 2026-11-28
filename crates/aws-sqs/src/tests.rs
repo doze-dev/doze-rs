@@ -414,6 +414,7 @@ fn output_json(op: Operation, out: &aws_wire::service::Output) -> Value {
     serde_json::from_slice(&bytes).unwrap()
 }
 
+mod authz;
 mod data;
 mod encryption;
 mod forced;

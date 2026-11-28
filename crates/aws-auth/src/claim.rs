@@ -16,7 +16,7 @@ pub enum Placement {
 }
 
 /// Everything a request claims about its own signature.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Claim {
     pub placement: Placement,
     pub access_key_id: String,

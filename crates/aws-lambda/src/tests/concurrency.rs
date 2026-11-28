@@ -10,8 +10,9 @@ use super::{World, have};
 /// Marks itself in flight in the directory its message names, waits, and prints how many were in flight with it.
 const OVERLAP: &[u8] = b"import os, time, uuid\ndef handler(event, context):\n    d = event['Records'][0]['body']\n    me = os.path.join(d, uuid.uuid4().hex)\n    open(me, 'w').close()\n    time.sleep(0.8)\n    print('SEEN', len(os.listdir(d)))\n    os.remove(me)\n    return {}\n";
 
-/// Prints each record's key and data, in the order it was given them.
-const KEYS: &[u8] = b"import base64\ndef handler(event, context):\n    for r in event['Records']:\n        print('REC', r['kinesis']['partitionKey'], base64.b64decode(r['kinesis']['data']).decode())\n    return {}\n";
+/// Prints each record's key and data, in the order it was given them, with the nanosecond it was handled: lanes run in processes
+/// of their own, each with its log stream, and the log orders lines by the millisecond, which two lanes can share.
+const KEYS: &[u8] = b"import base64, time\ndef handler(event, context):\n    for r in event['Records']:\n        print('REC', r['kinesis']['partitionKey'], base64.b64decode(r['kinesis']['data']).decode(), time.time_ns())\n    return {}\n";
 
 #[tokio::test]
 async fn sqs_batches_run_together_up_to_the_maximum_concurrency() {
@@ -108,8 +109,10 @@ async fn a_parallelization_factor_keeps_each_partition_key_in_order() {
         logged(&w, "k", "REC").await.len() >= 30
     })
     .await;
-    let lines = logged(&w, "k", "REC").await;
-    assert_eq!(lines.len(), 30, "each once");
+    let mut lines = logged(&w, "k", "REC").await;
+    assert_eq!(lines.len(), 30, "each once: {lines:?}");
+    // In the order the function handled them, not the order the log lists them in.
+    lines.sort_by_key(|l| l.rsplit(' ').next().and_then(|n| n.parse::<u128>().ok()));
     for k in 0..5 {
         let key = format!("key{k}");
         let order: Vec<u32> = lines

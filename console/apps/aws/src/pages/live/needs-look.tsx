@@ -5,11 +5,11 @@ import { cn } from "@doze/ui/lib/utils";
 import { resourceShown } from "./resource";
 import { type LookKind, lookOf } from "./search";
 
-const WORDS: Record<LookKind, string> = { "function-error": "FUNCTION ERROR", "would-be-denied": "WOULD BE DENIED (soft)", "not-built": "NOT BUILT", denied: "DENIED", refused: "REFUSED", failed: "FAILED" };
+const WORDS: Record<LookKind, string> = { "function-error": "FUNCTION ERROR", dropped: "DROPPED", "would-be-denied": "WOULD BE DENIED (soft)", "not-built": "NOT BUILT", denied: "DENIED", refused: "REFUSED", failed: "FAILED" };
 
 export type Look = { call: CallRecord; kind: LookKind; word: string; tone: "warn" | "refused" | "bad" | "idle"; count: number };
 
-/** The calls that need a look: the newest of each kind (a function that failed, a call soft IAM let through that it would refuse, a
+/** The calls that need a look: the newest of each kind (a function that failed, an event dropped by a full queue, a call soft IAM let through that it would refuse, a
  * refusal, a failure, an operation not built), newest kind first, with how many of that kind the calls hold. */
 export function looks(calls: readonly CallRecord[], most = 5): Look[] {
   const seen = new Map<string, Look>();
@@ -20,7 +20,7 @@ export function looks(calls: readonly CallRecord[], most = 5): Look[] {
     const key = word;
     const was = seen.get(key);
     if (was) was.count += 1;
-    else seen.set(key, { call: c, kind, word, tone: word.startsWith("WOULD") ? "warn" : word === "REFUSED" || word === "DENIED" ? "refused" : word === "FAILED" || word === "FUNCTION ERROR" ? "bad" : "idle", count: 1 });
+    else seen.set(key, { call: c, kind, word, tone: word.startsWith("WOULD") ? "warn" : word === "REFUSED" || word === "DENIED" ? "refused" : word === "FAILED" || word === "FUNCTION ERROR" || word === "DROPPED" ? "bad" : "idle", count: 1 });
   }
   return [...seen.values()].slice(0, most);
 }

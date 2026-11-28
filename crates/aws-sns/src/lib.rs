@@ -29,6 +29,7 @@ mod storage;
 mod sub_attrs;
 mod subs;
 mod tags;
+mod together;
 mod topic_attrs;
 mod topics;
 mod webhook;

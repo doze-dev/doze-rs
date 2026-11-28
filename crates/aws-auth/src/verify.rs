@@ -18,6 +18,8 @@
 //! let _ = Verified::default();
 //! ```
 
+use std::borrow::Cow;
+
 use http::request::Parts;
 
 use crate::canonical::{Flavor, canonical_request, string_to_sign};
@@ -38,10 +40,11 @@ pub struct Endpoint {
     pub max_skew_secs: i64,
 }
 
-/// A request whose head has been checked and whose signature is not yet.
+/// A request whose head has been checked and whose signature is not yet. It holds the claim it was checked from, or borrows the one
+/// the caller had already read ([`begin_claimed`]).
 #[derive(Debug)]
-pub struct Pending {
-    claim: Claim,
+pub struct Pending<'c> {
+    claim: Cow<'c, Claim>,
     key: SigningKey,
     payload: PayloadHash,
     claimed_hash: Option<String>,
@@ -110,11 +113,33 @@ pub fn begin<C: Credentials>(
     now: i64,
     endpoint: Endpoint,
     creds: &C,
-) -> Result<Pending, AuthError> {
+) -> Result<Pending<'static>, AuthError> {
     let claim = Claim::parse(parts)?.ok_or(AuthError::Missing)?;
+    check(Cow::Owned(claim), now, endpoint, creds)
+}
+
+/// As [`begin`], for a request whose claim the caller has already read (`Claim::parse` of the same `parts`): it is not read again.
+///
+/// # Errors
+/// Any [`AuthError`] that does not need the body.
+pub fn begin_claimed<'c, C: Credentials>(
+    claim: &'c Claim,
+    now: i64,
+    endpoint: Endpoint,
+    creds: &C,
+) -> Result<Pending<'c>, AuthError> {
+    check(Cow::Borrowed(claim), now, endpoint, creds)
+}
+
+fn check<'c, C: Credentials>(
+    claim: Cow<'c, Claim>,
+    now: i64,
+    endpoint: Endpoint,
+    creds: &C,
+) -> Result<Pending<'c>, AuthError> {
     if claim.service != endpoint.signing_name {
         return Err(AuthError::ScopeMismatch {
-            scope: claim.service,
+            scope: claim.service.clone(),
             expected: endpoint.signing_name,
         });
     }
@@ -148,7 +173,7 @@ pub fn begin<C: Credentials>(
     })
 }
 
-impl Pending {
+impl Pending<'_> {
     /// The service named in the credential scope: a routing key, untrusted until [`finish`](Self::finish).
     #[must_use]
     pub fn claimed_service(&self) -> &str {
@@ -189,12 +214,17 @@ impl Pending {
             }
             _ => None,
         };
+        let request_time = self.claim.request_time;
+        let (access_key_id, region, service) = match self.claim {
+            Cow::Owned(c) => (c.access_key_id, c.region, c.service),
+            Cow::Borrowed(c) => (c.access_key_id.clone(), c.region.clone(), c.service.clone()),
+        };
         Ok(Verified {
-            access_key_id: self.claim.access_key_id,
+            access_key_id,
             scope: Scope {
-                region: self.claim.region,
-                service: self.claim.service,
-                request_time: self.claim.request_time,
+                region,
+                service,
+                request_time,
             },
             payload: self.payload,
             chunk_auth,

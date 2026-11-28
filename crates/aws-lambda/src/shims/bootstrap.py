@@ -241,15 +241,21 @@ def main():
                 out = json.dumps(result, default=_default).encode()
             except (TypeError, ValueError) as e:
                 raise RuntimeError("Unable to marshal response: %s" % e) from e
+            # What the handler printed is written before the answer: once Lambda has the answer it takes the invocation's lines
+            # and gives the process back, so a line still in this buffer would land in the next invocation (and its time).
+            _flush()
             _post("invocation/%s/response" % request_id, out)
         except Exception as e:  # noqa: BLE001 — a handler may raise anything
             print("[ERROR] %s: %s" % (type(e).__name__, e))
             sys.stderr.write(_shown("".join(_trace(e).format())))
+            _flush()
             _post("invocation/%s/error" % request_id, _error_body(e, request_id),
                   {"Lambda-Runtime-Function-Error-Type": type(e).__name__})
-        finally:
-            sys.stdout.flush()
-            sys.stderr.flush()
+
+
+def _flush():
+    sys.stdout.flush()
+    sys.stderr.flush()
 
 
 if __name__ == "__main__":

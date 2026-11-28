@@ -19,7 +19,7 @@ const TONE: Record<OutcomeTone, { ink: string; icon: LucideIcon; word?: string }
  * refused hue; the same answer from a service that failed (5xx) stays ERROR. */
 export const isRefused = (c: Pick<CallRecord, "outcome" | "status">) => c.outcome === "error" && c.status > 0 && c.status < 500;
 
-type ResultCall = Pick<CallRecord, "outcome" | "status" | "error_code" | "would_be_denied"> & Partial<Pick<CallRecord, "action" | "answer_bytes" | "function_error" | "summary" | "lab" | "allowed_by">>;
+type ResultCall = Pick<CallRecord, "outcome" | "status" | "error_code" | "would_be_denied"> & Partial<Pick<CallRecord, "action" | "answer_bytes" | "function_error" | "summary" | "dropped" | "lab" | "allowed_by">>;
 
 /** How a call ended, on one line: an icon and the status for a success; for anything else the contract's word in capitals
  * (ERROR, DENIED, NOT BUILT), the status and the error code. The word and the icon carry the meaning; the colour repeats it.
@@ -33,10 +33,12 @@ export function Result({ call, className }: { call: ResultCall; className?: stri
   const word = refused ? "REFUSED" : o.label;
   // The invocation answered 200 and the function failed: the call worked, the function did not.
   const failed = call.outcome === "ok" && !soft && call.function_error ? call.function_error : null;
+  // An asynchronous invocation answered 202, as AWS answers it, and its event was dropped: the function's queue was full.
+  const dropped = call.outcome === "ok" && !soft && !failed && call.dropped === true;
   const said = answerWords({ action: call.action ?? null, answer_bytes: call.answer_bytes ?? null, outcome: call.outcome, function_error: call.function_error ?? null, summary: call.summary ?? null });
   return (
     <span className={cn("flex max-w-full min-w-0 items-center gap-1.5 whitespace-nowrap", className)} data-outcome={call.outcome} data-slot="result">
-      {soft ? <ShieldAlertIcon aria-hidden className="size-3.5 shrink-0 text-warn" /> : failed ? <CircleXIcon aria-hidden className="size-3.5 shrink-0 text-bad" /> : <t.icon aria-hidden className={cn("size-3.5 shrink-0", t.ink)} />}
+      {soft ? <ShieldAlertIcon aria-hidden className="size-3.5 shrink-0 text-warn" /> : failed || dropped ? <CircleXIcon aria-hidden className="size-3.5 shrink-0 text-bad" /> : <t.icon aria-hidden className={cn("size-3.5 shrink-0", t.ink)} />}
       {soft ? (
         <WouldBeDenied status={call.status} />
       ) : failed ? (
@@ -47,6 +49,13 @@ export function Result({ call, className }: { call: ResultCall; className?: stri
           <span className="min-w-0 truncate font-mono text-[12px]" title={`${failed}: the invocation answered ${call.status}`}>
             {failed}
           </span>
+        </>
+      ) : dropped ? (
+        <>
+          <span className="shrink-0 text-[11.5px] font-bold tracking-[0.05em] text-bad" data-testid="dropped" title={`Accepted (${call.status}) and dropped: the function's queue of waiting events was full. It is counted in the function's AsyncEventsDropped (AWS/Lambda).`}>
+            DROPPED
+          </span>
+          <span className="shrink-0 font-mono text-[12px] tabular-nums">{call.status}</span>
         </>
       ) : call.outcome === "ok" ? (
         <span className={cn("font-semibold tabular-nums", t.ink)}>

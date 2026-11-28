@@ -58,7 +58,7 @@ impl Core {
                 DataReply::Emptied(self.empty(&name, &prune, grace))
             }
             DataAsk::Reset { dry_run } => DataReply::Reset(self.reset(dry_run).await),
-            DataAsk::Compact => DataReply::Compacted(self.compact()),
+            DataAsk::Compact => DataReply::Compacted(self.compact().await),
         };
         if reply.send(answer).is_err() {
             // WHY: the person stopped waiting; what was asked was done all the same.

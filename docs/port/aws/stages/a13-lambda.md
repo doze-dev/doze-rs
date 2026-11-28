@@ -150,8 +150,11 @@ destination document (`version`, `requestContext.condition` `Success`/`RetriesEx
 **The async queue's bound** (`async_invoke/queue.rs`). An event waits for its function in memory, at most 8 of one function running at once;
 at most 10,000 events and 64 MiB of payload wait in all. Past that an event is still accepted (202, as AWS accepts one) and dropped: a
 warning in doze-aws's log and a count in the function's `AsyncEventsDropped` (`AWS/Lambda`, by `FunctionName`, `FunctionName` and
-`Resource`, and with no dimensions; read it by `Sum`), the metric AWS counts its own drops in. AWS keeps events for up to six hours; a
-restart here loses what waits. Not shown in the console's Live (a call record holds what the gateway saw: a 202).
+`Resource`, and with no dimensions; read it by `Sum`), the metric AWS counts its own drops in (the name and meaning are from AWS's
+documentation, "Types of metrics for Lambda", read 2026-11-28, not from a recording; AWS also counts events too old, retries spent and no
+concurrency there, which are not built as drops here). AWS keeps events for up to six hours; a restart here loses what waits. The `Invoke`
+is marked in the console's Live: its record says DROPPED beside the 202 and is a "Needs a look" chip (the reply's JSON carries
+`x-doze-dropped`, which no model has and the wire never writes; `aws_peers::summary::DROPPED`).
 
 **Event source mappings** (`poll/`). SQS, Kinesis and DynamoDB streams. A poller is one tracked task per enabled mapping; with none enabled there is
 no task, no timer, and nothing but a marker file (`mappings.armed`) so a restart resumes them (`Lambda::resume()`, called by `run.rs` after the
@@ -197,7 +200,7 @@ Every operation Go marks F or C is built. Go-served behaviour **not** built here
 | Java package without the runtime interface client refused at create; .NET class-library handler refused | not checked | the launch line is built; an unusable package fails when invoked |
 | A missing interpreter is a warning at `CreateFunction` | said at the first invoke (`Runtime.LaunchError`) | not built |
 | Per-service `AWS_ENDPOINT_URL_*` variables | only `AWS_ENDPOINT_URL` | every current SDK honours it; an old one needs its own |
-| `[lambda].idle-timeout`, `[lambda.runtimes]` in a TOML file | `--lambda-idle-secs`, `--lambda-quiet`, `DOZE_LAMBDA_*` environment variables | there is no config file in the Rust binary |
+| `[lambda].idle-timeout`, `[lambda.runtimes]` in a TOML file | `lambda-idle-secs`, `lambda-max-processes`, `lambda-quiet`: each a flag (`--lambda-idle-secs`), a `DOZE_AWS_*` variable (`DOZE_AWS_LAMBDA_IDLE_SECS`) and a flat key in `doze-aws.toml` (`lambda-idle-secs = 600`; `crates/doze-aws/src/keys.rs`); the interpreters only as `DOZE_LAMBDA_PYTHON`, `_NODE`, `_RUBY`, `_JAVA`, `_DOTNET` | `doze-aws.toml` is flat by design (`key = value`, no table headers: `toml.rs` refuses `[lambda]`), and the interpreter paths are not among its keys |
 | Function URL at `<endpoint>/_aws/lambda-url/<id>/` | `/_aws/lambda-url/<region>/<id>/` | the id alone does not say which region's actor to ask |
 | CloudWatch `AWS/Lambda` metric datapoints (`lambda/metrics.go`) | not produced | SCOPE says KEEP-LAZY (a ring materialised on read); `aws-cloudwatch` has no producer hook, and a `PutMetricData` per invocation would wake and fill its database for nobody |
 | CloudFormation `AWS::Lambda::*` | A16 | not this stage |

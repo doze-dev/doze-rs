@@ -29,39 +29,45 @@ pub(crate) struct Published<'a> {
 }
 
 impl Core {
-    /// Delivers to each subscription, in turn. A delivery that fails is logged, goes to the subscription's dead-letter queue if it has
-    /// one, and does not stop the others.
+    /// Delivers to every subscription, side by side (`together.rs`). A delivery that fails is logged, goes to the subscription's
+    /// dead-letter queue if it has one, and does not stop the others.
     pub(crate) async fn fan_out(&self, p: &Published<'_>, subs: &[Subscription]) {
-        for sub in subs {
-            let delivered = match sub.protocol.as_str() {
-                "sqs" => Some(self.to_queue(p, sub).await),
-                "lambda" => Some(self.to_function(p, sub).await),
-                "http" | "https" => Some(self.to_endpoint(p, sub)),
-                _ => None,
-            };
-            if let Some(Err(why)) = delivered {
-                tracing::warn!(
-                    subscription = %sub.arn,
-                    endpoint = %sub.endpoint,
-                    "SNS could not deliver to the {}: {}",
-                    sub.protocol,
-                    why.message
-                );
-                // A client-side error is not retried by AWS: the message goes to the dead-letter queue at once. What doze-aws does
-                // not build (https) is not a failed delivery.
-                let (body, attrs) = self.delivered_body(p, sub);
-                if why.code != "NotBuilt"
-                    && let Some(dead) = self.dead_letter_of(p, sub, body, attrs)
-                {
-                    dead.send(&why).await;
-                }
-            } else if delivered.is_none() {
-                tracing::debug!(
-                    subscription = %sub.arn,
-                    protocol = %sub.protocol,
-                    "SNS does not deliver to this protocol locally; the message was not sent"
-                );
+        // Made before they run (none starts until polled): a lazy map would hold its closure across the await, which the actor's
+        // `Send` bound cannot name a lifetime for.
+        let work: Vec<_> = subs.iter().map(|sub| self.deliver(p, sub)).collect();
+        crate::together::all(work).await;
+    }
+
+    /// Delivers to one subscription.
+    async fn deliver(&self, p: &Published<'_>, sub: &Subscription) {
+        let delivered = match sub.protocol.as_str() {
+            "sqs" => Some(self.to_queue(p, sub).await),
+            "lambda" => Some(self.to_function(p, sub).await),
+            "http" | "https" => Some(self.to_endpoint(p, sub)),
+            _ => None,
+        };
+        if let Some(Err(why)) = delivered {
+            tracing::warn!(
+                subscription = %sub.arn,
+                endpoint = %sub.endpoint,
+                "SNS could not deliver to the {}: {}",
+                sub.protocol,
+                why.message
+            );
+            // A client-side error is not retried by AWS: the message goes to the dead-letter queue at once. What doze-aws does
+            // not build (https) is not a failed delivery.
+            let (body, attrs) = self.delivered_body(p, sub);
+            if why.code != "NotBuilt"
+                && let Some(dead) = self.dead_letter_of(p, sub, body, attrs)
+            {
+                dead.send(&why).await;
             }
+        } else if delivered.is_none() {
+            tracing::debug!(
+                subscription = %sub.arn,
+                protocol = %sub.protocol,
+                "SNS does not deliver to this protocol locally; the message was not sent"
+            );
         }
     }
 

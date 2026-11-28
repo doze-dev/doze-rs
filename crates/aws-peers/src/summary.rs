@@ -78,7 +78,13 @@ pub enum Kind {
     Versions,
     /// IAM `GetPolicyVersion`: the number of the version read (`v3`).
     Version,
+    /// Lambda `Invoke` (`Event`): accepted (`202`, as AWS accepts it) and dropped, because the function's queue was full.
+    Dropped,
 }
+
+/// A member no model has, which a REST answer's JSON carries to say the work was accepted and dropped (Lambda's asynchronous queue
+/// was full): the summary reads it, and the wire never carries it (only a model's members are written).
+pub const DROPPED: &str = "x-doze-dropped";
 
 /// A result, compact: a kind and up to two counts.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -180,6 +186,7 @@ impl Summary {
             Kind::Entities => more("entity", "entities", "no entities"),
             Kind::Versions => more("version", "versions", "no versions"),
             Kind::Version => format!("v{n}"),
+            Kind::Dropped => "accepted and dropped: the queue was full".to_owned(),
         })
     }
 }

@@ -2136,3 +2136,36 @@ some KB. Two tries to shrink this workstream's part (the hash out of line, one c
 builds do not share generics), 234,804 B of copies over 1,135 names on main and 246,552 B now; the largest are std's sorts of
 `String` (16 copies each) and hashbrown's rehash (25). Collapsing those (sorting through one non-generic helper, fewer distinct
 map types) is the trim pass's, not this workstream's.
+
+## Workstream 7b: the last hot-path and Lambda items (2026-11-28, branch `perf-w7b`), release-aws, darwin/arm64
+
+Base is `perf-round` at 0a57d5545, after is the branch with items 1-4 (`cargo build --profile release-aws -p doze-aws`, both); run
+back to back, alternating, on fresh data directories, with workstream 5's bun driver (`load.ts`: a fake SigV4 header under `--auth
+trust`), server CPU from `ps -o time` around the load, peak from `vmmap -summary`. The machine was loaded (load average 27 to 65): the
+spread is wide, and every row is two or more runs of each.
+
+| | base | after | what did it |
+|---|---|---|---|
+| SQS `SendMessage` × 10,000, `--iam soft`, server CPU | 2.25-2.46 s | 2.25-2.39 s | authz reads the decoded input (item 1); inside the noise, as workstream 5 found elsewhere: an SQS body is small |
+| the same, `--iam off` | 1.96-2.42 s | 1.91-1.96 s | (no authz: the noise) |
+| Lambda `Invoke`, 6 MB echo, server CPU (6 invokes) | 0.32-0.33 s (about 54 ms each) | **0.08 s (about 13 ms each)** | the answer carried whole beside the JSON, not base64 and back (item 2) |
+| the same, peak footprint | 62.8-66.4 MB | **47.8-53.7 MB** | |
+| SNS `Publish` to 10 SQS subscriptions, one at a time, each | 7.8-13.5 ms | **3.2-3.8 ms** | the deliveries side by side, their commits grouped (item 3) |
+| the same, server CPU for 101 publishes | 0.53-0.58 s | 0.19-0.22 s | fewer commits |
+| `Claim::parse` saved a verified request (`--auth verify`) | | 0.65-0.74 µs | `aws_auth::begin_claimed` (item 4; `cargo test -p aws-auth --release claim_read_bench -- --ignored --nocapture`) |
+| binary | 12,405,264 B | 12,405,296 B | +32 B |
+
+Every queue got every message after the change (21 of 21 in each of 10 queues for 20 publishes and the warm one). The
+6 MB invoke was measured before workstream 5's own number (44 ms) because the machine was busier; the ratio is what to read.
+
+What changed: SQS and Kinesis authz use `aws_peers::input::In` (the last two services); Lambda's synchronous `Invoke` answers with
+`RestReply::body` = `aws_wire::rest::whole(payload)` and the gateway writes it through `jsonout::render_with`, while a caller on the bus
+gets `Payload` back in the JSON (`RestReply::payload_in_json`, in `Peers::call_rest*` and Lambda's `Service::call`); SNS's `fan_out`
+runs its deliveries through `together::all` (no task spawned, at most 16 in flight, polled in the actor's task); the gateway's
+`head::authenticate` and the web signature check call `begin_claimed` with the claim the pipeline already read. No new crate.
+
+Also in this workstream, not measured for speed: an asynchronous `Invoke` dropped by a full queue is marked in the console's Live
+(DROPPED beside its 202, and a Needs a look chip; nothing more is kept: the record reads it from the call's 8-byte summary), seen
+on a server after 10,030 async invokes to a sleeping function (22 dropped); and two Lambda tests that failed under load were two real
+faults (the pool's idle-longest tie within a millisecond; the Python shim flushing after its answer) and one test reading order
+from the log: before 26 and 27 of 30 runs of the crate passed them, after 30 of 30, and 30 of 30 with 18 more CPU burners.

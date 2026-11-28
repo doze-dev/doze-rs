@@ -6,6 +6,7 @@
 //! an error a service raises and `{"message":"…"}` for one the front end raises (validation, authorization).
 
 use aws_schema::tables::{K_BLOB, K_EVENT, K_STR, K_STREAM, K_STRUCT, MemberRef, Tables};
+use bytes::Bytes;
 use serde_json::{Map, Value};
 
 use super::response::{Rendered, header, prefixed};
@@ -14,6 +15,18 @@ use crate::ApiError;
 /// The answer for operation `op` carrying `out`, with `status` instead of the model's if given.
 #[must_use]
 pub fn render(tables: &Tables, op: u32, out: &Value, status: Option<u16>) -> Rendered {
+    render_with(tables, op, out, status, None)
+}
+
+/// As [`render`], with the bytes of a plain blob payload member given beside `out` (`whole`) rather than as base64 in it.
+#[must_use]
+pub fn render_with(
+    tables: &Tables,
+    op: u32,
+    out: &Value,
+    status: Option<u16>,
+    mut whole: Option<Bytes>,
+) -> Rendered {
     let mut r = Rendered::default();
     let Some(o) = tables.op(op) else { return r };
     r.status = status.unwrap_or(o.code);
@@ -42,7 +55,10 @@ pub fn render(tables: &Tables, op: u32, out: &Value, status: Option<u16>) -> Ren
             }
             6 => {
                 has_payload = true;
-                payload(&mut r, m, value);
+                match whole.take() {
+                    Some(bytes) if m.kind == K_BLOB => r.body = Vec::from(bytes),
+                    _ => payload(&mut r, m, value),
+                }
             }
             // An output member the model binds to the query (API Gateway's `position`) can only travel in the body, where SDKs read it.
             0 | 2 => {
@@ -68,6 +84,17 @@ pub fn render(tables: &Tables, op: u32, out: &Value, status: Option<u16>) -> Ren
         }
     }
     r
+}
+
+/// The JSON name of operation `op`'s payload member when it is a plain blob (Lambda's `Invoke` `Payload`): one a reply may carry
+/// whole beside its JSON.
+#[must_use]
+pub fn blob_payload(tables: &Tables, op: u32) -> Option<&str> {
+    let sh = tables.op(op)?.output.and_then(|s| tables.shape(s))?;
+    (sh.first..sh.first + sh.count)
+        .filter_map(|i| tables.member(i))
+        .find(|m| m.bind == 6 && m.kind == K_BLOB)
+        .map(|m| m.wire)
 }
 
 fn payload(r: &mut Rendered, m: &MemberRef<'_>, value: Option<&Value>) {
@@ -160,8 +187,41 @@ mod tests {
         );
         assert_eq!(header_of(&r, "X-Amz-Function-Error"), Some("Unhandled"));
         assert_eq!(header_of(&r, "X-Amz-Executed-Version"), Some("$LATEST"));
+        // The same bytes handed over whole, beside the JSON: the body is them, with nothing decoded.
+        let out = json!({"StatusCode": 200, "ExecutedVersion": "$LATEST"});
+        let whole = Bytes::from_static(b"{\"a\":1}");
+        let r = render_with(&TABLES, op("Invoke"), &out, None, Some(whole));
+        assert_eq!(r.body.as_slice(), b"{\"a\":1}".as_slice());
+        assert_eq!(header_of(&r, "content-type"), Some("application/json"));
+        assert_eq!(blob_payload(&TABLES, op("Invoke")), Some("Payload"));
+        assert_eq!(blob_payload(&TABLES, op("GetFunction")), None);
         let dry = render(&TABLES, op("Invoke"), &json!({"StatusCode": 204}), None);
         assert_eq!((dry.status, dry.body.len()), (204, 0));
+    }
+
+    /// A caller on the bus reads the payload from the JSON: a reply holding it whole puts it back there, and one that streams keeps
+    /// its stream.
+    #[test]
+    fn a_payload_held_whole_goes_back_into_the_json_for_a_caller_on_the_bus() {
+        let reply = crate::rest::RestReply {
+            json: json!({"StatusCode": 200}),
+            body: Some(crate::rest::whole(Bytes::from_static(b"{\"a\":1}"))),
+            ..crate::rest::RestReply::default()
+        };
+        let folded = reply.payload_in_json(&TABLES, op("Invoke"));
+        assert!(folded.body.is_none());
+        assert_eq!(
+            folded.json["Payload"],
+            aws_core::base64::encode(b"{\"a\":1}")
+        );
+        let mut kept = crate::rest::RestReply {
+            json: json!({}),
+            body: Some(crate::rest::whole(Bytes::from_static(b"x"))),
+            ..crate::rest::RestReply::default()
+        }
+        .payload_in_json(&TABLES, op("GetFunction"));
+        assert!(kept.json.get("Payload").is_none());
+        assert_eq!(kept.take_whole().as_deref(), Some(b"x".as_slice()));
     }
 
     #[test]

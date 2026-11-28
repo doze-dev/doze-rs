@@ -291,7 +291,7 @@ async fn handle(
         return Err(early(id, parts, &unserved_protocol(meta)));
     };
     let fail = |e: &ApiError| json_fail(parts, entry, (version, id), e);
-    let authed = authenticate(shared, parts, &claim)
+    let authed = authenticate(shared, &claim)
         .await
         .map_err(|e| fail(&from_auth(&e, Family::Coral)))?;
     let bytes = read_body(body, shared.config.max_body_bytes)

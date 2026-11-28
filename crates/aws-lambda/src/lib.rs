@@ -364,7 +364,7 @@ impl Service for Lambda {
     fn call(&self, call: Call) -> BoxFuture<'_, Reply> {
         Box::pin(async move {
             let op = call.op;
-            let reply = self.inner.run(call).await?;
+            let reply = self.inner.run(call).await?.payload_in_json(&TABLES, op);
             reply_json(&TABLES, &self.inner.patterns, op, &reply.json)
         })
     }

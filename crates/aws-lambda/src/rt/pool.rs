@@ -126,7 +126,7 @@ impl Pool {
 
     /// Ends the process that has waited longest for an invocation; `false` when every process is working.
     fn end_longest_idle(&self) -> bool {
-        let mut idle: Vec<(i64, Arc<Worker>)> = Vec::new();
+        let mut idle: Vec<((i64, u64), Arc<Worker>)> = Vec::new();
         self.each("", |w| {
             if let Some(since) = w.idle_since() {
                 idle.push((since, Arc::clone(w)));

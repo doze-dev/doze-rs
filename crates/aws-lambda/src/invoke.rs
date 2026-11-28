@@ -15,8 +15,8 @@ use serde_json::{Value, json};
 
 use crate::Inner;
 use crate::answer::{
-    client_context_of, exit_document, init_document, join, launch_failure, payload_of, sync_reply,
-    trace_of,
+    accepted, answered, client_context_of, exit_document, init_document, join, launch_failure,
+    payload_of, trace_of,
 };
 use crate::core::{Answer, Ask};
 use crate::errors::{not_runnable, throttled};
@@ -426,9 +426,10 @@ impl Inner {
                 ..RestReply::default()
             }),
             "Event" => {
-                self.async_invocation(rs, call.caller.clone(), payload, client_context_of(&r));
+                let kept =
+                    self.async_invocation(rs, call.caller.clone(), payload, client_context_of(&r));
                 Ok(RestReply {
-                    json: json!({"StatusCode": 202}),
+                    json: accepted(kept),
                     ..RestReply::default()
                 })
             }
@@ -440,10 +441,7 @@ impl Inner {
                 };
                 let out = self.run_function(&rs, &call.caller, input).await?;
                 let tail = r.opt("LogType") == Some("Tail");
-                Ok(RestReply {
-                    json: sync_reply(&out, &executed, tail),
-                    ..RestReply::default()
-                })
+                Ok(answered(out, &executed, tail))
             }
         }
     }

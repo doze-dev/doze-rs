@@ -196,6 +196,7 @@ impl Peers {
     }
 
     /// Like [`Peers::call`], for a target that speaks a REST protocol (S3): the answer keeps its streamed body, which the caller reads.
+    /// A payload the target held whole beside its JSON (Lambda's `Invoke`) is put back in the JSON, as base64, where callers read it.
     /// There is no request body stream; an operation that needs one cannot be called this way.
     ///
     /// # Errors
@@ -212,7 +213,8 @@ impl Peers {
         let rest = service
             .rest()
             .ok_or_else(|| ApiError::internal(format!("{target} has no REST side")))?;
-        told(seen, rest.call_rest(call, None).await)
+        let (tables, op) = (service.tables(), call.op);
+        told(seen, rest.call_rest(call, None).await).map(|r| r.payload_in_json(tables, op))
     }
 
     /// Like [`Peers::call_rest`], made as `caller` itself (see [`Peers::call_as`]), with an optional request body stream.
@@ -231,7 +233,8 @@ impl Peers {
         let rest = service
             .rest()
             .ok_or_else(|| ApiError::internal(format!("{target} has no REST side")))?;
-        told(seen, rest.call_rest(call, upload).await)
+        let (tables, op) = (service.tables(), call.op);
+        told(seen, rest.call_rest(call, upload).await).map(|r| r.payload_in_json(tables, op))
     }
 
     /// Like [`Peers::call_as`], for an operation whose answer is an event stream (CloudWatch Logs' `StartLiveTail`): the framed
@@ -281,11 +284,13 @@ impl Peers {
         let rest = service
             .rest()
             .ok_or_else(|| ApiError::internal(format!("{target} has no REST side")))?;
+        let (tables, op) = (service.tables(), call.op);
         told(
             seen,
             rest.call_rest(call, Some(Box::new(Whole(Some(payload)))))
                 .await,
         )
+        .map(|r| r.payload_in_json(tables, op))
     }
 
     /// The target service and the decoded call.

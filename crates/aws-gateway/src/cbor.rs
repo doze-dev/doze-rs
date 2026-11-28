@@ -34,7 +34,7 @@ pub(crate) async fn handle(
             entry.service.flat_client_errors(),
         ))
     };
-    let authed = authenticate(shared, parts, &claim)
+    let authed = authenticate(shared, &claim)
         .await
         .map_err(|e| fail(&from_auth(&e, Family::Coral)))?;
     let bytes = read_body(body, shared.max_body_bytes())

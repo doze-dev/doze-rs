@@ -205,3 +205,28 @@ async fn a_reset_removes_every_function_layer_and_mapping_with_their_code() {
     assert!(core.functions.get("app").unwrap().versions.is_empty());
     assert_eq!((core.layers.len(), core.mappings.len()), (0, 0));
 }
+
+/// A compaction gives back what deleted functions held in the file, on the store's blocking pool (not the serving thread), and what
+/// is left reads back after a restart.
+#[tokio::test]
+async fn a_compaction_gives_back_what_deleted_functions_held_and_keeps_the_rest() {
+    let w = World::new();
+    for n in 0..20_u8 {
+        w.ok("CreateFunction", create(&format!("f{n}"), b'a' + n))
+            .await;
+    }
+    for n in 1..20_u8 {
+        w.ok("DeleteFunction", json!({"FunctionName": format!("f{n}")}))
+            .await;
+    }
+    let freed = w.lambda.compact().await.unwrap();
+    assert!(freed > 0, "the deleted functions' rows are given back");
+    assert_eq!(w.lambda.compact().await.unwrap(), 0, "nothing more to give");
+    let dir = w.dir().join("lambda");
+    w.tasks.shutdown().await;
+    let core = Core::open_in(&dir, Arc::new(SystemClock), None).unwrap();
+    assert_eq!(
+        core.functions.iter().map(|(k, _)| k).collect::<Vec<_>>(),
+        ["f0"]
+    );
+}

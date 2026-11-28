@@ -7,7 +7,8 @@
 //! [`RUNNING_PER_FUNCTION`] tasks (as many as the function may have processes), each of which takes the next event when it is done; no
 //! task waits for a process. At most [`QUEUED_EVENTS`] events and [`QUEUED_BYTES`] of payload wait in all. Past that, an event is
 //! still accepted (`202`, as AWS accepts it) and is dropped, with a warning in doze-aws's log and a count in the function's
-//! `AsyncEventsDropped` metric (`AWS/Lambda`, as AWS counts its own drops): AWS keeps a queue for six hours, a
+//! `AsyncEventsDropped` metric (`AWS/Lambda`, as AWS counts its own drops; the name is from AWS's documentation, see `metrics.rs`),
+//! and the `Invoke` is marked dropped in the console's Live record (`answer::accepted`): AWS keeps a queue for six hours, a
 //! local process keeps its memory bounded. A restart loses what waits, as it loses the retries.
 
 use std::sync::Arc;
@@ -49,14 +50,14 @@ struct Result<'a> {
 }
 
 impl Inner {
-    /// Queues the invocation for its function; it runs in the background.
+    /// Queues the invocation for its function; it runs in the background. `false` when it was dropped, the queue being full.
     pub(crate) fn async_invocation(
         self: &Arc<Self>,
         rs: Box<Resolved>,
         caller: Caller,
         payload: Bytes,
         context: Option<String>,
-    ) {
+    ) -> bool {
         let function = format!("{}/{}", rs.region, rs.name);
         let bytes = payload.len();
         let event = Event {
@@ -70,8 +71,9 @@ impl Inner {
                 let me = Arc::clone(self);
                 self.tasks
                     .spawn(async move { me.run_queue(function, event).await });
+                true
             }
-            Admit::Queued => {}
+            Admit::Queued => true,
             Admit::Dropped(event) => {
                 tracing::warn!(
                     function = %event.rs.name,
@@ -80,6 +82,7 @@ impl Inner {
                 // Seen where a person looks: the function's `AsyncEventsDropped` in CloudWatch, as AWS counts its own drops.
                 let target = crate::metrics::Target::of(&event.rs, &event.caller);
                 self.count_answered(&target, &crate::metrics::Outcome::Dropped);
+                false
             }
         }
     }
@@ -342,7 +345,13 @@ impl Inner {
             .map_err(|e| e.message)?
         {
             crate::core::Answer::Resolved(Ok(rs)) => {
-                self.async_invocation(rs, caller.clone(), Bytes::from(message.to_owned()), None);
+                // A drop is counted and logged where it is made; the caller here (a destination) has no one to tell.
+                let _kept = self.async_invocation(
+                    rs,
+                    caller.clone(),
+                    Bytes::from(message.to_owned()),
+                    None,
+                );
                 Ok(())
             }
             crate::core::Answer::Resolved(Err(e)) => Err(e.message),

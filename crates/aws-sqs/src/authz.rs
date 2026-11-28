@@ -1,9 +1,10 @@
 //! What a request asks to do, for the authorizer: the IAM action (`sqs:SendMessage`), the queue's ARN, and the policy on the queue.
 
 use aws_model_sqs::Operation;
+use aws_model_sqs::tables::TABLES;
 use aws_peers::Need;
+use aws_peers::input::In;
 use aws_wire::service::Call;
-use serde_json::Value;
 
 use crate::core::Core;
 use crate::policy::arn;
@@ -15,8 +16,9 @@ impl Core {
         let Some(op) = Operation::from_index(call.op) else {
             return Vec::new();
         };
-        let body: Value = serde_json::from_str(&call.body).unwrap_or(Value::Null);
-        let text = |key: &str| body.get(key).and_then(Value::as_str);
+        // Read from the input the gateway decoded, not by parsing the body again (a 256 KiB message, a batch of ten).
+        let body = In::of(&TABLES, call);
+        let text = |key: &str| body.text(key);
         let (region, account) = (&call.caller.region, &call.caller.account_id);
         let action = format!("sqs:{}", action_of(op));
         let on = |name: &str| {

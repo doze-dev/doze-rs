@@ -105,6 +105,11 @@ answer_bytes: number | null,
  */
 summary: string | null, 
 /**
+ * The call was accepted and its work dropped: an asynchronous `Invoke` answered `202` (as AWS answers it) whose event the
+ * function's full queue could not hold. It is counted in `AsyncEventsDropped` too; `summary` says it in words.
+ */
+dropped: boolean, 
+/**
  * The Lab rule that touched this call (it was delayed, failed or dropped on purpose); `null` for a call no rule touched.
  */
 lab: LabTag | null, };

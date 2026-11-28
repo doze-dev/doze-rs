@@ -12,15 +12,17 @@ export type View = (typeof VIEWS)[number];
 export const OUTCOME_FILTERS = ["ok", "error", "refused", "denied", "not-built", "would-be-denied"] as const;
 export type OutcomeFilter = (typeof OUTCOME_FILTERS)[number];
 
-/** The kinds of call that need a look (the chips of Needs a look, which filter the wire): a function that failed, a call soft IAM let
- * through that AWS would refuse, an operation not built, a denial, a refusal, a failure. */
-export const LOOKS = ["function-error", "would-be-denied", "not-built", "denied", "refused", "failed"] as const;
+/** The kinds of call that need a look (the chips of Needs a look, which filter the wire): a function that failed, an asynchronous
+ * invocation accepted and dropped (the function's queue was full), a call soft IAM let through that AWS would refuse, an operation not
+ * built, a denial, a refusal, a failure. */
+export const LOOKS = ["function-error", "dropped", "would-be-denied", "not-built", "denied", "refused", "failed"] as const;
 export type LookKind = (typeof LOOKS)[number];
 
 /** Which kind of look `c` is, or null for a call that went well. A call one service made to another is not what an app did. */
 export function lookOf(c: CallRecord): LookKind | null {
   if (c.via) return null;
   if (c.function_error) return "function-error";
+  if (c.dropped) return "dropped";
   if (c.would_be_denied) return "would-be-denied";
   if (c.outcome === "not-built") return "not-built";
   if (c.outcome === "denied") return "denied";

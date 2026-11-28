@@ -214,6 +214,9 @@ pub struct CallRecord {
     /// for an operation that has none, for a call that failed and for a call between services. The record keeps no bodies: this is
     /// all it knows of them.
     pub summary: Option<String>,
+    /// The call was accepted and its work dropped: an asynchronous `Invoke` answered `202` (as AWS answers it) whose event the
+    /// function's full queue could not hold. It is counted in `AsyncEventsDropped` too; `summary` says it in words.
+    pub dropped: bool,
     /// The Lab rule that touched this call (it was delayed, failed or dropped on purpose); `null` for a call no rule touched.
     pub lab: Option<LabTag>,
 }
@@ -290,6 +293,7 @@ impl CallRecord {
                     .filter(|_| call.status < 400)
                     .map_or("", |e| &e.message),
             ),
+            dropped: call.summary.kind == aws_peers::summary::Kind::Dropped,
             lab: call
                 .extra
                 .as_ref()

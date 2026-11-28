@@ -134,6 +134,9 @@ pub fn from_output(sdk_id: &str, action: &str, output: &dyn Fields, s: &mut Summ
         ("SFN", "GetActivityTask") => {
             *s = Summary::of(Kind::Task, u32::from(output.present("taskToken")), 0);
         }
+        ("Lambda", "Invoke") if output.flag(super::DROPPED) == Some(true) => {
+            *s = Summary::of(Kind::Dropped, 0, 0);
+        }
         ("CloudWatch", "GetMetricData") => {
             *s = Summary::of(Kind::Series, count("MetricDataResults"), 0);
         }

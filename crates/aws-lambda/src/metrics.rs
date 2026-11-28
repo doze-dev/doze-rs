@@ -16,7 +16,9 @@
 //! invocations in flight in each minute, by `FunctionName` and across the region's functions (no dimensions), sampled as each
 //! invocation begins: a minute in which none begins but one is still running has no point (memory: the dimension sets).
 //!
-//! `AsyncEventsDropped` (from AWS's documentation, not a recording: events dropped without the function having run them; read it
+//! `AsyncEventsDropped` (AWS's documentation, "Types of metrics for Lambda", read 2026-11-28; not a recording and not in the vendored
+//! models: events dropped without the function having run them, which AWS counts for an event too old, retries spent or no
+//! concurrency as well; read it
 //! by `Sum`) counts the asynchronous invocations accepted and then dropped because the local queue was full (`async_invoke.rs`), in the same
 //! dimension sets. Not built: `IteratorAge`, `AsyncEventsReceived`, `AsyncEventAge` and the event source mapping metrics.
 

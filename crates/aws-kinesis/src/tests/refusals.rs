@@ -93,3 +93,30 @@ fn a_bad_explicit_hash_key_is_a_validation_error_worded_from_the_model() {
         "1 validation error detected: Value 'not-a-number' at 'explicitHashKey' failed to satisfy constraint: Member must satisfy regular expression pattern: ^(0|([1-9]\\d{0,38}))$"
     );
 }
+
+/// What a request asks the authorizer for is read from its decoded input: a batch on its stream (named or by ARN), a read on the stream
+/// its iterator was handed out for.
+#[test]
+fn puts_and_reads_are_asked_for_on_their_stream() {
+    let mut w = World::new();
+    w.stream("s", 1);
+    let arn = "arn:aws:kinesis:us-east-1:000000000000:stream/s";
+    let needs = |w: &World, op: &str, body: serde_json::Value| {
+        let call = w.h.call(w.h.op(op), &body).unwrap();
+        let need = crate::authz::needs(&call).remove(0);
+        (need.action, need.resource)
+    };
+    let batch = json!({"StreamName": "s", "Records": [{"PartitionKey": "k", "Data": "eA=="}]});
+    assert_eq!(
+        needs(&w, "PutRecords", batch),
+        ("kinesis:PutRecords".to_owned(), arn.to_owned())
+    );
+    let by_arn = json!({"StreamARN": arn, "Records": [{"PartitionKey": "k", "Data": "eA=="}]});
+    assert_eq!(needs(&w, "PutRecords", by_arn).1, arn);
+    let iterator = w.iterator("s", "shardId-000000000000", "TRIM_HORIZON");
+    assert_eq!(
+        needs(&w, "GetRecords", json!({"ShardIterator": iterator})),
+        ("kinesis:GetRecords".to_owned(), arn.to_owned())
+    );
+    assert_eq!(needs(&w, "ListStreams", json!({})).1, "*");
+}

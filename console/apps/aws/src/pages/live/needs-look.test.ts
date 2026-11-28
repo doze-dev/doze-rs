@@ -3,7 +3,7 @@ import type { CallRecord } from "../../api/types/CallRecord";
 import { looks } from "./needs-look";
 
 let seq = 0;
-const call = (p: Partial<CallRecord>): CallRecord => ({ seq: ++seq, at_ms: 1, service: "sqs", api: "SQS", action: "SendMessage", resource: null, member: null, caller: "AKIA1", region: "us-east-1", status: 200, error_code: null, outcome: "ok", would_be_denied: false, allowed_by: null, duration_us: 1, request_id: "r", via: null, sdk: null, message: null, function_error: null, answer_bytes: null, summary: null, lab: null, ...p });
+const call = (p: Partial<CallRecord>): CallRecord => ({ seq: ++seq, at_ms: 1, service: "sqs", api: "SQS", action: "SendMessage", resource: null, member: null, caller: "AKIA1", region: "us-east-1", status: 200, error_code: null, outcome: "ok", would_be_denied: false, allowed_by: null, duration_us: 1, request_id: "r", via: null, sdk: null, message: null, function_error: null, answer_bytes: null, summary: null, dropped: false, lab: null, ...p });
 
 test("one chip a kind, the newest of it, with how many there are; a call that went well has none", () => {
   const calls = [
@@ -27,4 +27,9 @@ test("a server error is a failure, not a refusal", () => {
 test("each chip carries the kind the wire is filtered by when it is pressed", () => {
   const l = looks([call({ action: "Invoke", function_error: "Unhandled" }), call({ status: 400, outcome: "error" })]);
   expect(l.map((x) => x.kind)).toEqual(["function-error", "refused"]);
+});
+
+test("an asynchronous invocation dropped by a full queue needs a look, in the failure's hue", () => {
+  const l = looks([call({ action: "Invoke", status: 202, summary: "accepted and dropped: the queue was full", dropped: true }), call({ action: "Invoke", status: 202 })]);
+  expect(l.map((x) => [x.word, x.kind, x.tone, x.count])).toEqual([["DROPPED", "dropped", "bad", 1]]);
 });

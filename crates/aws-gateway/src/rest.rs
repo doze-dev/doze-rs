@@ -115,7 +115,7 @@ async fn handle(
     } else if crate::presign::is_anonymous(&claim) {
         None
     } else {
-        authenticate(shared, parts, &claim)
+        authenticate(shared, &claim)
             .await
             .map_err(|e| from_auth(&e, family(json)))?
     };
@@ -216,7 +216,7 @@ async fn take_body(
     shared: &Shared,
     parts: &Parts,
     body: Incoming,
-    pending: Option<Pending>,
+    pending: Option<Pending<'_>>,
     streaming: bool,
     family: Family,
 ) -> Result<(bytes::Bytes, Option<Box<dyn Upload>>), ApiError> {
@@ -248,7 +248,7 @@ async fn take_body(
 /// How the payload is framed, and its declared length. The signature is finished here, before a byte of the payload is read.
 fn framing_of(
     parts: &Parts,
-    pending: Option<Pending>,
+    pending: Option<Pending<'_>>,
     family: Family,
 ) -> Result<(Framing, Option<u64>), ApiError> {
     let header = |name: &str| parts.headers.get(name).and_then(|v| v.to_str().ok());
@@ -299,15 +299,17 @@ fn answer(
     entry: &Entry,
     id: &RequestId,
     op: u32,
-    reply: RestReply,
+    mut reply: RestReply,
 ) -> Response<RespBody> {
     crate::observe::output_json(parts, entry, &reply.json);
     let head = parts.method == Method::HEAD;
     let meta = entry.service.meta();
-    let RestReply { json, status, body } = reply;
     let wire_json = is_json(entry);
+    // A payload held whole (Lambda's `Invoke`) is the body as it is, with a known length: no base64 in the JSON and back.
+    let whole = if wire_json { reply.take_whole() } else { None };
+    let RestReply { json, status, body } = reply;
     let mut r = if wire_json {
-        jsonout::render(entry.service.tables(), op, &json, status)
+        jsonout::render_with(entry.service.tables(), op, &json, status, whole)
     } else {
         render(
             entry.service.tables(),

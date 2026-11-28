@@ -72,7 +72,16 @@ impl World {
         Self::build(aws_peers::Mode::Off, config)
     }
 
+    /// As [`Self::with_config`], with Lambda reading `clock` (a clock that does not move makes every moment the same millisecond).
+    pub(crate) fn with_clock(config: Config, clock: Arc<dyn doze_runtime::Clock>) -> Self {
+        Self::built(aws_peers::Mode::Off, config, clock)
+    }
+
     fn build(mode: aws_peers::Mode, config: Config) -> Self {
+        Self::built(mode, config, Arc::new(SystemClock))
+    }
+
+    fn built(mode: aws_peers::Mode, config: Config, clock: Arc<dyn doze_runtime::Clock>) -> Self {
         let dir = TempDir::new("lambda");
         let tasks = Tasks::new();
         let peers = Peers::new();
@@ -87,7 +96,13 @@ impl World {
                 ext: Some(Arc::clone(&ext)),
             })
         };
-        let ctx = ctx_in("lambda");
+        let ctx = Arc::new(Ctx {
+            dir: dir.path().join("lambda"),
+            idle: Duration::from_secs(300),
+            tasks: tasks.clone(),
+            clock,
+            ext: Some(Arc::clone(&ext)),
+        });
         let sqs = Arc::new(aws_sqs::Sqs::new(ctx_in("sqs")));
         let kinesis = Arc::new(aws_kinesis::Kinesis::new(ctx_in("kinesis")));
         let dynamodb = Arc::new(aws_dynamodb::Dynamodb::new(ctx_in("dynamodb")));
@@ -206,11 +221,15 @@ impl World {
 
     /// Invokes and returns the reply with its payload decoded.
     pub(crate) async fn invoke(&self, name: &str, payload: &Value) -> Value {
-        let mut reply = self
-            .ok("Invoke", json!({"FunctionName": name, "Payload": base64::encode(payload.to_string().as_bytes())}))
-            .await;
-        let bytes =
-            base64::decode(reply["Payload"].as_str().unwrap_or_default()).unwrap_or_default();
+        let body = json!({"FunctionName": name, "Payload": base64::encode(payload.to_string().as_bytes())});
+        let mut answered = self
+            .call("Invoke", body)
+            .await
+            .unwrap_or_else(|e| panic!("Invoke failed: {} {}", e.code, e.message));
+        // The function's answer is carried whole beside the JSON, not as base64 in it.
+        let bytes = answered.take_whole().expect("the payload is held whole");
+        let mut reply = answered.json;
+        assert!(reply.get("Payload").is_none(), "{reply}");
         reply["Payload"] = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
         reply
     }
