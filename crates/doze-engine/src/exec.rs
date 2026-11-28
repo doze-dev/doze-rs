@@ -269,7 +269,7 @@ fn lost_port(p: &Process, e: &NotReady) -> Option<u16> {
 
 #[path = "exec_stop.rs"]
 mod stopping;
-pub use stopping::{Killed, STOP_GRACE};
+pub use stopping::{Killed, STOP_GRACE, Why};
 
 impl Unit {
     /// The first process's pid (the unit's, as Go's `Composite.PID`).

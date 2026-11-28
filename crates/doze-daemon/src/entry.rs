@@ -60,7 +60,7 @@ pub fn main(args: &[String], version: &str) -> ExitCode {
     match ran {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
-            eprintln!("doze daemon: {e}");
+            running::say(&format!("doze daemon: {e}"));
             ExitCode::FAILURE
         }
     }
@@ -277,7 +277,7 @@ fn stack(
 async fn run(config: &Path, version: &str) -> Result<(), String> {
     // The stop handlers first: once the socket or the pid file exists, a stop must be a graceful one, not the
     // default SIGTERM that ends the process mid-way (embed.rs on macOS: stopped by the signal, not after it).
-    let stop = doze_os::signal::install().map_err(|e| format!("catching stop signals: {e}"))?;
+    let mut stop = doze_os::signal::install().map_err(|e| format!("catching stop signals: {e}"))?;
     // Before the catalog starts a single module: a second daemon for this stack says so and nothing else runs.
     let (run, _alone) = no_daemon_yet(config, version)?;
     #[cfg(debug_assertions)]
@@ -329,18 +329,18 @@ async fn run(config: &Path, version: &str) -> Result<(), String> {
         cfg.stack(),
         run.socket().display()
     );
-    let asked = stop.requested().await;
-    eprintln!(
+    let asked = stop.next().await;
+    running::say(&format!(
         "doze daemon: stopping ({})",
         asked.map_or_else(|e| e.to_string(), |()| "asked to".into())
-    );
+    ));
     serving.stop();
     // Before the front closes, which releases every name: parked, they keep resolving until the stack is back.
     zone.park();
     modules.abort();
     meters.abort();
     drop(background);
-    running::shut_down(&engine).await;
+    running::shut_down(&engine, stop).await;
     front.close();
     zone.close().await;
     let _ = std::fs::remove_file(run.pid_file());

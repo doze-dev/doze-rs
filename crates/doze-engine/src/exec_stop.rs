@@ -8,21 +8,35 @@ use std::time::Duration;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Killed {
     pub name: String,
-    /// How long it had been asked to stop before the kill; `None` when the shutdown ran out of time and killed it.
-    pub after: Option<Duration>,
+    pub why: Why,
+}
+
+/// Why a process was killed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Why {
+    /// Its grace ran out: it had been asked to stop this long before.
+    Grace(Duration),
+    /// The shutdown's deadline passed while it was still stopping or waiting to.
+    OutOfTime,
+    /// The daemon was asked to stop a second time, and it had not exited 2 s later.
+    AskedAgain,
 }
 
 impl Killed {
     /// What happened, in words (the daemon's log, the journal).
     pub fn words(&self) -> String {
-        match self.after {
-            Some(d) => format!(
+        match self.why {
+            Why::Grace(d) => format!(
                 "\"{}\" did not exit within {:.1}s of being asked to stop; it was killed (SIGKILL)",
                 self.name,
                 d.as_secs_f64()
             ),
-            None => format!(
+            Why::OutOfTime => format!(
                 "\"{}\" was killed (SIGKILL): the shutdown ran out of time",
+                self.name
+            ),
+            Why::AskedAgain => format!(
+                "\"{}\" was killed (SIGKILL): asked to stop again, it had not exited",
                 self.name
             ),
         }
@@ -83,7 +97,7 @@ impl Unit {
                     // Whatever it meant to do on the way out (a snapshot, a flush, a goodbye) did not happen.
                     let k = Killed {
                         name: p.name.clone(),
-                        after: Some(asked.elapsed()),
+                        why: Why::Grace(asked.elapsed()),
                     };
                     tracing::warn!("{}", k.words());
                     self.killed.push(k);
@@ -98,8 +112,8 @@ impl Unit {
         out
     }
 
-    /// Kills every process left now (the shutdown ran out of time), waits until each is reaped, and closes the log.
-    pub async fn kill_now(&mut self) {
+    /// Kills every process left now (for `why`), waits until each is reaped, and closes the log.
+    pub async fn kill_now(&mut self, why: Why) {
         for (_, t) in self.procs.iter_mut().filter(|(_, t)| t.pid().is_some()) {
             let _ = t.kill();
         }
@@ -110,7 +124,7 @@ impl Unit {
             let _ = tree.wait().await;
             let k = Killed {
                 name: p.name.clone(),
-                after: None,
+                why,
             };
             tracing::warn!("{}", k.words());
             self.killed.push(k);

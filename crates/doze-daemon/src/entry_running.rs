@@ -1,5 +1,5 @@
 //! What the daemon runs beside serving (the module pool's reaper), and its stop: the engine's shutdown, in a hurry
-//! when it is asked to stop a second time.
+//! when it is asked to stop a second time, and the lines it says on the way.
 
 use crate::catalog::Catalog;
 use std::sync::Arc;
@@ -15,22 +15,27 @@ pub(super) async fn reap_modules(catalog: Arc<Catalog>) {
     }
 }
 
+/// A line in the daemon's log (its stderr): one write, and no panic when it fails (a full disk), where `eprintln!`
+/// would panic in the middle of a stop.
+pub(super) fn say(line: &str) {
+    use std::io::Write as _;
+    let _ = std::io::stderr()
+        .lock()
+        .write_all(format!("{line}\n").as_bytes());
+}
+
 /// The engine's shutdown, dependants first, while the front stays open (on their way out they still reach what they
-/// need through it). A second SIGTERM or SIGINT meanwhile (a second `doze down`, Ctrl-C twice) stops waiting for
-/// dependants: whatever is not being stopped yet is stopped now, with a short grace.
-#[allow(clippy::print_stderr)] // the daemon's stderr is its log file
-pub(super) async fn shut_down(engine: &doze_engine::Engine) {
+/// need through it). Another SIGTERM or SIGINT on the same handlers that saw the first (installed before the daemon
+/// served, so none can fall between two installs) stops waiting for dependants: whatever is not being stopped yet is
+/// stopped now in a hurry, and what is still being stopped 2 s later is killed.
+pub(super) async fn shut_down(engine: &doze_engine::Engine, mut stop: doze_os::signal::Stop) {
     let shutdown = engine.shutdown();
     tokio::pin!(shutdown);
-    let Ok(again) = doze_os::signal::install() else {
-        shutdown.await;
-        return;
-    };
     tokio::select! {
         () = &mut shutdown => return,
-        _ = again.requested() => {}
+        _ = stop.next() => {}
     }
-    eprintln!("doze daemon: asked to stop again: stopping everything still running now");
+    say("doze daemon: asked to stop again: stopping everything still running now");
     engine.hurry();
     shutdown.await;
 }

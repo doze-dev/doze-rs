@@ -248,6 +248,7 @@ fn step(m: &mut Machine, s: &mut Shell, now: &mut Now, i: &In) {
                 } else {
                     s.boots.remove(&b);
                 }
+                // A refused register stops its own unit, which never served anyone: not the shutdown's order.
                 s.unordered = true;
                 absorb(s, m, fx);
                 s.unordered = false;
@@ -285,6 +286,7 @@ fn step2(m: &mut Machine, s: &mut Shell, now: &mut Now, i: &In) {
             let name = NAMES.get(*n).copied().unwrap_or("db");
             cancel_timers(s, Some(name));
             let fx = m.stop(name, Cause::Command).unwrap_or_default();
+            // A stop of one name is the user's, not the shutdown's order.
             s.unordered = true;
             absorb(s, m, fx);
             s.unordered = false;

@@ -126,7 +126,7 @@ fn a_kill_at_the_end_of_the_grace_is_said() {
 }
 
 /// Asked to stop a second time (a second `doze down` after a Ctrl-C, a second SIGTERM), the daemon stops waiting: what
-/// is still being stopped gets 2 s more, not the rest of its 8 s grace.
+/// is still being stopped gets 2 s more, not the rest of its 8 s grace, and its kill says why.
 #[test]
 fn a_second_stop_request_hurries_the_shutdown() {
     if !std::path::Path::new("/bin/sh").exists() || !setup::sockets() {
@@ -144,20 +144,23 @@ fn a_second_stop_request_hurries_the_shutdown() {
     let pid = doze_projects::daemon_pid(&key).map(|p| p.pid).unwrap();
     let _reap = Reap(Some(pid));
     assert_eq!(up.code, 0, "{}\n{}", up.stdout, up.stderr);
-    let began = std::time::Instant::now();
+    let log = || std::fs::read_to_string(key.log_file()).unwrap_or_default();
+    let wait_for = |what: &dyn Fn() -> bool| {
+        let began = std::time::Instant::now();
+        while !what() && began.elapsed() < std::time::Duration::from_secs(60) {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+    };
     doze_os::process::terminate(pid).unwrap();
-    std::thread::sleep(std::time::Duration::from_millis(500));
+    // The second request only after the daemon has taken the first (two signals in a row could count as one).
+    wait_for(&|| log().contains("doze daemon: stopping (asked to)"));
     doze_os::process::terminate(pid).unwrap();
-    while doze_os::process::alive(pid) && began.elapsed() < std::time::Duration::from_secs(60) {
-        std::thread::sleep(std::time::Duration::from_millis(50));
-    }
-    let took = began.elapsed();
-    let log = std::fs::read_to_string(key.log_file()).unwrap_or_default();
+    wait_for(&|| !doze_os::process::alive(pid));
+    let log = log();
     assert!(!doze_os::process::alive(pid), "{log}");
     assert!(log.contains("asked to stop again"), "{log}");
-    // 0.5 s, then 2 s more; the stubborn app's own grace was 8 s.
     assert!(
-        took < std::time::Duration::from_millis(7500),
-        "{took:?}\n{log}"
+        log.contains("\"stubborn\" was killed (SIGKILL): asked to stop again, it had not exited"),
+        "{log}"
     );
 }
