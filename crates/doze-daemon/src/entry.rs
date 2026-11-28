@@ -27,7 +27,6 @@ use std::sync::Arc;
 pub const LINT_ARG: &str = "--lint";
 
 /// Runs the daemon for `args` (what follows `__daemon`); its exit code.
-#[allow(clippy::print_stderr)] // the daemon's stderr is its log file
 pub fn main(args: &[String], version: &str) -> ExitCode {
     let config = args
         .iter()
@@ -45,13 +44,14 @@ pub fn main(args: &[String], version: &str) -> ExitCode {
     {
         Ok(rt) => rt,
         Err(e) => {
-            eprintln!("doze daemon: runtime: {e}");
+            running::say(&format!("doze daemon: runtime: {e}"));
             return ExitCode::FAILURE;
         }
     };
     if args.iter().any(|a| a == LINT_ARG) {
         return crate::lint::main(&rt, &config, version);
     }
+    doze_engine::warnings::install();
     let ran = rt.block_on(run(&config, version));
     // Dropping the runtime would wait for every blocking task to end; one stuck in the kernel (a read nothing will
     // answer) would keep a stopped daemon alive for ever. The engine has shut down by now: give stragglers a moment.
@@ -59,7 +59,7 @@ pub fn main(args: &[String], version: &str) -> ExitCode {
     match ran {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
-            eprintln!("doze daemon: {e}");
+            running::say(&format!("doze daemon: {e}"));
             ExitCode::FAILURE
         }
     }
@@ -202,9 +202,8 @@ fn bind_all(zone: &Zone, fronted: &[Fronted], run_dir: &Path) -> Result<Binds, S
     Ok((grants, bound, unreachable))
 }
 
-#[allow(clippy::print_stderr)] // the daemon's stderr is its log file
 fn eprintln_daemon(line: &str) {
-    eprintln!("doze daemon: {line}");
+    running::say(&format!("doze daemon: {line}"));
 }
 
 /// Every app's own domains (`dev.acme.com`), for the routes record.
@@ -272,11 +271,10 @@ fn stack(
     (stack, modules)
 }
 
-#[allow(clippy::print_stderr)] // the daemon's stderr is its log file
 async fn run(config: &Path, version: &str) -> Result<(), String> {
     // The stop handlers first: once the socket or the pid file exists, a stop must be a graceful one, not the
     // default SIGTERM that ends the process mid-way (embed.rs on macOS: stopped by the signal, not after it).
-    let stop = doze_os::signal::install().map_err(|e| format!("catching stop signals: {e}"))?;
+    let mut stop = doze_os::signal::install().map_err(|e| format!("catching stop signals: {e}"))?;
     // Before the catalog starts a single module: a second daemon for this stack says so and nothing else runs.
     let (run, _alone) = no_daemon_yet(config, version)?;
     #[cfg(debug_assertions)]
@@ -306,7 +304,7 @@ async fn run(config: &Path, version: &str) -> Result<(), String> {
     };
     // The idle reaper and the health prober (Go's `RunReaper`, `RunHealthProber`), and the module pool's own.
     let background = engine.background();
-    let modules = tokio::spawn(reap_modules(catalog.clone()));
+    let modules = tokio::spawn(running::reap_modules(catalog.clone()));
     let live = crate::live::Live::new(
         catalog.clone(),
         config,
@@ -323,38 +321,27 @@ async fn run(config: &Path, version: &str) -> Result<(), String> {
         .serve()
         .map_err(|e| format!("serving {}: {e}", run.socket().display()))?;
     ctl::write_pid(&run).map_err(|e| format!("writing the pid file: {e}"))?;
-    eprintln!(
+    running::say(&format!(
         "doze daemon: serving {} on {}",
         cfg.stack(),
         run.socket().display()
-    );
-    let asked = stop.requested().await;
-    eprintln!(
+    ));
+    let asked = stop.next().await;
+    running::say(&format!(
         "doze daemon: stopping ({})",
         asked.map_or_else(|e| e.to_string(), |()| "asked to".into())
-    );
+    ));
     serving.stop();
     // Before the front closes, which releases every name: parked, they keep resolving until the stack is back.
     zone.park();
-    front.close();
     modules.abort();
     meters.abort();
     drop(background);
-    engine.shutdown().await;
+    running::shut_down(&engine, stop).await;
+    front.close();
     zone.close().await;
     let _ = std::fs::remove_file(run.pid_file());
     Ok(())
-}
-
-/// Stops module processes nothing has called for a while: sleeps until the first could be due (the pool's idle limit
-/// with none running), not on a fixed 30 s tick. The floor keeps a pass that stops nothing from repeating at once.
-async fn reap_modules(catalog: Arc<Catalog>) {
-    const FLOOR: std::time::Duration = std::time::Duration::from_secs(1);
-    loop {
-        let wait = catalog.pool.next_reap().await.max(FLOOR);
-        tokio::time::sleep(wait).await;
-        catalog.pool.reap_idle().await;
-    }
 }
 
 /// The catalog for the stack at `config`: module builds through a `__fetch` child of this very program, the lock
@@ -409,7 +396,9 @@ pub fn no_daemon_yet(config: &Path, version: &str) -> Result<(RunDir, std::fs::F
         Ok(()) => {
             // This daemon's alone now: what it starts with is recorded for `doze sync` (a failure only loses that).
             if let Err(e) = ctl::write_blocks(&run, &shape) {
-                eprintln!("doze daemon: could not record the blocks it starts with: {e}");
+                running::say(&format!(
+                    "doze daemon: could not record the blocks it starts with: {e}"
+                ));
             }
             Ok((run, held))
         }
@@ -441,6 +430,9 @@ pub(crate) use load::{parse_block, with_options};
 mod slow_start;
 #[cfg(debug_assertions)]
 pub use slow_start::SLOW_START_VAR;
+
+#[path = "entry_running.rs"]
+mod running;
 
 #[path = "entry_labels.rs"]
 mod labels;

@@ -80,11 +80,16 @@ pub(super) fn drain(m: &mut Machine, s: &mut Shell, now: Now) {
             let fx = if name == TASK {
                 m.task_skipped(&name, b, now)
             } else if s.registered.insert(b) {
+                // Exempt from invariant 12: a register refused by the shutdown stops its own unit, which never served
+                // anyone (its start was cancelled; a dependant waiting on it hears the start failed), so there is no
+                // order to keep.
+                s.unordered = true;
                 m.register(&name, b, unit(true), now).2
             } else {
                 m.boot_done(&name, b, Duration::ZERO, now).1
             };
             absorb(s, m, fx);
+            s.unordered = false;
         }
         let stops: Vec<(u64, String)> = s.stops.iter().map(|(g, n)| (*g, n.clone())).collect();
         for (g, name) in stops {

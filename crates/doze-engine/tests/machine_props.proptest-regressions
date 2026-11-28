@@ -9,3 +9,6 @@ cc 3eda900d00f0e748157f08030a724f1b9d450b6589ad857aa171f501495b4175 # shrinks to
 cc 5c04cd8c08476f91de3d1482ed0f8c33aad35e8a75d2702f136dde4c12f4ddf3 # shrinks to inputs = [Wake(2), Register(0, false), ReadyFail(0), Wake(1), Wake(0), Wake(2), Fail(0), Shutdown, Cancelled(2), Register(0, false)]
 cc 39d807daf8582137ce8402bf4e76c22ccfb87b64a8a3a4e071348a0c975ddb9a # shrinks to inputs = [Wake(1), Register(0, false), Wake(0), Fail(0), Fail(0), Wake(1), Register(0, false)]
 cc 11ed1bc946ca0d9b6a7dfe938f7c51d52850ac90f41565c07c6eb84e3e77e749 # shrinks to inputs = [Wake(0), Register(0, true), Wake(0), Wake(0), Exit(0, false), Stop(0), Fire(0)]
+cc 2c3aa9ba6309e553313065e9ea7b07b762eac7f4c06114784daedf769579e846 # shrinks to inputs = [Wake(0), Register(0, false), Wake(2), Register(0, false), WakeTask, ReadyFail(0), Hold(1), Exit(0, false)]
+cc 9af7aee65f9ad002dad7d311375b22d77a0123c910a7f3b43b33d668eb0815af # shrinks to inputs = [WakeTask, Hold(0), Wake(2), Register(0, true), Exit(0, false), Shutdown]
+cc c2cd642a66230944fe5ea6224f076d5cb681067c7a1c23a18991ed2b62586d35 # shrinks to inputs = [Wake(1), Hold(0), ReadyFail(0), Wake(2), Register(0, false), Wake(0), Stop(0), Register(0, false)]
