@@ -70,9 +70,14 @@ pub fn fingerprint_trusted(ca: Option<&Ca>, fp: &str) -> bool {
     }
 }
 
-/// The SHA-256 fingerprints of every doze authority the machine's store holds, trusted or not: what a removal must
-/// cover when the files that made them are gone, and what rotation remembers.
+/// The SHA-256 fingerprints of every doze authority the machine's store holds, trusted or not, from every doze home on
+/// the machine (all share one name): for telling whether this home's root is in the store already, never a list of
+/// roots to remove or rotate out.
 pub fn trusted_doze_roots() -> Vec<String> {
+    #[cfg(test)]
+    if let Some(held) = STORE_HOLDS.with(|s| s.borrow().clone()) {
+        return held;
+    }
     if cfg!(target_os = "macos") {
         mac::doze_roots()
     } else if cfg!(target_os = "windows") {
@@ -80,6 +85,17 @@ pub fn trusted_doze_roots() -> Vec<String> {
     } else {
         Vec::new()
     }
+}
+
+#[cfg(test)]
+thread_local! {
+    static STORE_HOLDS: std::cell::RefCell<Option<Vec<String>>> = const { std::cell::RefCell::new(None) };
+}
+
+/// For a test on this thread: what [`trusted_doze_roots`] answers in place of the machine's store (`None`: the store).
+#[cfg(all(test, feature = "setup"))] // WHY: only the setup tests (trust_homes_tests) pretend; a netd-only build has none
+pub(crate) fn pretend_store_holds(fps: Option<Vec<String>>) {
+    STORE_HOLDS.with(|s| *s.borrow_mut() = fps);
 }
 
 /// The roots the machine trusts for TLS, as PEM, when the system has a way to say (macOS: Apple's curated file plus

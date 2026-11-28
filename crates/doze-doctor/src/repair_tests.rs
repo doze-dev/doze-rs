@@ -5,11 +5,7 @@ use doze_names::setup::{Daemon, Os, Paths, Setup};
 use std::path::Path;
 
 fn sh(what: &str, script: &str) -> Plan {
-    Plan {
-        what: what.into(),
-        shell: Shell::Sh,
-        script: script.into(),
-    }
+    Plan::root(what, Shell::Sh, script)
 }
 
 /// A Mac set up nowhere: every system file under a temporary root, the person a fixed uid.
@@ -97,7 +93,7 @@ fn nothing_set_up_is_repaired_by_the_zone_install() {
         "{}",
         https.detail
     );
-    let r = plan(&m, None);
+    let mut r = plan(&m, None);
     let kinds: Vec<Kind> = r.parts.iter().map(|p| p.kind).collect();
     assert_eq!(kinds, [Kind::Names, Kind::Https]);
     let one = r.one().unwrap();
@@ -107,19 +103,52 @@ fn nothing_set_up_is_repaired_by_the_zone_install() {
             .contains(&dir.path().join("etc/resolver").display().to_string())
     );
     let root = m.home().join("ca").join("root.crt").display().to_string();
+    // Root adds the certificate to the System keychain; its trust is the person's, where macOS can ask in its own
+    // dialog (as root under the app's prompt it is refused: "no user interaction was possible").
     assert!(
-        one.script.contains(&format!("add-trusted-cert -d -r trustRoot -p ssl -p basic -k /Library/Keychains/System.keychain '{root}'")),
+        one.script.contains(&format!(
+            "security add-certificates -k /Library/Keychains/System.keychain '{root}'"
+        )) && !one.script.contains("trusted-cert"),
         "{}",
         one.script
     );
     assert!(
+        one.as_user.contains(&format!(
+            "security add-trusted-cert -d -r trustRoot -p ssl -p basic '{root}'"
+        )),
+        "{}",
+        one.as_user
+    );
+    assert!(one.what.contains("in its own dialog"), "{}", one.what);
+    assert!(
         !m.home().join("ca").exists(),
         "planning (a dry run) makes nothing"
     );
-    r.prepare().unwrap();
+    assert!(
+        one.as_user
+            .contains("checks the root's SHA-256 once it is made"),
+        "a dry run says the root's bytes are checked once it is made: {}",
+        one.as_user
+    );
+    made_then_planned_again(&m, &mut r);
+}
+
+/// The run makes the root the script trusts, and plans again for it.
+fn made_then_planned_again(m: &Machine, r: &mut Repair) {
+    r.prepare(m).unwrap();
     assert!(
         m.home().join("ca").join("root.crt").is_file(),
         "the run makes the root the script trusts"
+    );
+    // Planned again for the root now made: the run checks its bytes before each step that uses it.
+    let again = r.one().unwrap();
+    assert!(
+        again.as_user.contains("shasum -a 256") && again.script.contains("shasum -a 256"),
+        "{again:?}"
+    );
+    assert!(
+        again.script.contains("dev.doze.netd"),
+        "the zone's part stays"
     );
 }
 
@@ -261,11 +290,7 @@ fn a_check_says_ok_unless_it_fails_and_keeps_a_fix_only_when_failing() {
 /// never combined.
 #[test]
 fn powershell_parts_are_blocks_and_shells_never_mix() {
-    let ps = |what: &str, s: &str| Plan {
-        what: what.into(),
-        shell: Shell::PowerShell,
-        script: s.into(),
-    };
+    let ps = |what: &str, s: &str| Plan::root(what, Shell::PowerShell, s);
     let (a, b) = (ps("one", "Write-Output 1\n"), ps("two", "Write-Output 2\n"));
     let both = combine([&a, &b]).unwrap();
     assert_eq!(
@@ -273,4 +298,21 @@ fn powershell_parts_are_blocks_and_shells_never_mix() {
         "$ErrorActionPreference = 'Stop'\n& {\nWrite-Output 1\n}\n& {\nWrite-Output 2\n}\n"
     );
     assert_eq!(combine([&a, &sh("x", "true\n")]), None);
+}
+
+/// The person's parts combine as root's do, apart from them; a repair with only a person's part has an empty root
+/// script, so nothing asks for doze's password.
+#[test]
+fn the_persons_parts_combine_apart_from_roots() {
+    let mut a = sh("names", "net\n");
+    let mut b = sh("https", "");
+    b.as_user = "trust\n".into();
+    let both = combine([&a, &b]).unwrap();
+    assert_eq!(both.script, "set -e\n(\nnet\n)\n");
+    assert_eq!(both.as_user, "set -e\n(\ntrust\n)\n");
+    a.script.clear();
+    a.as_user = "other\n".into();
+    let only = combine([&a, &b]).unwrap();
+    assert_eq!(only.script, "", "no root part: no password prompt");
+    assert_eq!(only.as_user, "set -e\n(\nother\n)\n(\ntrust\n)\n");
 }

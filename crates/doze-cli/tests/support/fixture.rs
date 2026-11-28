@@ -235,6 +235,8 @@ pub(crate) struct FakeHost {
     pub system: Option<PathBuf>,
     /// Each privileged script handed over: what it is for, the script, whether the system's prompt was asked for.
     pub privileged: RefCell<Vec<(String, String, bool)>>,
+    /// The person's parts of each plan handed over, as `before` then `after` root's script (macOS's trust dialog).
+    pub as_you: RefCell<Vec<(String, String)>>,
     /// What the privileged runner answers (`None`: it ran).
     pub refuse: Option<doze_cli::ctx::Refused>,
     /// The Applications folders the host reports (`@ app`: a Doze.app in the sandbox).
@@ -318,6 +320,9 @@ impl Host for FakeHost {
         self.privileged
             .borrow_mut()
             .push((plan.what.clone(), plan.script.clone(), prompt));
+        self.as_you
+            .borrow_mut()
+            .push((plan.as_user_before.clone(), plan.as_user.clone()));
         self.refuse.clone().map_or(Ok(()), Err)
     }
     fn settle(&self) -> std::time::Duration {

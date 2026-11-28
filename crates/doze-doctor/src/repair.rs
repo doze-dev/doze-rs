@@ -118,10 +118,20 @@ impl Repair {
     }
 
     /// What must be in place before the script runs, done as the person: the authority the script trusts, made when
-    /// there is none (files under the doze home). A dry run skips this and changes nothing.
-    pub fn prepare(&self) -> Result<(), Error> {
-        if let Some(dir) = &self.make_ca {
-            doze_names::ca::Ca::load_or_create(dir)?;
+    /// there is none (files under the doze home), and the https part planned again for it: the script then checks the
+    /// root's bytes before each step that uses it, which a plan made before the root existed could not. A dry run
+    /// skips this and changes nothing.
+    pub fn prepare(&mut self, m: &Machine) -> Result<(), Error> {
+        if let Some(dir) = self.make_ca.take() {
+            doze_names::ca::Ca::load_or_create(&dir)?;
+            let again = crate::https::plan(m).map(|(plan, _)| plan);
+            self.parts
+                .retain(|p| p.kind != Kind::Https || again.is_some());
+            if let Some(plan) = again
+                && let Some(part) = self.parts.iter_mut().find(|p| p.kind == Kind::Https)
+            {
+                part.plan = plan;
+            }
         }
         Ok(())
     }
@@ -180,30 +190,45 @@ pub fn combine<'a>(plans: impl IntoIterator<Item = &'a Plan>) -> Option<Plan> {
         .map(|p| p.what.trim_end_matches('.'))
         .collect::<Vec<_>>()
         .join("; and ");
+    let script = join(shell, plans.iter().map(|p| p.script.as_str()));
+    let as_user = join(shell, plans.iter().map(|p| p.as_user.as_str()));
+    let as_user_before = join(shell, plans.iter().map(|p| p.as_user_before.as_str()));
+    Some(Plan {
+        what,
+        shell,
+        script,
+        as_user,
+        as_user_before,
+    })
+}
+
+/// Parts' scripts as one, each in its own subshell or script block; a part with nothing in it adds nothing, and
+/// nothing at all is the empty script (a repair whose root part is empty asks for no password).
+fn join<'a>(shell: Shell, parts: impl Iterator<Item = &'a str>) -> String {
+    let parts: Vec<&str> = parts.filter(|s| !s.trim().is_empty()).collect();
+    if parts.is_empty() {
+        return String::new();
+    }
     let mut script = String::new();
     match shell {
         Shell::Sh => {
             script.push_str("set -e\n");
-            for p in &plans {
+            for p in &parts {
                 script.push_str("(\n");
-                script.push_str(p.script.trim_end_matches('\n'));
+                script.push_str(p.trim_end_matches('\n'));
                 script.push_str("\n)\n");
             }
         }
         Shell::PowerShell => {
             script.push_str("$ErrorActionPreference = 'Stop'\n");
-            for p in &plans {
+            for p in &parts {
                 script.push_str("& {\n");
-                script.push_str(p.script.trim_end_matches('\n'));
+                script.push_str(p.trim_end_matches('\n'));
                 script.push_str("\n}\n");
             }
         }
     }
-    Some(Plan {
-        what,
-        shell,
-        script,
-    })
+    script
 }
 
 #[cfg(test)]

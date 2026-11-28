@@ -96,6 +96,7 @@ pub(crate) fn validity(life: Duration) -> Result<Validity, Error> {
 }
 
 pub(crate) fn write_atomic(path: &Path, data: &[u8], private: bool) -> Result<(), Error> {
+    doze_os::guard::real_home_write(path, "write a doze file");
     // The temporary name is this process's own, so two writers never rename each other's half-written copy.
     let nanos = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
@@ -121,6 +122,7 @@ impl Ca {
         if let Some(ca) = Ca::probe(dir)? {
             return Ok(ca);
         }
+        doze_os::guard::real_home_write(dir, "make the certificate authority");
         doze_os::fs::private_dir(dir)?;
         let _lock = doze_os::fs::lock(&dir.join(".lock"))?;
         // Under the lock already: the plain look (`probe` would wait on the lock this process holds).
@@ -223,19 +225,14 @@ impl Ca {
     /// `previous/` with its fingerprint remembered, so the next trust prompt can stop trusting it. Works on a root
     /// that cannot be read, which is when it is needed.
     ///
-    /// When the old root cannot be read, what the machine's store holds of doze roots is remembered too (Go's
-    /// `RotateCA`): the files that would name them are what is broken, and a root nobody can name must not stay
-    /// trusted.
+    /// Only this home's own roots are remembered: its root file when it still parses, and the fingerprints it kept.
+    /// Go's `RotateCA` also took every doze root the System keychain held when the old root could not be read, and so
+    /// did this, until a rotation in a fresh or broken home was found to untrust another home's root in use (every
+    /// root is named "doze local CA"). A root of this home that nobody can name any more stays until it is removed by
+    /// hand; another home's never goes.
     pub fn rotate(dir: &Path) -> Result<Ca, Error> {
-        let readable = matches!(Ca::probe(dir), Ok(Some(_)));
+        doze_os::guard::real_home_write(dir, "rotate the certificate authority");
         let mut previous = read_previous(dir);
-        if !readable {
-            for fp in crate::trust_store::trusted_doze_roots() {
-                if !previous.contains(&fp) {
-                    previous.push(fp);
-                }
-            }
-        }
         if let Ok(pem) = std::fs::read_to_string(dir.join(ROOT_CRT))
             && let Ok(old) = Certificate::from_pem(pem.as_bytes())
             && let Ok(der) = old.to_der()

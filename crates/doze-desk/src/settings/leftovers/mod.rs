@@ -7,6 +7,7 @@
 //! authority ([`gather`]). [`find`] is a pure function of what was read, so the tests feed it made-up machines.
 //! Clearing ([`clear`]) goes through [`super::repair::Hands`] and looks again first.
 
+mod authority;
 mod clear;
 mod gather;
 mod routes;
@@ -101,6 +102,10 @@ pub struct Machine {
     pub authority: Option<Authority>,
     /// This app can ask for the administrator's password.
     pub admin: bool,
+    /// The .doze names are on (`DOZE_ZONE` not off): the front door serves every name over https from the authority,
+    /// so it is in use with no domain declared, and is never left behind. The app had listed it as unused when no stack
+    /// declared a domain, and Clean up removed a working, trusted authority (seen 2026-11-28).
+    pub names_https: bool,
     /// The person's home folder, for `~`.
     pub user_home: Option<String>,
 }
@@ -182,13 +187,15 @@ fn machine_parts(m: &Machine, out: &mut Vec<Leftover>) {
             ..Leftover::default()
         });
     }
-    if let Some(ca) = m.authority.as_ref().filter(|a| !a.used) {
+    if let Some(ca) = m.authority.as_ref().filter(|a| !a.used && !m.names_https) {
         let mut l = Leftover {
             kind: "authority",
             id: "ca:".into(),
             what: "doze's certificate authority, which no stack uses now".into(),
             detail: format!("{} · not trusted; its files only", m.tilde(&ca.dir)),
             action: "Remove".into(),
+            // Asked on its own, never part of Clean up: every https:// name and every leaf it signed goes with it.
+            danger: true,
             ..Leftover::default()
         };
         if ca.trusted {
@@ -212,7 +219,7 @@ pub fn is_plugin(exe: &str) -> bool {
         && parts.get(n - 1).is_some_and(|b| b.ends_with("-plugin"))
 }
 
-/// How many there are: those Clean up clears, and the data folders, deleted one at a time.
+/// How many there are: those Clean up clears, and those asked one at a time (data folders, the authority).
 pub fn counts(items: &[Leftover]) -> (usize, usize) {
     let data = items.iter().filter(|l| l.danger).count();
     (items.len() - data, data)

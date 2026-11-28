@@ -20,6 +20,7 @@ pub fn gather(home: &Path, stacks: &[StackView], admin: bool) -> Machine {
     let user_home = std::env::var("HOME").ok().filter(|h| !h.is_empty());
     let mut m = gather_with(home, stacks, &ps, Path::new("/etc/resolver"), &trusted);
     m.admin = admin;
+    m.names_https = !crate::library::zone_off();
     m.user_home = user_home;
     m
 }
@@ -68,6 +69,7 @@ pub fn gather_with(
         routes,
         authority,
         admin: false,
+        names_https: false,
         user_home: None,
     }
 }

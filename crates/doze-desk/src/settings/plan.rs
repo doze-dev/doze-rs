@@ -21,6 +21,9 @@ pub enum Planned {
     },
     /// A script run as root, after the system's password prompt.
     Admin { what: String, script: String },
+    /// A script run as the person, after root's, where macOS asks in its own dialog (its trust settings: as root under
+    /// the app's prompt, macOS refuses them, "no user interaction was possible").
+    AsYou { what: String, script: String },
     /// A process stopped by its exact pid.
     Stop { what: String, pid: u32 },
     /// A folder deleted.
@@ -33,6 +36,7 @@ impl Planned {
         match self {
             Planned::Doze { what, .. }
             | Planned::Admin { what, .. }
+            | Planned::AsYou { what, .. }
             | Planned::Stop { what, .. }
             | Planned::Delete { what, .. } => what,
         }
@@ -41,7 +45,9 @@ impl Planned {
     /// Whether it asks for the administrator's password: a script as root, or a doze command whose step is root's.
     pub fn asks(&self, cli: &Cli) -> bool {
         match self {
-            Planned::Admin { script, .. } => !script.trim().is_empty(),
+            Planned::Admin { script, .. } | Planned::AsYou { script, .. } => {
+                !script.trim().is_empty()
+            }
             Planned::Doze { args, .. } => cli.asks_root(args),
             Planned::Stop { .. } | Planned::Delete { .. } => false,
         }
@@ -51,7 +57,7 @@ impl Planned {
     pub fn command(&self, cli: &Cli) -> String {
         match self {
             Planned::Doze { args, .. } => cli.line(args),
-            Planned::Admin { script, .. } => script.clone(),
+            Planned::Admin { script, .. } | Planned::AsYou { script, .. } => script.clone(),
             Planned::Stop { pid, .. } => {
                 format!("kill -TERM {pid}   (then -KILL if it is still there after 5 s)")
             }
@@ -196,7 +202,9 @@ pub fn run(
             let (said, bad) = match hands.doze(dir.as_deref(), &cli.args(Verb::Doctor)) {
                 Ok(()) => ("doze doctor found everything in place".into(), false),
                 Err(Fail::Cancelled) => ("doze doctor was cancelled".into(), true),
-                Err(Fail::Failed(why)) => (format!("doze doctor: {why}"), true),
+                Err(Fail::Failed(why) | Fail::Declined(why)) => {
+                    (format!("doze doctor: {why}"), true)
+                }
             };
             Ended {
                 said,

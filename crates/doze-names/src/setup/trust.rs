@@ -29,9 +29,6 @@ pub struct TrustRequest {
     /// Where the routes record is: the whole set of routes the machine should keep is read from it, and it is updated
     /// after a run.
     pub home: Option<PathBuf>,
-    /// For [`untrust`]: remove every doze authority the machine trusts, named or not (the last project is leaving, and
-    /// a root whose files are gone must not stay trusted).
-    pub untrust_all: bool,
 }
 
 impl TrustRequest {
@@ -100,7 +97,7 @@ fn shell(os: Os) -> Shell {
 /// The trust script for a request on `os`, and the routes it found to be someone else's; `None` when everything is in
 /// place.
 pub fn trust_plan(os: Os, req: &TrustRequest) -> (Option<Plan>, Vec<String>) {
-    let (mut script, mut what) = (Vec::new(), Vec::new());
+    let (mut lines, mut what) = (Vec::new(), Vec::new());
     let (foreign, mine): (Vec<String>, Vec<String>) =
         req.routes().into_iter().partition(|d| route_foreign(d));
     let missing: Vec<String> = mine.into_iter().filter(|d| !domain_routed(d).0).collect();
@@ -108,7 +105,7 @@ pub fn trust_plan(os: Os, req: &TrustRequest) -> (Option<Plan>, Vec<String>) {
         let keep = req.keep(&req.prune);
         let s = scripts::routes(os, &keep, &missing, &req.prune, &route_foreign);
         if !s.is_empty() {
-            script.push(s);
+            lines.push(scripts::Lines::root(s));
         }
         if !missing.is_empty() {
             what.push(format!("route {} to doze", missing.join(", ")));
@@ -129,20 +126,58 @@ pub fn trust_plan(os: Os, req: &TrustRequest) -> (Option<Plan>, Vec<String>) {
         }
     }
     if let Some(ca) = &req.ca {
-        for fp in ca
-            .previous()
-            .iter()
-            .filter(|fp| fingerprint_trusted(Some(ca), fp))
-        {
-            script.push(scripts::untrust_fingerprint(os, Some(ca), fp));
-            what.push("stop trusting a rotated-out authority".into());
-        }
-        if !ca_trusted(ca).0 {
-            script.push(scripts::trust(os, ca));
-            what.push(trust_words(ca.dir()));
+        authority_lines(os, ca, &CaFacts::read(os, ca), (&mut lines, &mut what));
+    }
+    (plan(os, &what, lines), foreign)
+}
+
+/// Where an authority stands on this machine: what its part of a trust plan is decided from, read once so the
+/// decision itself ([`authority_lines`]) is a function of it.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(crate) struct CaFacts {
+    /// The machine trusts it already (macOS: `security verify-cert` passes).
+    pub(crate) trusted: bool,
+    /// macOS: the System keychain holds it, trusted or not.
+    pub(crate) in_keychain: bool,
+    /// Its rotated-out roots the machine still trusts.
+    pub(crate) old_trusted: Vec<String>,
+}
+
+impl CaFacts {
+    pub(crate) fn read(os: Os, ca: &Ca) -> CaFacts {
+        let fp = ca.fingerprint();
+        CaFacts {
+            trusted: ca_trusted(ca).0,
+            in_keychain: os == Os::Mac
+                && crate::trust_store::trusted_doze_roots()
+                    .iter()
+                    .any(|have| have.eq_ignore_ascii_case(&fp)),
+            old_trusted: ca
+                .previous()
+                .iter()
+                .filter(|fp| fingerprint_trusted(Some(ca), fp))
+                .cloned()
+                .collect(),
         }
     }
-    (plan(os, &what, script), foreign)
+}
+
+/// An authority's part of a trust plan: rotated-out roots still trusted are untrusted, and the authority is trusted
+/// unless it is already. A trusted authority is left alone: nothing here rotates or removes it.
+pub(crate) fn authority_lines(
+    os: Os,
+    ca: &Ca,
+    facts: &CaFacts,
+    (lines, what): (&mut Vec<scripts::Lines>, &mut Vec<String>),
+) {
+    for fp in &facts.old_trusted {
+        lines.push(scripts::untrust_fingerprint(os, Some(ca), fp));
+        what.push("stop trusting a rotated-out authority".into());
+    }
+    if !facts.trusted {
+        lines.push(scripts::trust(os, ca, facts.in_keychain));
+        what.push(trust_words(ca.dir()));
+    }
 }
 
 /// What trusting the authority means, said in the prompt.
@@ -154,54 +189,90 @@ fn trust_words(dir: &Path) -> String {
     )
 }
 
+/// What a plan with a part for the person after root's ([`Plan::as_user`]: a trust) says after what it does: macOS
+/// asks for that part in its own dialog, so a password dialog that is not doze's comes as no surprise.
+pub const MAC_TRUST_DIALOG: &str = "then macOS asks for your password in its own dialog to trust the certificate in the System trust settings";
+
+/// What a plan with a part for the person before root's ([`Plan::as_user_before`]: a removal) says: macOS asks first,
+/// in its own dialog, once for each certificate whose trust goes.
+pub const MAC_UNTRUST_DIALOG: &str = "first macOS asks for your password in its own dialog, once for each certificate \
+     whose System trust setting is removed";
+
 /// The script that has this machine believe the front door's https:// for every name (`doze doctor --fix` and `doze
-/// dns-setup`, beside the zone's setup, so one password covers both): the authority under `home` trusted, and
-/// rotated-out roots no longer. With `ca` `None` the authority is not made yet: the script names the root file it
-/// will be made at, and the caller makes it ([`Ca::load_or_create`]) before running the script. `None` when there is
-/// nothing to do.
+/// dns-setup`, beside the zone's setup): the authority under `home` trusted, and rotated-out roots no longer. With
+/// `ca` `None` the authority is not made yet: the script names the root file it will be made at, and the caller makes
+/// it ([`Ca::load_or_create`]) and plans again before running (the run checks the root's bytes, which a dry run cannot
+/// know). `None` when there is nothing to do: an authority already trusted is left as it is.
 pub fn https_plan(os: Os, home: &Path, ca: Option<&Ca>) -> Option<Plan> {
-    let (mut script, mut what) = (Vec::new(), Vec::new());
+    let facts = ca.map(|ca| CaFacts::read(os, ca));
+    https_plan_with(os, home, ca.zip(facts.as_ref()))
+}
+
+/// [`https_plan`], given what was read about the authority.
+pub(crate) fn https_plan_with(os: Os, home: &Path, ca: Option<(&Ca, &CaFacts)>) -> Option<Plan> {
+    let (mut lines, mut what) = (Vec::new(), Vec::new());
     let dir = ca_dir(home);
     match ca {
-        Some(ca) => {
-            for fp in ca
-                .previous()
-                .iter()
-                .filter(|fp| fingerprint_trusted(Some(ca), fp))
-            {
-                script.push(scripts::untrust_fingerprint(os, Some(ca), fp));
-                what.push("stop trusting a rotated-out authority".into());
-            }
-            if !ca_trusted(ca).0 {
-                script.push(scripts::trust(os, ca));
-                what.push(trust_words(&dir));
-            }
-        }
+        Some((ca, facts)) => authority_lines(os, ca, facts, (&mut lines, &mut what)),
         None => {
-            script.push(scripts::trust_root(os, &crate::ca::root_file(&dir)));
+            lines.push(scripts::trust_root(
+                os,
+                &crate::ca::root_file(&dir),
+                false,
+                None,
+            ));
             what.push(trust_words(&dir));
         }
     }
-    plan(os, &what, script)
+    plan(os, &what, lines)
 }
 
-fn plan(os: Os, what: &[String], script: Vec<String>) -> Option<Plan> {
-    let script: Vec<String> = script
-        .into_iter()
-        .filter(|l| !l.trim().is_empty())
-        .collect();
-    if script.is_empty() {
+/// Script lines as one script: empty lines dropped, nothing at all the empty script.
+fn join(part: Vec<String>) -> String {
+    let part: Vec<String> = part.into_iter().filter(|l| !l.trim().is_empty()).collect();
+    if part.is_empty() {
+        return String::new();
+    }
+    let mut body = part.join("\n");
+    body.push('\n');
+    body
+}
+
+/// The three parts of a list of lines: the person's before root, root's, the person's after root.
+pub(crate) fn split(lines: Vec<scripts::Lines>) -> (String, String, String) {
+    let (mut before, mut root, mut user) = (Vec::new(), Vec::new(), Vec::new());
+    for l in lines {
+        before.push(l.before);
+        root.push(l.root);
+        user.push(l.user);
+    }
+    (join(before), join(root), join(user))
+}
+
+fn plan(os: Os, what: &[String], lines: Vec<scripts::Lines>) -> Option<Plan> {
+    let (as_user_before, mut script, as_user) = split(lines);
+    if script.is_empty() && as_user.is_empty() && as_user_before.is_empty() {
         return None;
     }
-    let mut body = script.join("\n");
-    body.push('\n');
-    if os == Os::Windows {
-        body.insert_str(0, "$ErrorActionPreference = 'Stop'\n");
+    if os == Os::Windows && !script.is_empty() {
+        script.insert_str(0, "$ErrorActionPreference = 'Stop'\n");
+    }
+    let mut what = what.join("; ");
+    for (part, words) in [
+        (&as_user_before, MAC_UNTRUST_DIALOG),
+        (&as_user, MAC_TRUST_DIALOG),
+    ] {
+        if !part.is_empty() {
+            what.push_str("; ");
+            what.push_str(words);
+        }
     }
     Some(Plan {
-        what: what.join("; "),
+        what,
         shell: shell(os),
-        script: body,
+        script,
+        as_user,
+        as_user_before,
     })
 }
 
@@ -238,33 +309,28 @@ pub fn trust(os: Os, o: &mut Options<'_>, req: &mut TrustRequest) -> Result<(), 
 }
 
 /// The untrust script: the request's routes removed (routes other projects still declare are kept), the authority's
-/// trust removed (current root and every rotated-out one), and with `untrust_all` every doze authority.
+/// trust removed (current root and every rotated-out one). Only this home's roots, named by fingerprint (Linux: the
+/// bundle file only while it holds one of them), never by the name every doze root shares. On macOS the trust settings
+/// go in the person's part, through macOS's dialog, before root deletes the certificates.
 pub fn untrust_plan(os: Os, req: &TrustRequest) -> Option<Plan> {
-    let (mut script, mut what) = (Vec::new(), Vec::new());
+    let (mut lines, mut what) = (Vec::new(), Vec::new());
     let removing = req.routes();
     if !removing.is_empty() {
         let keep = req.keep(&removing);
         let s = scripts::routes(os, &keep, &[], &removing, &route_foreign);
         if !s.is_empty() {
-            script.push(s);
+            lines.push(scripts::Lines::root(s));
             what.push(format!("remove the route for {}", removing.join(", ")));
         }
     }
     if let Some(ca) = &req.ca {
-        script.push(scripts::untrust(os, Some(ca)));
+        lines.push(scripts::untrust(os, Some(ca)));
         for fp in ca.previous() {
-            script.push(scripts::untrust_fingerprint(os, Some(ca), fp));
+            lines.push(scripts::untrust_fingerprint(os, Some(ca), fp));
         }
         what.push("stop trusting the doze certificate authority".into());
     }
-    if req.untrust_all {
-        let unknown = scripts::untrust_unknown(os);
-        if !unknown.is_empty() && req.ca.is_none() {
-            what.push("stop trusting every doze certificate authority".into());
-        }
-        script.extend(unknown);
-    }
-    plan(os, &what, script)
+    plan(os, &what, lines)
 }
 
 /// Removes the request's routes and the authority's trust, in one prompt.
@@ -287,28 +353,37 @@ pub fn untrust(os: Os, o: &mut Options<'_>, req: &TrustRequest) -> Result<(), Er
     Ok(())
 }
 
-/// What setup's uninstall adds for domains: every recorded route removed, and every doze authority's trust, whether
-/// or not the files that made it can still be read, so nothing of doze is left pointing at a resolver that will not
-/// come back.
-pub(crate) fn cleanup_script(os: Os, home: &Path) -> Vec<String> {
-    let mut out = Vec::new();
+/// What setup's uninstall adds for domains: every recorded route removed, and this home's authority's trust (its
+/// current root and every rotated-out one it kept, by fingerprint; never another home's, though all share one name),
+/// so nothing of doze is left pointing at a resolver that will not come back. The lines for root's script, and the person's part that runs before it ([`Plan::as_user_before`]:
+/// macOS's admin trust settings, removed while the certificates are still there).
+pub(crate) fn cleanup_script(os: Os, home: &Path) -> (Vec<String>, String) {
+    let mut lines = Vec::new();
     let recorded = Routes::open(home).recorded();
     if !recorded.is_empty() {
-        out.push(scripts::uninstall_routes(os, &recorded));
+        lines.push(scripts::Lines::root(scripts::uninstall_routes(
+            os, &recorded,
+        )));
     }
     if let Ok(Some(ca)) = Ca::probe(&ca_dir(home)) {
-        out.push(scripts::untrust(os, Some(&ca)));
+        lines.push(scripts::untrust(os, Some(&ca)));
         for fp in ca.previous() {
-            out.push(scripts::untrust_fingerprint(os, Some(&ca), fp));
+            lines.push(scripts::untrust_fingerprint(os, Some(&ca), fp));
         }
     }
-    out.extend(scripts::untrust_unknown(os));
-    out.retain(|l| !l.trim().is_empty());
-    out
+    let mut root = Vec::new();
+    let mut before = Vec::new();
+    for l in lines {
+        root.push(l.root);
+        before.push(l.before);
+    }
+    root.retain(|l| !l.trim().is_empty());
+    (root, join(before))
 }
 
 /// What the person owns, removed once the privileged part ran: the authority's files and the routes record.
 pub(crate) fn cleanup_after(home: &Path) {
+    doze_os::guard::real_home_write(&ca_dir(home), "delete the certificate authority");
     let _ = std::fs::remove_dir_all(ca_dir(home));
     Routes::open(home).remove_all();
 }
@@ -316,3 +391,7 @@ pub(crate) fn cleanup_after(home: &Path) {
 #[cfg(test)]
 #[path = "trust_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "trust_homes_tests.rs"]
+mod homes_tests;

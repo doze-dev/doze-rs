@@ -153,6 +153,8 @@ printf 'nameserver 127.0.0.1\\nport {port}\\n' > {resolver}
         what: format!("install the doze network daemon and route .{SUFFIX} to the resolver"),
         shell: Shell::Sh,
         script,
+        as_user: String::new(),
+        as_user_before: String::new(),
     }
 }
 
@@ -203,5 +205,7 @@ rm -f {}
             .into(),
         shell: Shell::Sh,
         script,
+        as_user: String::new(),
+        as_user_before: String::new(),
     }
 }

@@ -31,6 +31,9 @@ pub struct Step {
 pub enum Fail {
     /// The person closed the administrator prompt.
     Cancelled,
+    /// The person closed macOS's own dialog after part of the work ran (doze's prompt was answered, the root is in
+    /// the keychain): cancelled, and the words say what stands, never "nothing was changed".
+    Declined(String),
     /// It failed; the words say why.
     Failed(String),
 }
@@ -42,6 +45,12 @@ pub trait Hands {
     fn doze(&mut self, dir: Option<&std::path::Path>, args: &[String]) -> Result<(), Fail>;
     /// Runs `script` as root after the system's prompt; `what` finishes "doze needs an administrator's password to …".
     fn admin(&mut self, what: &str, script: &str) -> Result<(), Fail>;
+    /// Runs `script` as the person, where macOS can show its own authorization dialog (the System trust settings,
+    /// which it refuses to root under the app's prompt). Hands that cannot refuse.
+    fn as_user(&mut self, what: &str, script: &str) -> Result<(), Fail> {
+        let _ = script;
+        Err(Fail::Failed(format!("{what}: these hands cannot run it")))
+    }
     /// Asks process `pid` to stop.
     fn terminate(&mut self, pid: u32) -> Result<(), Fail>;
     /// Stops process `pid` at once.
@@ -63,6 +72,8 @@ pub enum Outcome {
     Done,
     /// The prompt was closed; the steps before it stand.
     Cancelled,
+    /// macOS's dialog was closed after part of a step ran: what stands.
+    Declined(String),
     /// A step failed.
     Failed { what: String, why: String },
 }
@@ -73,6 +84,7 @@ impl Outcome {
         match self {
             Outcome::Nothing => ("nothing to repair: this machine is set up".into(), false),
             Outcome::Cancelled => ("repair cancelled; nothing more was changed".into(), false),
+            Outcome::Declined(what_stands) => (what_stands.clone(), true),
             Outcome::Failed { what, why } => (format!("setting up {what} failed: {why}"), true),
             Outcome::Done => {
                 let still: Vec<&str> = after
@@ -187,6 +199,7 @@ pub fn run(
         match done {
             Ok(()) => {}
             Err(Fail::Cancelled) => return Outcome::Cancelled,
+            Err(Fail::Declined(what_stands)) => return Outcome::Declined(what_stands),
             Err(Fail::Failed(why)) => {
                 return Outcome::Failed {
                     what: st.what.clone(),
@@ -207,6 +220,13 @@ pub fn doze_outcome(ok: bool, output: &str) -> Result<(), Fail> {
     if output.contains(CANCELLED_TEXT) {
         return Err(Fail::Cancelled);
     }
+    // macOS's dialog, after doze's prompt was answered: its words from the marker on say what stands.
+    if let Some(line) = output
+        .lines()
+        .find_map(|l| l.find(MAC_DIALOG_CANCELLED_TEXT).and_then(|at| l.get(at..)))
+    {
+        return Err(Fail::Declined(line.trim().to_owned()));
+    }
     let last = output.trim().rsplit('\n').next().unwrap_or_default().trim();
     Err(Fail::Failed(if last.is_empty() {
         "it failed and said nothing".into()
@@ -217,6 +237,10 @@ pub fn doze_outcome(ok: bool, output: &str) -> Result<(), Fail> {
 
 /// What a cancelled prompt says, in the output of a doze command the app ran (Go `adminprompt.CancelledText`).
 pub const CANCELLED_TEXT: &str = "the administrator prompt was cancelled";
+
+/// What a doze command says when macOS's own dialog (the certificate authority's trust) was cancelled (doze-names
+/// `MAC_DIALOG_CANCELLED`, which a test holds this to).
+pub const MAC_DIALOG_CANCELLED_TEXT: &str = "cancelled in macOS's dialog";
 
 /// The environment variable that has a doze command ask with the system's prompt (Go `adminprompt.Env`).
 pub const PROMPT_ENV: &str = "DOZE_ADMIN_PROMPT";

@@ -6,7 +6,7 @@
 //! - the window opens without focus and the app never activates (menu-bar policy, no Dock icon, not in ⌘Tab), so the
 //!   system sends the keyboard elsewhere;
 //! - the window lets the pointer through to whatever is under it (`doze_os::ui::hands_off`);
-//! - inside the app, every key and pointer event is dropped unless the driver sends it ([`sending`]).
+//! - inside the app, every key and pointer event is dropped unless the driver sends it (`sending`).
 //!
 //! After the window opens, [`check`] asserts the first two held (the app is not active, no window is key) and stops
 //! the run if they did not.

@@ -77,26 +77,48 @@ fn assert_reloads_after_every_route(s: &str) {
     );
 }
 
-/// The keychain half of the test above.
+/// The keychain half of the test above. The certificate goes into the System keychain as root; its trust is set and
+/// removed as the person, never in root's script, where macOS cannot show the dialog the change needs.
 fn macos_keychain_scripts() {
     let dir = scratch("mac").join("ca");
     let ca = Ca::load_or_create(&dir).unwrap();
-    let ts = scripts::trust(Os::Mac, &ca);
-    assert!(
-        ts.contains("add-trusted-cert -d -r trustRoot -p ssl -p basic -k /Library/Keychains/System.keychain '"),
-        "{ts}"
+    let root = ca.root_path().display().to_string();
+    let ts = scripts::trust(Os::Mac, &ca, false);
+    let check = scripts::same_file(&root, &scripts::file_sha256(&ca.root_path()).unwrap());
+    assert_eq!(
+        ts.root,
+        format!(
+            "{check}
+security add-certificates -k {SYSTEM_KEYCHAIN} '{root}'"
+        )
     );
+    assert_eq!(
+        ts.user,
+        format!(
+            "{check}
+security add-trusted-cert -d -r trustRoot -p ssl -p basic '{root}'"
+        )
+    );
+    assert!(ts.before.is_empty(), "{ts:?}");
+    assert!(
+        !ts.root.contains("trusted-cert"),
+        "trust settings never run as root: {ts:?}"
+    );
+    let again = scripts::trust(Os::Mac, &ca, true);
+    assert_eq!(
+        again.root, "",
+        "a root the keychain holds already is not added again"
+    );
+    assert_eq!(again.user, ts.user);
+
     let us = scripts::untrust(Os::Mac, Some(&ca));
+    assert_eq!(us.before, scripts::mac_remove_trust(&root));
+    assert!(us.user.is_empty(), "{us:?}");
     assert!(
-        us.contains(&format!(
-            "remove-trusted-cert -d '{}'",
-            ca.root_path().display()
-        )),
-        "{us}"
-    );
-    assert!(
-        us.contains(&format!("delete-certificate -t -Z '{}'", ca.fingerprint())),
-        "{us}"
+        us.root
+            .contains(&format!("delete-certificate -t -Z '{}'", ca.fingerprint()))
+            && !us.root.contains("trusted-cert"),
+        "{us:?}"
     );
 
     let old = ca.fingerprint();
@@ -110,15 +132,15 @@ fn macos_keychain_scripts() {
     );
     let us = scripts::untrust_fingerprint(Os::Mac, Some(&again), &old);
     assert!(
-        us.contains(&format!(
+        us.before.contains(&format!(
             "remove-trusted-cert -d '{}'",
             again.previous_path(&old).display()
-        )),
-        "a rotated-out root is untrusted by its kept file: {us}"
+        )) && !us.root.contains("trusted-cert"),
+        "a rotated-out root is untrusted by its kept file, as the person: {us:?}"
     );
     assert_eq!(
         scripts::untrust_fingerprint(Os::Mac, Some(&again), "nope"),
-        ""
+        scripts::Lines::default()
     );
     let _ = std::fs::remove_dir_all(dir.parent().unwrap());
 }
@@ -241,53 +263,161 @@ fn linux_restates_the_list_and_windows_writes_a_rule_per_route() {
 
     let dir = scratch("stores").join("ca");
     let ca = Ca::load_or_create(&dir).unwrap();
-    assert!(scripts::trust(Os::Linux, &ca).contains("cp -f '"));
-    let wt = scripts::trust(Os::Windows, &ca);
+    let lt = scripts::trust(Os::Linux, &ca, false);
+    assert!(lt.root.contains("cp -f '") && lt.user.is_empty(), "{lt:?}");
+    let wt = scripts::trust(Os::Windows, &ca, false);
+    assert!(wt.user.is_empty(), "{wt:?}");
+    let wt = wt.root;
     assert!(
         wt.starts_with("certutil.exe -addstore -f Root '") && wt.contains("exit $LASTEXITCODE"),
         "{wt}"
     );
     assert!(
-        scripts::untrust(Os::Windows, Some(&ca)).contains(&format!("-eq '{}'", ca.fingerprint()))
+        scripts::untrust(Os::Windows, Some(&ca))
+            .root
+            .contains(&format!("-eq '{}'", ca.fingerprint()))
     );
     let _ = std::fs::remove_dir_all(dir.parent().unwrap());
 }
 
 /// The zone's https needs no declared domain: with no authority made yet, the plan names the root file it will be made
-/// at (so a dry run shows the real script and makes nothing), trusted for TLS only; once it is made, the same file.
+/// at (so a dry run shows the real script and makes nothing), trusted for TLS only; once it is made, the same file. On
+/// macOS root's script only adds the certificate to the System keychain; the trust is the person's part, and the
+/// prompt says macOS asks for it in its own dialog.
 #[test]
 fn https_for_the_zone_trusts_the_authority_before_and_after_it_is_made() {
     let home = scratch("https");
     let root = crate::ca::root_file(&ca_dir(&home)).display().to_string();
     let mac = https_plan(Os::Mac, &home, None).unwrap();
-    assert!(
-        mac.script.contains(&format!(
-            "security add-trusted-cert -d -r trustRoot -p ssl -p basic -k {SYSTEM_KEYCHAIN} '{root}'"
-        )),
-        "{}",
-        mac.script
+    // Not made yet: the dry run says the bytes are checked once it is made (the run plans again then).
+    assert_eq!(
+        mac.script,
+        format!(
+            "{}
+security add-certificates -k {SYSTEM_KEYCHAIN} '{root}'
+",
+            scripts::CHECKED_WHEN_MADE
+        )
+    );
+    assert_eq!(
+        mac.as_user,
+        format!(
+            "{}
+security add-trusted-cert -d -r trustRoot -p ssl -p basic '{root}'
+",
+            scripts::CHECKED_WHEN_MADE
+        )
     );
     assert!(
-        mac.what.starts_with("trust the doze certificate authority"),
+        mac.what.starts_with("trust the doze certificate authority")
+            && mac.what.ends_with(MAC_TRUST_DIALOG),
         "{}",
         mac.what
     );
     assert!(!ca_dir(&home).exists(), "planning makes nothing");
     let linux = https_plan(Os::Linux, &home, None).unwrap();
     assert!(
-        linux.script.contains(&format!("cp -f '{root}'")),
-        "{}",
-        linux.script
+        linux.script.contains(&format!("cp -f '{root}'")) && linux.as_user.is_empty(),
+        "{linux:?}"
+    );
+    assert!(
+        !linux.what.contains(MAC_TRUST_DIALOG),
+        "only a plan with a person's part says macOS asks"
     );
     let ca = Ca::load_or_create(&ca_dir(&home)).unwrap();
     assert_eq!(ca.root_path().display().to_string(), root);
     if !ca_trusted(&ca).0 {
         let made = https_plan(Os::Mac, &home, Some(&ca)).unwrap();
         assert!(
-            made.script.contains(&format!("'{root}'")),
+            made.as_user.contains(&format!("'{root}'")),
             "{}",
-            made.script
+            made.as_user
         );
     }
+    let _ = std::fs::remove_dir_all(&home);
+}
+
+/// Setup is idempotent about the authority: one already trusted is left alone (no plan, no rotation, nothing removed);
+/// one in the keychain but untrusted (a cancelled dialog) is only trusted, with no root script and so no password
+/// prompt of doze's; rotated-out roots still trusted are untrusted as the person.
+#[test]
+fn an_authority_already_in_place_is_left_alone() {
+    let home = scratch("idem");
+    let ca = Ca::load_or_create(&ca_dir(&home)).unwrap();
+    let trusted = CaFacts {
+        trusted: true,
+        in_keychain: true,
+        old_trusted: Vec::new(),
+    };
+    for os in [Os::Mac, Os::Linux, Os::Windows] {
+        assert_eq!(
+            https_plan_with(os, &home, Some((&ca, &trusted))),
+            None,
+            "{os:?}: a trusted authority plans nothing"
+        );
+    }
+    let cancelled = CaFacts {
+        trusted: false,
+        in_keychain: true,
+        old_trusted: Vec::new(),
+    };
+    let p = https_plan_with(Os::Mac, &home, Some((&ca, &cancelled))).unwrap();
+    assert_eq!(p.script, "", "nothing for root: no doze password prompt");
+    assert!(
+        p.as_user.contains("\nsecurity add-trusted-cert -d ")
+            && p.as_user.starts_with("[ \"$({ if command -v shasum"),
+        "the root's bytes are checked before it is trusted: {p:?}"
+    );
+    let old = ca.fingerprint();
+    let rotated = Ca::rotate(&ca_dir(&home)).unwrap();
+    let with_old = CaFacts {
+        trusted: true,
+        in_keychain: true,
+        old_trusted: vec![old.clone()],
+    };
+    let p = https_plan_with(Os::Mac, &home, Some((&rotated, &with_old))).unwrap();
+    assert!(
+        !p.script.contains("add-") && !p.as_user.contains("add-"),
+        "the trusted current root is not touched: {p:?}"
+    );
+    assert!(
+        p.script
+            .contains(&format!("delete-certificate -t -Z '{old}'"))
+            && p.as_user_before.contains("remove-trusted-cert -d "),
+        "{p:?}"
+    );
+    let _ = std::fs::remove_dir_all(&home);
+}
+
+/// Removal on macOS: the certificates go as root, the trust settings as the person; uninstall's plan carries the
+/// person's part and says macOS asks.
+#[test]
+fn removal_takes_the_trust_settings_out_as_the_person() {
+    let home = scratch("rm");
+    let ca = Ca::load_or_create(&ca_dir(&home)).unwrap();
+    let req = TrustRequest {
+        ca: Ca::probe(&ca_dir(&home)).unwrap(),
+        ..TrustRequest::default()
+    };
+    let p = untrust_plan(Os::Mac, &req).unwrap();
+    assert!(!p.script.contains("trusted-cert"), "{p:?}");
+    assert!(
+        p.script
+            .contains(&format!("delete-certificate -t -Z '{}'", ca.fingerprint())),
+        "{p:?}"
+    );
+    assert!(
+        p.as_user_before.contains(&format!(
+            "security remove-trusted-cert -d '{}'",
+            ca.root_path().display()
+        )) && p.as_user.is_empty(),
+        "the trust goes first, as the person: {p:?}"
+    );
+    assert!(p.what.ends_with(MAC_UNTRUST_DIALOG), "{}", p.what);
+    let (root, before) = cleanup_script(Os::Mac, &home);
+    assert!(root.iter().all(|l| !l.contains("trusted-cert")), "{root:?}");
+    assert!(before.contains("remove-trusted-cert -d "), "{before}");
+    let (root, user) = cleanup_script(Os::Linux, &home);
+    assert!(user.is_empty() && !root.is_empty(), "{root:?} {user}");
     let _ = std::fs::remove_dir_all(&home);
 }

@@ -98,7 +98,11 @@ fn finds_what_no_stack_holds() {
         items[4].detail.rsplit(" · ").next(),
         Some("not trusted; its files only")
     );
-    assert_eq!(counts(&items), (4, 1));
+    assert!(
+        items[4].danger,
+        "the authority is asked on its own, never part of Clean up"
+    );
+    assert_eq!(counts(&items), (3, 2));
     assert_eq!(
         summary(&items),
         "5 things stacks left behind, out of step with doze"
@@ -121,8 +125,16 @@ fn clean_up_leaves_data_and_asks_once_for_the_routes() {
         .iter()
         .filter(|a| a.starts_with("admin"))
         .collect();
-    // The authority's trust, and every route in one prompt.
-    assert_eq!(admin.len(), 2, "{:?}", hands.asked);
+    // Every route in one prompt; the authority is never part of Clean up (it is asked on its own).
+    assert_eq!(admin.len(), 1, "{:?}", hands.asked);
+    assert!(
+        !hands
+            .asked
+            .iter()
+            .any(|a| a.contains("certificate") || a.ends_with("/ca")),
+        "{:?}",
+        hands.asked
+    );
     assert!(hands.asked.contains(&"term 101".to_owned()));
     assert!(hands.asked.contains(&"term 102".to_owned()));
     assert!(
@@ -198,4 +210,152 @@ fn a_shown_clean_up_touches_only_what_it_showed() {
         "nothing was left behind to clear"
     );
     assert!(none.asked.is_empty());
+}
+
+/// With the .doze names on, the authority serves every name over https: it is never left behind, so neither Clean up
+/// nor its plan touches a working, trusted authority, even with no stack declaring a domain (2026-11-28: Clean up
+/// deleted it and its trust, and https:// names failed until it was made and trusted again).
+#[test]
+fn the_names_authority_is_never_left_behind() {
+    let w = world();
+    let mut m = look(&w, true);
+    m.names_https = true;
+    assert!(
+        !find(&m).iter().any(|l| l.kind == "authority"),
+        "{:?}",
+        find(&m)
+    );
+    assert!(
+        !plan_clear("all", &m)
+            .iter()
+            .any(|p| p.what().contains("certificate authority")),
+        "Clean up plans nothing for the authority"
+    );
+    let mut hands = Record::default();
+    let done = clear_all(&m, &mut hands);
+    assert!(!done.bad, "{done:?}");
+    assert!(
+        !hands
+            .asked
+            .iter()
+            .any(|a| a.contains("certificate") || a.contains("/ca")),
+        "{:?}",
+        hands.asked
+    );
+    let done = clear("ca:", &m, &mut hands);
+    assert!(
+        done.bad && done.said.contains("no longer left behind"),
+        "{done:?}"
+    );
+}
+
+/// With the names off and no domain, the authority is a leftover; clearing it removes the admin trust setting first,
+/// as the person, where macOS can ask (never as root, where it is refused), then deletes this home's roots by
+/// fingerprint as root, then its files. Only this home's: never by the name every doze root shares, never another
+/// home's fingerprint. A cancelled macOS dialog stops it before anything is deleted.
+#[test]
+fn clearing_the_authority_untrusts_it_as_the_person_then_deletes_only_its_own_roots() {
+    use crate::settings::plan::Planned;
+    let w = world();
+    let old = "ab".repeat(32);
+    let elsewhere = "cd".repeat(32);
+    std::fs::create_dir_all(w.home.join("ca/previous")).unwrap();
+    std::fs::write(w.home.join(format!("ca/previous/{old}.crt")), "x").unwrap();
+    std::fs::write(
+        w.home.join("ca/previous.json"),
+        serde_json::json!([old, "not-a-fingerprint"]).to_string(),
+    )
+    .unwrap();
+    let m = look(&w, true);
+    let planned = plan_clear("ca:", &m);
+    let kinds: Vec<&str> = planned
+        .iter()
+        .map(|p| match p {
+            Planned::AsYou { .. } => "as you",
+            Planned::Admin { .. } => "admin",
+            Planned::Delete { .. } => "delete",
+            _ => "other",
+        })
+        .collect();
+    assert_eq!(kinds, ["as you", "admin", "delete"], "{planned:?}");
+    let (as_you, admin) = match (&planned[0], &planned[1]) {
+        (Planned::AsYou { script: a, .. }, Planned::Admin { script: b, .. }) => {
+            (a.clone(), b.clone())
+        }
+        _ => unreachable!(),
+    };
+    assert!(
+        as_you.contains("remove-trusted-cert -d")
+            && as_you.contains(
+                &w.home
+                    .join("ca")
+                    .join("previous")
+                    .join(format!("{old}.crt"))
+                    .to_string_lossy()
+                    .into_owned(),
+            ),
+        "{as_you}"
+    );
+    assert!(
+        !as_you.contains("|| true"),
+        "a cancel is never swallowed: {as_you}"
+    );
+    assert!(!admin.contains("trusted-cert"), "{admin}");
+    assert!(
+        admin.contains("delete-certificate -t -Z \"$fp\"")
+            && admin.contains(&format!("-Z '{old}'")),
+        "{admin}"
+    );
+    assert!(
+        !admin.contains("-c 'doze local CA'")
+            && !admin.contains("not-a-fingerprint")
+            && !admin.contains(&elsewhere),
+        "never by name, only this home's: {admin}"
+    );
+    assert_eq!(
+        super::authority::remove_trust("/x/it's.crt"),
+        doze_names::setup::mac_remove_trust("/x/it's.crt"),
+        "the app removes a trust with the same lines as the CLI"
+    );
+    cleared_in_order_and_a_cancel_stops_it(&m);
+}
+
+/// The clear runs as the plan says: as you, then admin, then the files; a cancelled macOS dialog stops it first.
+fn cleared_in_order_and_a_cancel_stops_it(m: &Machine) {
+    let mut hands = Record::default();
+    let done = clear("ca:", m, &mut hands);
+    assert!(!done.bad, "{done:?}");
+    let order: Vec<&str> = hands
+        .asked
+        .iter()
+        .map(|a| a.split_whitespace().next().unwrap_or_default())
+        .collect();
+    assert_eq!(order, ["as", "admin", "rm"], "{:?}", hands.asked);
+
+    let mut hands = Record {
+        cancel_as_user: true,
+        ..Record::default()
+    };
+    let done = clear("ca:", m, &mut hands);
+    assert_eq!(done.said, super::clear::UNTRUST_CANCELLED);
+    assert!(!done.bad, "a cancel is the person's choice: {done:?}");
+    assert_eq!(
+        hands.asked.len(),
+        1,
+        "nothing after the dialog: {:?}",
+        hands.asked
+    );
+}
+
+/// A leftover gone since the list was read is said by what it was, never as an empty name.
+#[test]
+fn a_gone_authority_is_named() {
+    let w = world();
+    let mut m = look(&w, true);
+    m.authority = None;
+    let done = clear("ca:", &m, &mut Record::default());
+    assert_eq!(
+        done.said,
+        "doze's certificate authority is no longer left behind; nothing was done"
+    );
 }

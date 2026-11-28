@@ -73,7 +73,6 @@ pub(crate) fn lines(cfg: &Config, p: Paint) -> Vec<String> {
         ca: None,
         prune: Vec::new(),
         home: Some(PathBuf::from(home)),
-        untrust_all: false,
     };
     // The daemon made the authority as it came up (a domain without the person's own certificate); up only looks.
     if enabled().any(|i| !i.domains.is_empty() && i.cert.is_empty()) {

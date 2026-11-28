@@ -89,7 +89,6 @@ pub fn request(home: &Path, stack: &StackDomains, ca: Option<Ca>) -> TrustReques
         ca,
         prune: Routes::open(home).stale(),
         home: Some(PathBuf::from(home)),
-        untrust_all: false,
     }
 }
 

@@ -48,8 +48,15 @@ impl Serialize for Script {
             what: Option<&'a str>,
             #[serde(skip_serializing_if = "Option::is_none")]
             shell: Option<&'static str>,
+            /// What runs as the person before `script`, where macOS asks in its own dialog (a removal of its trust
+            /// settings, while the certificate is still there).
+            #[serde(skip_serializing_if = "Option::is_none")]
+            as_user_before: Option<&'a str>,
             #[serde(skip_serializing_if = "Option::is_none")]
             script: Option<&'a str>,
+            /// What runs as the person after `script`, where macOS asks in its own dialog (its trust settings).
+            #[serde(skip_serializing_if = "Option::is_none")]
+            as_user: Option<&'a str>,
         }
         let p = self.plan.as_ref();
         Body {
@@ -61,7 +68,13 @@ impl Serialize for Script {
                 Shell::Sh => "sh",
                 Shell::PowerShell => "powershell",
             }),
+            as_user_before: p
+                .map(|p| p.as_user_before.as_str())
+                .filter(|s| !s.trim().is_empty()),
             script: p.map(|p| p.script.as_str()),
+            as_user: p
+                .map(|p| p.as_user.as_str())
+                .filter(|s| !s.trim().is_empty()),
         }
         .serialize(s)
     }
@@ -127,6 +140,21 @@ pub(crate) fn fix(ctx: &mut Ctx<'_>, mode: &Mode, dry_run: bool) -> Outcome {
     finish(ctx, &m, r, dry_run, "doze doctor --fix", stack.as_ref())
 }
 
+/// A repair with nothing to run: what was said, "nothing to do" unless a part cannot be repaired (then that is the
+/// problem).
+fn nothing_to_do(mut said: Vec<String>, cannot: Option<Diagnostic>) -> Done {
+    if cannot.is_none() {
+        said.push("✓ already set up — nothing to do".into());
+    }
+    Done {
+        view: View::Ran(Ran {
+            said,
+            checks: Vec::new(),
+        }),
+        problem: cannot,
+    }
+}
+
 /// Shows the repair's script, or runs it and says what stands after.
 fn finish(
     ctx: &mut Ctx<'_>,
@@ -153,16 +181,7 @@ fn finish(
                 plan: None,
             })));
         }
-        if cannot.is_none() {
-            said.push("✓ already set up — nothing to do".into());
-        }
-        return Ok(Done {
-            view: View::Ran(Ran {
-                said,
-                checks: Vec::new(),
-            }),
-            problem: cannot,
-        });
+        return Ok(nothing_to_do(said, cannot));
     };
     if dry_run {
         return Ok(Done::ok(View::Script(Script {
@@ -170,9 +189,15 @@ fn finish(
             plan: Some(plan),
         })));
     }
-    // The authority the script trusts, made first as the person (files under the doze home).
-    r.prepare().map_err(|e| machine::failed(&e))?;
-    run(ctx, &plan)?;
+    // The authority the script trusts, made first as the person (files under the doze home), and the plan made again
+    // for it: the script checks the root's bytes, which a plan made before the root existed cannot.
+    r.prepare(m).map_err(|e| machine::failed(&e))?;
+    // Planned again, nothing is left to do (the authority just made is trusted already): said, and the plan made before
+    // it, which no longer holds, is never run.
+    let Some(plan) = r.one() else {
+        return Ok(nothing_to_do(said, cannot));
+    };
+    run_then(ctx, &plan, || drop(r.after(m, ctx.host.settle())))?;
     let still = r
         .after(m, ctx.host.settle())
         .map_err(|e| machine::failed(&e))?;
@@ -214,6 +239,29 @@ pub(crate) fn run(ctx: &Ctx<'_>, plan: &Plan) -> Result<(), Diagnostic> {
         .map_err(|r| machine::refused(&r, plan))
 }
 
+/// [`run`], and when it did not finish after root's part ran (macOS's dialog for the trust, which comes after it, was
+/// closed), `after_root` first: what root did is put in step as after a whole run.
+pub(crate) fn run_then(
+    ctx: &Ctx<'_>,
+    plan: &Plan,
+    after_root: impl FnOnce(),
+) -> Result<(), Diagnostic> {
+    ctx.host
+        .privileged(plan, machine::prompt(ctx))
+        .map_err(|r| {
+            if matches!(
+                r,
+                crate::ctx::Refused::Dialog {
+                    after_root: true,
+                    ..
+                }
+            ) {
+                after_root();
+            }
+            machine::refused(&r, plan)
+        })
+}
+
 /// `doze dns-setup --uninstall`: the zone's setup, every recorded route and every doze authority's trust, in one
 /// prompt; then the authority's files and the routes record, which are the person's own.
 fn uninstall(ctx: &mut Ctx<'_>, m: &Machine, dry_run: bool) -> Outcome {
@@ -225,6 +273,10 @@ fn uninstall(ctx: &mut Ctx<'_>, m: &Machine, dry_run: bool) -> Outcome {
         })));
     }
     run(ctx, &plan)?;
+    doze_os::guard::real_home_write(
+        &doze_names::ca::ca_dir(m.home()),
+        "delete the certificate authority",
+    );
     let _ = std::fs::remove_dir_all(doze_names::ca::ca_dir(m.home()));
     doze_names::routes::Routes::open(m.home()).remove_all();
     Ok(Done::ok(View::Ran(Ran {

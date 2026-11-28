@@ -32,5 +32,7 @@ serde_json = "1"
 thiserror = "2"
 
 [dev-dependencies]
+# The words a dry run marks the person's part with (`settings::cli::AS_YOU_MARK`), checked against the source.
+doze-names = { path = "../doze-names", features = ["setup"] }
 doze-control = { path = "../doze-control", features = ["test-support"] }
 tempfile = "3"

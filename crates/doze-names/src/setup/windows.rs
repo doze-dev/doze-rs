@@ -117,6 +117,8 @@ pub(crate) fn install_plan(f: &Facts) -> Result<Option<Plan>, Error> {
         ),
         shell: Shell::PowerShell,
         script,
+        as_user: String::new(),
+        as_user_before: String::new(),
     }))
 }
 
@@ -131,6 +133,8 @@ pub(crate) fn uninstall_plan(cleanup: &[String]) -> Plan {
         what: "remove the resolver route, the domains' routes and the certificate authority".into(),
         shell: Shell::PowerShell,
         script,
+        as_user: String::new(),
+        as_user_before: String::new(),
     }
 }
 

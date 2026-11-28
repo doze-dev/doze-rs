@@ -10,7 +10,7 @@
 
 use crate::cli::setup::Trust;
 use crate::cmd::doctor::Report;
-use crate::cmd::setup::{Ran, Script, run};
+use crate::cmd::setup::{Ran, Script, run_then};
 use crate::ctx::Ctx;
 use crate::diag::{Diagnostic, ids};
 use crate::machine;
@@ -96,7 +96,7 @@ pub(crate) fn run_trust(ctx: &mut Ctx<'_>, mode: &Mode, a: &Trust) -> Outcome {
     match plan {
         None => said.push("✓ already set up — nothing to do".into()),
         Some(plan) => {
-            run(ctx, &plan)?;
+            run_then(ctx, &plan, || drop(settle(&home, &mut req)))?;
             settle(&home, &mut req).map_err(|e| machine::failed(&e))?;
             said.extend(resolved(&home, &stack.domains, ctx.host.settle()));
         }
@@ -242,7 +242,8 @@ fn check(req: &TrustRequest, broken: Option<&str>) -> Done {
 }
 
 /// `--remove`: this stack's routes go unless another stack still declares the domain; the authority's trust and files
-/// go with the last stack, every doze root the machine holds with them. With `--dry-run` nothing is changed.
+/// go with the last stack when the .doze names are off (they serve https from it otherwise, and it stays, said so). Only
+/// this home's roots, by fingerprint: never another home's. With `--dry-run` nothing is changed.
 fn remove(
     ctx: &mut Ctx<'_>,
     home: &Path,
@@ -261,10 +262,8 @@ fn remove(
     req.prune = Vec::new();
     let elsewhere = routes.recorded().iter().any(others);
     let last = !elsewhere && !keep_ca;
-    if last {
-        req.untrust_all = true;
-    } else {
-        req.ca = None; // another stack still serves a domain from it
+    if !last {
+        req.ca = None; // another stack still serves a domain from it, or the .doze names do
     }
     let plan = untrust_plan(os, &req);
     if dry_run {
@@ -273,7 +272,9 @@ fn remove(
             plan,
         })));
     }
-    // The record forgets this stack only once its routes are gone: a cancelled prompt leaves both as they were.
+    // The record forgets this stack only once its routes are gone: a cancelled prompt leaves both as they were. So does
+    // a cancelled macOS dialog: a removal's dialog comes before root's part, which then does not run (a removal has no
+    // part for the person after root's, so nothing of it ran that would need forgetting).
     let forget = || {
         routes
             .forget_project(&stack.dir)
@@ -286,15 +287,21 @@ fn remove(
             said.push("nothing to remove".into());
         }
         Some(plan) => {
-            run(ctx, &plan)?;
-            forget()?;
-            for d in &req.domains {
-                routes.removed(d).map_err(|e| machine::failed(&e))?;
-            }
+            let routes_gone = || -> Result<(), Diagnostic> {
+                forget()?;
+                for d in &req.domains {
+                    routes.removed(d).map_err(|e| machine::failed(&e))?;
+                }
+                Ok(())
+            };
+            // Should a plan ever carry a part for the person after root's, a cancel there still settles the record.
+            run_then(ctx, &plan, || drop(routes_gone()))?;
+            routes_gone()?;
             said.push("✓ removed".into());
         }
     }
     if last && ca_dir(home).exists() {
+        doze_os::guard::real_home_write(&ca_dir(home), "delete the certificate authority");
         std::fs::remove_dir_all(ca_dir(home)).map_err(|e| {
             Diagnostic::new(
                 ids::SETUP_FAILED,

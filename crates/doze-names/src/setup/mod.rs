@@ -26,7 +26,12 @@ mod windows;
 
 #[doc(hidden)]
 pub use linux_units::netd_serves;
-pub use run::{How, Options, pasteable, run as run_plan, shell_quote};
+pub use run::{
+    AS_YOU_FIRST_NOTE, AS_YOU_NOTE, How, MAC_DIALOG_CANCELLED, Options, UserPart, UserRefused,
+    pasteable, run as run_plan, run_as_user, shell_quote, user_outcome,
+};
+#[doc(hidden)]
+pub use trust_scripts::mac_remove_trust;
 pub use who::{setup_home, setup_user};
 
 use crate::Error;
@@ -96,7 +101,30 @@ pub enum Shell {
 pub struct Plan {
     pub what: String,
     pub shell: Shell,
+    /// What runs as root, under the one prompt. Empty when all there is to do is the person's ([`Plan::as_user`], [`Plan::as_user_before`]).
     pub script: String,
+    /// What runs as the person, in their own login session, once `script` has run: macOS's admin trust settings,
+    /// which only macOS's own authorization dialog can change. As root in a script with no window to show that dialog
+    /// in (the app's administrator prompt), the change is refused ("no user interaction was possible"), so it is never
+    /// part of `script`. Empty on every other system.
+    pub as_user: String,
+    /// What runs as the person before `script`, for the same reason: macOS's admin trust settings removed while the
+    /// certificates are still there, so a cancelled dialog leaves the root trusted and in the keychain, as it was,
+    /// and the rest of the plan does not run. Empty on every other system.
+    pub as_user_before: String,
+}
+
+impl Plan {
+    /// A plan whose every line runs as root.
+    pub fn root(what: impl Into<String>, shell: Shell, script: impl Into<String>) -> Plan {
+        Plan {
+            what: what.into(),
+            shell,
+            script: script.into(),
+            as_user: String::new(),
+            as_user_before: String::new(),
+        }
+    }
 }
 
 /// The system, decided at run time.
@@ -258,13 +286,19 @@ impl Setup {
 
     /// The script that removes everything an install wrote, and the domains' routes and the authority's trust.
     pub fn uninstall_plan(&self) -> Result<Plan, Error> {
-        let cleanup = trust::cleanup_script(self.os, &self.home);
-        match self.os {
-            Os::Mac => Ok(mac::uninstall_plan(self, &cleanup)),
-            Os::Linux => linux::uninstall_plan(self, &cleanup),
-            Os::Windows => Ok(windows::uninstall_plan(&cleanup)),
-            Os::Other => Err(Error::Setup(NOT_HERE.into())),
+        let (cleanup, before) = trust::cleanup_script(self.os, &self.home);
+        let mut plan = match self.os {
+            Os::Mac => mac::uninstall_plan(self, &cleanup),
+            Os::Linux => linux::uninstall_plan(self, &cleanup)?,
+            Os::Windows => windows::uninstall_plan(&cleanup),
+            Os::Other => return Err(Error::Setup(NOT_HERE.into())),
+        };
+        if !before.is_empty() {
+            plan.what.push_str("; ");
+            plan.what.push_str(trust::MAC_UNTRUST_DIALOG);
         }
+        plan.as_user_before = before;
+        Ok(plan)
     }
 
     /// Sets the machine up, in one prompt; idempotent.

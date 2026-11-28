@@ -7,7 +7,7 @@
 //! doze-names install   [--print|--prompt]   set the machine up (one prompt)
 //! doze-names uninstall [--print|--prompt]   take it all away (one prompt)
 //! doze-names trust     [--print|--prompt] [--ca] <domain>...   route domains here, trust the doze CA
-//! doze-names untrust   [--print|--prompt] [--ca] [--all] <domain>...
+//! doze-names untrust   [--print|--prompt] [--ca] <domain>...
 //! doze-names claim <host>...                hold names (and stand in line for the resolver) until killed
 //! doze-names __doze-netd <registry> [<uid> <gid>]   the network daemon, as setup installs it
 //! ```
@@ -44,7 +44,7 @@ fn main() -> ExitCode {
 fn usage() -> ExitCode {
     eprintln!(
         "usage: doze-names check | install | uninstall | trust <domain>... | untrust <domain>... | claim <host>... \
-         [--print|--prompt] [--ca] [--all]"
+         [--print|--prompt] [--ca]"
     );
     ExitCode::from(2)
 }
@@ -103,7 +103,6 @@ fn trust_cmd(cmd: &str, rest: &[String]) -> Result<ExitCode, Error> {
         domains,
         ca,
         home: Some(home),
-        untrust_all: flags.iter().any(|f| f == "--all"),
         ..TrustRequest::default()
     };
     let mut out = std::io::stdout();
