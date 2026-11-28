@@ -29,4 +29,4 @@ mod websig;
 pub use config::{Auth, Config, Hooks};
 pub use fault::{Ask, Done, Failure, Faults, LabNote, Tag, Verdict};
 pub use observe::{AllowedBy, Did, Finished, MOST_MESSAGE, Observer, WouldDeny};
-pub use server::{Gateway, Running};
+pub use server::{Gateway, Limits, Running};

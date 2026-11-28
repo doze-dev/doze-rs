@@ -169,3 +169,91 @@ fn what_was_acknowledged_survives_every_kind_of_power_cut() {
         }
     }
 }
+
+/// Two databases on the one writer: a close is answered once its own writes are committed, not after the other database's
+/// writes queued beside it.
+#[test]
+fn a_close_waits_for_its_own_writes_not_another_databases() {
+    let (fa, fb) = (disk(), disk());
+    let (a, b) = (open(&fa), open(&fb));
+    let wa = GroupCommit::start(a.clone()).unwrap();
+    let wb = GroupCommit::start(b.clone()).unwrap();
+    let (first_go, first_hold) = mpsc::channel::<()>();
+    let (second_go, second_hold) = mpsc::channel::<()>();
+    let (started, running) = mpsc::channel::<()>();
+    let gate = |hold: mpsc::Receiver<()>, started: mpsc::Sender<()>| -> Op {
+        Box::new(move |txn| {
+            started.send(()).unwrap();
+            hold.recv().unwrap();
+            txn.open_table(T)?.insert(9, 90)?;
+            Ok(())
+        })
+    };
+    let first = wa.submit(gate(first_hold, started.clone()));
+    running.recv().unwrap();
+    // While the writer is held by A, B writes and A queues a second slow write: they share the next round.
+    let b_put = wb.submit(put(1));
+    let second = wa.submit(gate(second_hold, started));
+    let closer = std::thread::spawn(move || wb.shutdown());
+    std::thread::sleep(std::time::Duration::from_millis(50));
+    first_go.send(()).unwrap();
+    // B's write is committed and B let go while A's second write is still held.
+    closer.join().unwrap();
+    b_put.wait().unwrap();
+    assert_eq!(get(&b, 1), Some(10));
+    running.recv().unwrap();
+    second_go.send(()).unwrap();
+    first.wait().unwrap();
+    second.wait().unwrap();
+}
+
+/// A flush that fails on one database's disk refuses that database's writes; another database on the same writer goes on.
+#[test]
+fn a_failed_flush_on_one_database_leaves_the_others_writing() {
+    let (fa, fb) = (disk(), disk());
+    let (a, b) = (open(&fa), open(&fb));
+    let wa = GroupCommit::start(a).unwrap();
+    let wb = GroupCommit::start(b.clone()).unwrap();
+    fa.fail(FsOp::Fsync, 1, Failure::Io);
+    assert!(matches!(
+        wa.submit(put(1)).wait(),
+        Err(StoreError::Failed(_))
+    ));
+    assert!(matches!(
+        wa.submit(put(2)).wait(),
+        Err(StoreError::Failed(_))
+    ));
+    wb.submit(put(3)).wait().unwrap();
+    assert_eq!(get(&b, 3), Some(30));
+}
+
+/// While the writer is in the middle of a commit, the space a read sees is answered at once (the exact count, which starts a
+/// write, would wait for it), and it is close to the exact count.
+#[test]
+fn the_space_a_read_sees_does_not_wait_for_a_commit_under_way() {
+    let fs = disk();
+    let store = open(&fs);
+    let writer = GroupCommit::start(store.clone()).unwrap();
+    for key in 0..2000 {
+        writer.submit(put(key)).wait().unwrap();
+    }
+    let exact = store.space().unwrap();
+    let seen = store.space_seen().unwrap();
+    assert!(seen.used <= exact.used, "{seen:?} {exact:?}");
+    assert!(seen.used * 2 >= exact.used, "{seen:?} {exact:?}");
+    let (release, hold) = mpsc::channel::<()>();
+    let (started, running) = mpsc::channel::<()>();
+    let held = writer.submit(Box::new(move |_| {
+        started.send(()).unwrap();
+        hold.recv().unwrap();
+        Ok(())
+    }));
+    running.recv().unwrap();
+    let (answer, answered) = mpsc::channel();
+    let asking = store.clone();
+    std::thread::spawn(move || answer.send(asking.space_seen().is_ok()).unwrap());
+    let quick = answered.recv_timeout(std::time::Duration::from_secs(2));
+    release.send(()).unwrap();
+    held.wait().unwrap();
+    assert_eq!(quick, Ok(true), "answered while the commit was held");
+}

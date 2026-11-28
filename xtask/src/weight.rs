@@ -176,7 +176,7 @@ fn measure(limit: &Limit) -> Result<Measure, String> {
     let bytes = fs::metadata(&binary)
         .map_err(|e| format!("{}: {e}", binary.display()))?
         .len();
-    Ok(Measure {
+    let measured = Measure {
         bytes,
         packages: count_packages(&limit.package)?,
         rss_kb: if limit.args.is_empty() {
@@ -184,6 +184,28 @@ fn measure(limit: &Limit) -> Result<Measure, String> {
         } else {
             idle_rss_kb(&binary, &limit.args)?
         },
+    };
+    if limit.package == "doze-aws" && !limit.args.is_empty() {
+        let after = after_use(&binary, &limit.args)?;
+        // Reported, not yet held to a limit (docs/port/weight.md, "Workstream 2").
+        println!(
+            "{:<16} after use, once idle: {} KB resident, {} threads (no limit yet)",
+            limit.package, after.rss_kb, after.threads
+        );
+    }
+    Ok(measured)
+}
+
+/// Starts the server with a short idle time, runs [`crate::weight_use::workload`], waits for its services to be reaped, and reads what
+/// it holds.
+fn after_use(binary: &Path, args: &[String]) -> Result<crate::weight_use::AfterUse, String> {
+    use crate::weight_use::{IDLE_SECS, SETTLE, after_use, workload};
+    let mut args = args.to_vec();
+    args.extend(["--idle-secs".to_owned(), IDLE_SECS.to_string()]);
+    with_server(binary, &args, |pid, port| {
+        workload(port)?;
+        sleep(SETTLE);
+        after_use(pid)
     })
 }
 
@@ -230,6 +252,19 @@ fn median(samples: &mut [u64]) -> u64 {
 /// Starts the server on a free port with an empty data directory, waits until it accepts, lets it settle,
 /// and reads its resident set from `ps` (the same on Linux and macOS).
 fn idle_rss_kb_once(binary: &Path, args: &[String]) -> Result<u64, String> {
+    with_server(binary, args, |pid, _| {
+        sleep(Duration::from_secs(2));
+        read_rss_kb(pid)
+    })
+}
+
+/// Starts the server on a free port with an empty data directory, waits until it accepts, runs `f` with its pid and port, and
+/// stops it.
+fn with_server<T>(
+    binary: &Path,
+    args: &[String],
+    f: impl FnOnce(u32, u16) -> Result<T, String>,
+) -> Result<T, String> {
     let port = free_port()?;
     let data = std::env::temp_dir().join(format!("xtask-weight-{}-{port}", std::process::id()));
     fs::create_dir_all(&data).map_err(|e| e.to_string())?;
@@ -246,10 +281,8 @@ fn idle_rss_kb_once(binary: &Path, args: &[String]) -> Result<u64, String> {
         .stderr(Stdio::null())
         .spawn()
         .map_err(|e| format!("starting {}: {e}", binary.display()))?;
-    let result = wait_until_up(port).and_then(|()| {
-        sleep(Duration::from_secs(2));
-        read_rss_kb(child.id())
-    });
+    let pid = child.id();
+    let result = wait_until_up(port).and_then(|()| f(pid, port));
     let _ = child.kill();
     let _ = child.wait();
     let _ = fs::remove_dir_all(&data);
@@ -275,7 +308,7 @@ fn wait_until_up(port: u16) -> Result<(), String> {
     ))
 }
 
-fn read_rss_kb(pid: u32) -> Result<u64, String> {
+pub(crate) fn read_rss_kb(pid: u32) -> Result<u64, String> {
     let out = Command::new("ps")
         .args(["-o", "rss=", "-p", &pid.to_string()])
         .output()

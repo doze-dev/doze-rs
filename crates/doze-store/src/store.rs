@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use doze_fs::fs::Fs;
-use redb::{Database, Durability, WriteTransaction};
+use redb::{Database, Durability, ReadableDatabase, ReadableTableMetadata, WriteTransaction};
 
 use crate::{FileBackend, StoreError};
 
@@ -122,6 +122,29 @@ impl Store {
         Ok(Space {
             file: self.file_bytes(),
             used: stats.allocated_pages() * stats.page_size() as u64,
+        })
+    }
+
+    /// How much of the file holds data, as a read sees it: the pages of every table as last committed. Unlike [`Store::space`] it
+    /// does not wait for a commit under way (a flush), so a server's one thread may ask it; it leaves out redb's own small trees, so
+    /// `used` is a little under the exact count.
+    ///
+    /// # Errors
+    /// A failed read.
+    pub fn space_seen(&self) -> Result<Space, StoreError> {
+        let read = self.db.begin_read()?;
+        let mut used = 0;
+        for table in read.list_tables()? {
+            let stats = read.open_untyped_table(table)?.stats()?;
+            used += stats.stored_bytes() + stats.metadata_bytes() + stats.fragmented_bytes();
+        }
+        for table in read.list_multimap_tables()? {
+            let stats = read.open_untyped_multimap_table(table)?.stats()?;
+            used += stats.stored_bytes() + stats.metadata_bytes() + stats.fragmented_bytes();
+        }
+        Ok(Space {
+            file: self.file_bytes(),
+            used,
         })
     }
 

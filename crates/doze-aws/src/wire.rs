@@ -12,52 +12,8 @@ use aws_wire::service::Service;
 use doze_runtime::{Ctx, SystemClock, Tasks};
 
 use crate::config::Config;
+use crate::resume::Resumable;
 use crate::services::{Off, Svc};
-
-/// The services that need waking after a restart (what was pending when the process stopped carries on).
-pub(crate) struct Resumable {
-    cloudwatch: Option<Arc<aws_cloudwatch::Cloudwatch>>,
-    eventbridge: Option<Arc<aws_eventbridge::Eventbridge>>,
-    scheduler: Option<Arc<aws_scheduler::Scheduler>>,
-    secrets: Option<Arc<aws_secrets::Secrets>>,
-    dynamodb: Option<Arc<aws_dynamodb::Dynamodb>>,
-    lambda: Option<Arc<aws_lambda::Lambda>>,
-    states: Option<Arc<aws_sfn::Sfn>>,
-    logs: Option<Arc<aws_logs::Logs>>,
-}
-
-impl Resumable {
-    /// Wakes what was pending, in the services that are served. Lambda is told where the gateway is first.
-    pub(crate) async fn resume(&self, endpoint: &str) {
-        if let Some(s) = &self.cloudwatch {
-            s.resume().await;
-        }
-        if let Some(s) = &self.eventbridge {
-            s.resume().await;
-        }
-        if let Some(s) = &self.scheduler {
-            s.resume().await;
-        }
-        // Scheduled secret rotations: what came due while stopped starts now, and the next window is waited for.
-        if let Some(s) = &self.secrets {
-            s.resume().await;
-        }
-        if let Some(s) = &self.dynamodb {
-            s.resume().await;
-        }
-        if let Some(s) = &self.lambda {
-            s.set_endpoint(endpoint);
-            s.resume().await;
-        }
-        if let Some(s) = &self.states {
-            s.resume().await;
-        }
-        // Scheduled Logs Insights queries: the next run is waited for.
-        if let Some(s) = &self.logs {
-            s.resume().await;
-        }
-    }
-}
 
 /// Every API on the gateway by its catalogue entry: the service itself, never the stand-in of one left out of `--services`
 /// (the console counts what the build can do).

@@ -18,6 +18,7 @@ mod gates;
 mod lint_size;
 mod themes;
 mod weight;
+mod weight_use;
 
 use std::process::ExitCode;
 

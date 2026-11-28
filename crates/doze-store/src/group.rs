@@ -1,33 +1,35 @@
-//! Group commit: one writer thread owns the writes, takes whatever is queued, applies it all in one
-//! transaction and flushes once.
+//! Group commit: one writer thread per data directory (doze-aws has one) owns the writes of every open database in it. It takes
+//! whatever is queued, applies each database's share in one transaction of that database and flushes it once.
 //!
-//! Every caller still gets a durable answer: its [`Ack`] resolves only after the commit that holds its
-//! operation has been flushed. Under load many callers share a flush (spike S6 measured p50 about 6 ms
-//! and p99 under 15 ms for durable sends at 10,000 a second on one core); alone, a caller pays one flush.
+//! Every caller still gets a durable answer: its [`Ack`] resolves only after the commit that holds its operation has been flushed.
+//! Under load many callers share a flush (spike S6 measured p50 about 6 ms and p99 under 15 ms for durable sends at 10,000 a second
+//! on one core); alone, a caller pays one flush.
 //!
 //! Rules of the writer:
-//! - An operation that fails (`Err`) must fail *before* it writes anything. Its caller gets the error,
-//!   and the other operations in the batch go on.
-//! - A commit that fails fails every operation in its batch with [`StoreError::Failed`], and the writer
-//!   then refuses everything until the process starts again: a flush that failed once may report
-//!   success later without having written anything.
+//! - An operation that fails (`Err`) must fail *before* it writes anything. Its caller gets the error, and the other operations in
+//!   the batch go on.
+//! - A commit that fails fails every operation in its batch with [`StoreError::Failed`], and that database's writes are then
+//!   refused until the process starts again: a flush that failed once may report success later without having written anything.
+//!   The other databases go on.
 //! - No write transaction is held across an `.await`; the writer is a plain thread.
+//!
+//! One thread, not one per database: seventeen services each held a writer thread (and on Linux a malloc arena each, about 210 KB)
+//! while open. The thread starts with the directory's first database and ends when its last one closes, so a process whose services
+//! are all idle holds none (weight.md, "Workstream 2"). Per data directory, not per process, so a test that runs many servers at
+//! once does not queue one server's flushes behind another's.
 
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::mpsc;
 use std::task::{Context, Poll};
-use std::thread::{self, JoinHandle};
 
 use redb::WriteTransaction;
 use tokio::sync::oneshot;
 
 use crate::{Store, StoreError};
 
-/// The most operations one commit takes. Bounds a batch's latency and its transaction's memory.
-const MAX_BATCH: usize = 1024;
+mod writer;
 
 /// An operation on the write transaction of a batch.
 pub type Op = Box<dyn FnOnce(&WriteTransaction) -> Result<(), StoreError> + Send>;
@@ -67,29 +69,25 @@ impl Ack {
     }
 }
 
-/// The writer of one [`Store`].
+/// The writes of one [`Store`], on the writer thread of its data directory.
 #[derive(Debug)]
 pub struct GroupCommit {
-    jobs: Option<mpsc::Sender<Job>>,
-    thread: Option<JoinHandle<()>>,
+    /// The database on its writer; `None` once stopped.
+    link: Option<writer::Link>,
     commits: Arc<AtomicU64>,
 }
 
 impl GroupCommit {
-    /// Starts the writer thread on `store`. Reads go through `store` as before; writes go through here.
+    /// Hands `store` to the writer thread of its data directory (starting it if none of the directory's databases is open). Reads go through `store` as before; writes go
+    /// through here.
     ///
     /// # Errors
     /// The thread could not be started.
     pub fn start(store: Store) -> Result<Self, StoreError> {
-        let (jobs, queue) = mpsc::channel();
         let commits = Arc::new(AtomicU64::new(0));
-        let counter = Arc::clone(&commits);
-        let thread = thread::Builder::new()
-            .name("doze-store-writer".into())
-            .spawn(move || run(&store, &queue, &counter))?;
+        let link = writer::open(store, Arc::clone(&commits))?;
         Ok(Self {
-            jobs: Some(jobs),
-            thread: Some(thread),
+            link: Some(link),
             commits,
         })
     }
@@ -97,28 +95,25 @@ impl GroupCommit {
     /// Queues `op`. The returned [`Ack`] resolves after the commit holding it has been flushed.
     pub fn submit(&self, op: Op) -> Ack {
         let (reply, answer) = oneshot::channel();
-        match &self.jobs {
-            Some(jobs) => {
-                if let Err(mpsc::SendError(job)) = jobs.send(Job { op, reply }) {
-                    respond(job.reply, Err(StoreError::Stopped));
-                }
-            }
-            None => respond(reply, Err(StoreError::Stopped)),
+        let job = Job { op, reply };
+        match &self.link {
+            Some(link) => link.submit(job),
+            None => respond(job.reply, Err(StoreError::Stopped)),
         }
         Ack(answer)
     }
 
-    /// How many commits (flushes) the writer has made.
+    /// How many commits (flushes) the writer has made of this database.
     #[must_use]
     pub fn commits(&self) -> u64 {
         self.commits.load(Ordering::Relaxed)
     }
 
-    /// Finishes what is queued, stops the writer, runs `f` with `store` as the only handle (so it may [`Store::compact`]), and starts a
-    /// new writer on it. Nothing can be submitted meanwhile: the caller holds `&mut self`.
+    /// Finishes what is queued, takes the database off the writer, runs `f` with `store` as the only handle (so it may
+    /// [`Store::compact`]), and hands it to the writer again. Nothing can be submitted meanwhile: the caller holds `&mut self`.
     ///
     /// # Errors
-    /// The new writer's thread could not be started; `f`'s own result is returned inside.
+    /// The writer's thread could not be started again; `f`'s own result is returned inside.
     pub fn paused<T>(
         &mut self,
         store: &mut Store,
@@ -130,87 +125,38 @@ impl GroupCommit {
         Ok(out)
     }
 
-    /// Stops accepting operations, finishes the queued ones, and waits for the thread.
+    /// Stops accepting operations, and waits until the writer has committed this database's queued ones and let go of it. Waits
+    /// for this database alone: the thread goes on with the others.
     pub fn shutdown(mut self) {
         self.stop();
     }
 
+    /// How many writer threads run: one per data directory with a database open (for tests).
+    #[doc(hidden)]
+    #[must_use]
+    pub fn writer_threads() -> usize {
+        writer::running()
+    }
+
     fn stop(&mut self) {
-        // Dropping the sender ends the writer's loop once the queue is empty.
-        self.jobs = None;
-        if let Some(thread) = self.thread.take() {
-            // WHY: a join error means an operation panicked and the writer died; its callers saw `Stopped`.
-            drop(thread.join());
+        if let Some(link) = self.link.take() {
+            link.close().wait();
         }
     }
 }
 
 impl Drop for GroupCommit {
+    /// Waits, as [`GroupCommit::shutdown`] does: the database must be let go of before its file can be opened again.
     fn drop(&mut self) {
         self.stop();
     }
 }
 
-/// Answers a caller. A caller that stopped waiting dropped its receiver; its operation was applied (or
-/// refused) all the same, so there is nobody to tell.
+/// Answers a caller. A caller that stopped waiting dropped its receiver; its operation was applied (or refused) all the same, so
+/// there is nobody to tell.
 fn respond(reply: Reply, result: Result<(), StoreError>) {
     if reply.send(result).is_err() {
         // WHY: nothing to do; see above.
-    }
-}
-
-fn run(store: &Store, queue: &mpsc::Receiver<Job>, commits: &AtomicU64) {
-    let mut failed: Option<String> = None;
-    while let Ok(first) = queue.recv() {
-        let mut batch = vec![first];
-        while batch.len() < MAX_BATCH {
-            match queue.try_recv() {
-                Ok(job) => batch.push(job),
-                Err(_) => break,
-            }
-        }
-        match &failed {
-            Some(why) => refuse(batch, why),
-            None => failed = commit(store, batch, commits).err(),
-        }
-    }
-}
-
-fn refuse(batch: Vec<Job>, why: &str) {
-    for job in batch {
-        respond(job.reply, Err(StoreError::Failed(why.to_owned())));
-    }
-}
-
-/// Applies a batch in one transaction. `Err` carries why the commit failed.
-fn commit(store: &Store, batch: Vec<Job>, commits: &AtomicU64) -> Result<(), String> {
-    let txn = match store.begin() {
-        Ok(txn) => txn,
-        Err(e) => {
-            let why = e.to_string();
-            refuse(batch, &why);
-            return Err(why);
-        }
-    };
-    let results: Vec<(Reply, Result<(), StoreError>)> = batch
-        .into_iter()
-        .map(|job| ((job.reply), (job.op)(&txn)))
-        .collect();
-    match txn.commit() {
-        Ok(()) => {
-            commits.fetch_add(1, Ordering::Relaxed);
-            for (reply, result) in results {
-                respond(reply, result);
-            }
-            Ok(())
-        }
-        Err(e) => {
-            let why = e.to_string();
-            for (reply, _) in results {
-                respond(reply, Err(StoreError::Failed(why.clone())));
-            }
-            Err(why)
-        }
     }
 }
 

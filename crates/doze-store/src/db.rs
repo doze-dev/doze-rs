@@ -111,12 +111,13 @@ impl Db {
         Some(self.writer.submit(op))
     }
 
-    /// How much of the file holds data, and how much a [`Db::compact`] would give back.
+    /// How much of the file holds data, and how much a [`Db::compact`] would give back, as a read sees it ([`Store::space_seen`]): it
+    /// does not wait for a commit under way, so an actor on the serving thread may ask it.
     ///
     /// # Errors
-    /// The database refused to start a write.
+    /// A failed read.
     pub fn space(&self) -> Result<Space, StoreError> {
-        self.store.space()
+        self.store.space_seen()
     }
 
     /// Gives the space that deletes freed back to the disk. Waits for queued writes first.

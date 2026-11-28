@@ -1814,3 +1814,75 @@ The logs bench now leaves the page and closes the window after its follow (`afte
 44 MB after closing. A `malloc_zone_pressure_relief` when the logs page goes was tried and not kept: on macOS 27 it
 gives back 0 bytes, as does the call `window_gone` already makes (the allocator returns empty pages itself: "Malloc
 Small (empty)" held 864 KB dirty of 27.5 MB).
+
+## Workstream 2: runtime, store, timers, gateway (2026-11-27, branch `perf-runtime`), darwin/arm64
+
+The performance review found waste at doze-aws's edges. What changed and what it measured. The machine was building other branches
+throughout (load average 25 to 47), so timings are noisy; thread counts are not. Release profile unless said; loopback; 16 clients
+from a bun script (`fetch`, a signature-shaped header under `--auth trust`) or 40 `curl --parallel` downloads.
+
+**A flush on macOS is `fsync(2)`.** doze-aws never called `full_flush(false)`, so every group commit, every S3 body and every directory
+flush was `F_FULLFSYNC` (3 to 12 ms, spike S6), which also empties the drive's cache for every other program. It now calls it at start,
+as doze-kafka does (the reasoning is the owner's call of 2026-11-26 above: a crash of doze-aws or of macOS keeps what was flushed; only a
+power cut can lose what the drive had not written; Linux is unchanged).
+
+| 16 clients | `F_FULLFSYNC` | `fsync(2)` |
+|---|---|---|
+| DynamoDB PutItem (2,000) | 270 to 286 a second | 1,396 to 2,273 a second |
+| S3 PutObject, 1 KiB (1,000) | 86 to 88 a second | 440 to 876 a second |
+
+**The blocking pool is 8 threads, kept 2 s** (tokio's default: 512, kept 10 s). A burst of 40 concurrent 8 MiB GetObjects (S3 reads each
+piece of a body on a blocking thread) made 34 to 45 threads, which then sat for 10 s. Peak threads by pool size, 4 bursts from bun, two
+runs each; and the median of 12 bursts from curl, the sizes taking turns so the machine's load fell on each alike:
+
+| `max_blocking_threads` | peak threads | burst time, median (min to max) |
+|---|---|---|
+| 512 (before) | 34, 45 | 353 ms (152 to 546) |
+| 4 | 7, 7 | 323 ms (203 to 598) |
+| 8 (chosen) | 11, 11 | 374 ms (235 to 826) |
+| 16 | 19, 19 | 388 ms (182 to 570) |
+
+The transfer time does not depend on the size here (the files are in the page cache; the copy is the work), so the pool is small. 8, not
+4: the same pool now opens and closes the services' databases (below), and a restart resumes eight services at once. After a minute the
+threads are back to 3 in every case; macOS's footprint after the burst was 6.3 to 6.6 MB in every case too (one earlier run of the old
+binary held 45 MB after a burst whose 43 threads all ran; not reproduced). The saving the review counted on is Linux's: glibc keeps an
+arena for each thread that ever ran at once (about 210 KB each, the 2026-11-15 measurement above), which 43 threads multiplied.
+
+**One store writer per data directory, not per database.** Every open database had its own `doze-store-writer` thread. With S3, SQS and
+DynamoDB in use, doze-aws ran 5 threads; it now runs 3 (one writer). The thread ends when the last database closes, so after the
+services are reaped none is left (2 threads before, 1 after, in the after-use run below). Keyed by data directory, not by process:
+`aws-cloudformation`'s and `aws-sfn`'s test binaries run dozens of servers at once, and with one thread for all of them each test's
+flushes queued behind every other test's (six CloudFormation tests and one Step Functions test missed their timings, every run). DynamoDB
+PutItem and S3 PutObject at once (16 clients each, three rounds) ran 1,099 to 1,413 and 379 to 830 a second with one writer against 390
+to 1,413 and 216 to 795 with a writer each: within the noise.
+
+**A service opens and closes off the serving thread.** `Service::open` (redb's open and repair, `Records::load` of every SQS message or
+Step Functions execution) and `close` (the closing compaction) ran on the one thread that serves every request, at the first call and
+after each idle reap. They run on the blocking pool now (`Handle::block_on`, one type-erased hand-off so the 18 services do not each
+carry a copy of `block_on`); the actor's calls wait in its inbox. Measured by the test `a_slow_open_does_not_hold_up_another_service`:
+another service answered after 2.0 s (the slow open) before, at once after. `Resumable::resume` runs on a task, the eight services at once,
+so the ready line no longer waits for their databases. `Db::space` reads the tables' page counts in a read transaction instead of
+starting a write, which waited out a commit under way.
+
+**Timers.** `Deadlines` kept the answer of a wake-up that had awaited its save over a deadline a call armed meanwhile (lost or late); every
+arm now moves a generation on and a wake-up that finds it moved keeps the earlier deadline. CloudWatch's alarm timer and Step Functions'
+clock use the shared `Due` now. No nap is longer than 10 minutes (`LONGEST_NAP`; it was 24 h): the sleep is monotonic and stops while the
+laptop sleeps. A task exists only while something is armed, so an idle server still has no timer.
+
+**The gateway's accept loop** backs off 50 ms after a failed accept (out of descriptors was a busy loop and a log line per turn), caps
+connections at 1024, closes a connection that sends no head for 60 s (which is also the keep-alive idle limit), and sets `TCP_NODELAY`.
+The soft limit on open files is raised toward the hard one at start (macOS starts a terminal's programs at 256). **New dependency:**
+`rlimit` 0.11 (doze-kafka's; it links only libc, already in the tree): +1 package (307 to 308 of the 310 line), +208 B (release profile).
+
+**Not changed: a reused `Sleep` in `Lazy::run`.** `timeout` puts its `Sleep` inside the actor's future (no allocation); a reset one
+re-registers in the timer wheel just as a new one does. Measured over a million messages through a channel on one thread: 118 to 175 ns
+a message with a new timeout, 85 to 149 ns with a reset `Sleep`, 49 to 90 ns with no timer: tens of nanoseconds against a request's tens
+of microseconds.
+
+**Weight after use** (`cargo xtask weight doze-aws`, new): the server with `--idle-secs 2`, 20 PutObjects of 64 KiB, 20 SendMessages and
+a ReceiveMessage, 20 PutItems, then the reap. First figures, release-aws: 8,928 and 9,136 KB resident, 1 thread. Reported, not yet a
+limit.
+
+**The whole workstream weighs** 12,305,040 B against main's 12,237,920 B (release-aws, +67,120 B: the shared timer, the writer, the
+gateway's limits and timer, `rlimit`), 308 packages against 307, idle 4,912 KB (median of 4,608, 8,064 and
+4,912: macOS idle readings swing that much). The blocking hand-off was first generic per service, 16,720 B more.

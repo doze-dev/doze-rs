@@ -47,6 +47,10 @@ aws-webhook = { path = "../aws-webhook" }
 aws-schema = { path = "../aws-schema" }
 aws-core = { path = "../aws-core" }
 doze-runtime = { path = "../doze-runtime" }
+# `full_flush(false)` at start: a flush on macOS is fsync(2), as doze-kafka's (docs/port/weight.md, "Workstream 2").
+doze-fs = { path = "../doze-fs" }
+# The limit on open files, raised at start (doze-kafka's crate; it links only libc, already here: weight.md, "Workstream 2").
+rlimit = "0.11"
 # The module face (feature `module`).
 doze-module = { path = "../doze-module", optional = true }
 # Reading the bbolt files a Go doze-aws module left, to carry them over (module/godata).

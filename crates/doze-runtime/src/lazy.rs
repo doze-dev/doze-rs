@@ -235,7 +235,8 @@ async fn actor<S: Service>(
         // WHY: it resolves, with an error, when the old actor has fully ended; the error is that signal.
         drop(previous.await);
     }
-    match S::open(&shared.ctx, shared.name).await {
+    // The calls that arrive meanwhile wait in the inbox.
+    match off_the_loop::opened(&shared).await {
         Ok(mut svc) => {
             run(shared.ctx.idle, &rest, &mut svc, &mut inbox).await;
             // Idle, told to rest, stopping, or every handle dropped: refuse new work, finish what is queued, release.
@@ -243,9 +244,9 @@ async fn actor<S: Service>(
             while let Some(call) = inbox.recv().await {
                 serve(&mut svc, call).await;
             }
-            svc.close().await;
+            off_the_loop::close(svc).await;
         }
-        Err(e) => refuse(&mut inbox, &e.to_string()).await,
+        Err(why) => refuse(&mut inbox, &why).await,
     }
     drop(inbox);
     shared.release(id);
@@ -284,6 +285,7 @@ async fn refuse<S: Service>(inbox: &mut mpsc::Receiver<Call<S>>, why: &str) {
     }
 }
 
+mod off_the_loop;
 mod resting;
 
 #[cfg(test)]

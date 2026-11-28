@@ -10,6 +10,22 @@ use crate::instance::{self, Instance, endpoint_of};
 use crate::services::Svc;
 use crate::style::{Stream, Style};
 
+/// The most threads file work (a download's reads, a service opening its database) runs on at once; more waits its turn.
+const BLOCKING_THREADS: usize = 8;
+/// How long an idle blocking thread is kept for the next piece of work before it ends.
+const BLOCKING_KEEP_ALIVE: std::time::Duration = std::time::Duration::from_secs(2);
+/// The most descriptors asked for. macOS refuses a soft limit above 10240 whatever the hard limit says; `rlimit` lowers the ask.
+const OPEN_FILES: u64 = 10_240;
+
+/// Raises the soft limit on open files toward the hard one (macOS starts a program from a terminal at 256): each connection and
+/// each open database or object is a descriptor. A limit that cannot be raised is said, and the server goes on.
+fn raise_open_files() {
+    #[cfg(unix)]
+    if let Err(e) = rlimit::increase_nofile_limit(OPEN_FILES) {
+        tracing::warn!("the limit on open files could not be raised: {e}");
+    }
+}
+
 /// Serves until Ctrl-C or SIGTERM; a start that fails is told plainly (it says what to do).
 pub(crate) fn main(cfg: &Config, started: Instant) -> i32 {
     let colour = std::io::IsTerminal::is_terminal(&std::io::stderr())
@@ -21,9 +37,17 @@ pub(crate) fn main(cfg: &Config, started: Instant) -> i32 {
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
         )
         .init();
+    // A flush on macOS is fsync(2), not F_FULLFSYNC, as doze-kafka's is: it keeps a write through a crash of doze-aws or of macOS,
+    // and does not empty the drive's cache for every program on the machine once per durable write (weight.md, "Workstream 2").
+    doze_fs::fs::full_flush(false);
+    raise_open_files();
     let runtime = match tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .thread_name("doze-aws")
+        // WHY: tokio's default is 512 blocking threads kept 10 s; a burst of 40 large downloads made 43 threads whose memory the
+        // allocator kept after they ended. The measured choice is in weight.md, "Workstream 2".
+        .max_blocking_threads(BLOCKING_THREADS)
+        .thread_keep_alive(BLOCKING_KEEP_ALIVE)
         .build()
     {
         Ok(r) => r,
@@ -114,7 +138,7 @@ async fn run(cfg: &Config, started: Instant) -> Result<(), String> {
         Err(e) => return Err(format!("doze-aws cannot listen on {listen}: {e}")),
     };
     me.endpoint = endpoint_of(running.local_addr());
-    resumable.resume(&me.endpoint).await;
+    resumable.resume(&me.endpoint, &tasks);
     me.advertised = advertised(cfg, "advertise")?;
     // Refused here, with the gateway's, not found out when the console starts.
     advertised(cfg, "advertise-console")?;

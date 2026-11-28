@@ -27,6 +27,7 @@ mod locate;
 mod module;
 mod probe;
 mod ready;
+mod resume;
 mod run;
 mod services;
 mod show;

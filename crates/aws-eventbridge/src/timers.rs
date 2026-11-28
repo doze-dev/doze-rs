@@ -19,8 +19,6 @@ use tokio::sync::watch;
 
 use crate::core::{Core, Request};
 
-/// A sleep is cut into pieces no longer than this, so a deadline far ahead does not meet the limit of the timer wheel.
-const LONGEST_SLEEP_MS: i64 = 86_400_000;
 /// A deadline already past when it is handed back is moved on by this much, so a fault in the arithmetic cannot become a busy loop.
 const AT_LEAST_MS: i64 = 250;
 
@@ -130,7 +128,10 @@ async fn run(
         };
         let wait = at - timers.ctx.clock.now_ms();
         if wait > 0 {
-            let nap = Duration::from_millis(u64::try_from(wait.min(LONGEST_SLEEP_MS)).unwrap_or(0));
+            // WHY: in pieces no longer than the longest nap: the sleep is monotonic and the deadline wall-clock, so the time is read again
+            // within minutes of the machine waking from sleep.
+            let nap = Duration::from_millis(u64::try_from(wait).unwrap_or(0))
+                .min(doze_runtime::LONGEST_NAP);
             tokio::select! {
                 () = tokio::time::sleep(nap) => {}
                 changed = rx.changed() => {
