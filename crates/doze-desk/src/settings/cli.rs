@@ -19,7 +19,7 @@ pub const CLI_ENV: &str = "DOZE_APP_CLI";
 
 /// How a dry run (`doze dns-setup --dry-run`) marks the part it runs as the person, not under sudo: macOS's trust
 /// settings, which macOS asks for in its own dialog. The run sheet says so beside the script.
-pub const AS_YOU_MARK: &str = "# then as you, not under sudo";
+pub const AS_YOU_MARK: &str = "as you, not under sudo";
 
 /// What the app asks the CLI for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -119,7 +119,26 @@ mod tests {
 
     #[test]
     fn the_as_you_mark_is_the_one_a_dry_run_prints() {
-        assert!(doze_names::setup::AS_YOU_NOTE.starts_with(super::AS_YOU_MARK));
+        assert!(doze_names::setup::AS_YOU_NOTE.contains(super::AS_YOU_MARK));
+        assert!(doze_names::setup::AS_YOU_FIRST_NOTE.contains(super::AS_YOU_MARK));
+        assert_eq!(
+            super::super::repair::MAC_DIALOG_CANCELLED_TEXT,
+            doze_names::setup::MAC_DIALOG_CANCELLED
+        );
+        let out = format!(
+            "doze needs sudo once\nerror[DZ0403]: {}\n",
+            doze_names::setup::UserRefused::Cancelled(doze_names::setup::UserPart::Trust)
+        );
+        match super::super::repair::doze_outcome(false, &out) {
+            Err(super::super::repair::Fail::Declined(what)) => {
+                assert!(
+                    what.starts_with("cancelled in macOS's dialog")
+                        && what.contains("not trusted yet"),
+                    "{what}"
+                );
+            }
+            other => panic!("{other:?}"),
+        }
     }
 
     #[test]

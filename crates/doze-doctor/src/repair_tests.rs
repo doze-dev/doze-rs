@@ -93,7 +93,7 @@ fn nothing_set_up_is_repaired_by_the_zone_install() {
         "{}",
         https.detail
     );
-    let r = plan(&m, None);
+    let mut r = plan(&m, None);
     let kinds: Vec<Kind> = r.parts.iter().map(|p| p.kind).collect();
     assert_eq!(kinds, [Kind::Names, Kind::Https]);
     let one = r.one().unwrap();
@@ -124,10 +124,31 @@ fn nothing_set_up_is_repaired_by_the_zone_install() {
         !m.home().join("ca").exists(),
         "planning (a dry run) makes nothing"
     );
-    r.prepare().unwrap();
+    assert!(
+        one.as_user
+            .contains("checks the root's SHA-256 once it is made"),
+        "a dry run says the root's bytes are checked once it is made: {}",
+        one.as_user
+    );
+    made_then_planned_again(&m, &mut r);
+}
+
+/// The run makes the root the script trusts, and plans again for it.
+fn made_then_planned_again(m: &Machine, r: &mut Repair) {
+    r.prepare(m).unwrap();
     assert!(
         m.home().join("ca").join("root.crt").is_file(),
         "the run makes the root the script trusts"
+    );
+    // Planned again for the root now made: the run checks its bytes before each step that uses it.
+    let again = r.one().unwrap();
+    assert!(
+        again.as_user.contains("shasum -a 256") && again.script.contains("shasum -a 256"),
+        "{again:?}"
+    );
+    assert!(
+        again.script.contains("dev.doze.netd"),
+        "the zone's part stays"
     );
 }
 

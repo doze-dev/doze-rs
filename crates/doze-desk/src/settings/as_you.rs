@@ -10,10 +10,9 @@ pub(super) fn outcome(ok: bool, text: &str) -> Result<(), Fail> {
         return Ok(());
     }
     let low = text.to_ascii_lowercase();
+    // The person's part runs first (a removal of trust), so a cancel there leaves everything as it was.
     if low.contains("canceled by the user") || low.contains("cancelled by the user") {
-        return Err(Fail::Failed(
-            "macOS's dialog was cancelled; nothing more was changed".into(),
-        ));
+        return Err(Fail::Cancelled);
     }
     if low.contains("no user interaction was possible") {
         return Err(Fail::Failed(
@@ -40,11 +39,12 @@ mod tests {
             Err(Fail::Failed(why)) => why,
             other => panic!("{other:?}"),
         };
-        assert!(
-            said(
+        assert_eq!(
+            outcome(
+                false,
                 "SecTrustSettingsRemoveTrustSettings: The authorization was canceled by the user."
-            )
-            .contains("cancelled")
+            ),
+            Err(Fail::Cancelled)
         );
         assert!(
             said("The authorization was denied since no user interaction was possible.")

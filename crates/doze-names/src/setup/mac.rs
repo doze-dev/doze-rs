@@ -154,6 +154,7 @@ printf 'nameserver 127.0.0.1\\nport {port}\\n' > {resolver}
         shell: Shell::Sh,
         script,
         as_user: String::new(),
+        as_user_before: String::new(),
     }
 }
 
@@ -205,5 +206,6 @@ rm -f {}
         shell: Shell::Sh,
         script,
         as_user: String::new(),
+        as_user_before: String::new(),
     }
 }

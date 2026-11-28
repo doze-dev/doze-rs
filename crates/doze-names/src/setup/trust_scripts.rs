@@ -113,7 +113,8 @@ pub(crate) fn uninstall_routes(os: Os, recorded: &[String]) -> String {
     routes(os, &[], &[], recorded, &crate::trust_store::route_foreign)
 }
 
-/// A trust change's lines: what runs as root, and what runs as the person after it ([`super::Plan::as_user`]).
+/// A trust change's lines: what runs as root, and what runs as the person before it ([`super::Plan::as_user_before`]:
+/// a removal) and after it ([`super::Plan::as_user`]: a trust).
 ///
 /// macOS keeps two things apart here. The certificate goes into the System keychain, which root can write from any
 /// script. Its trust is an admin trust setting, which macOS changes only through its own authorization dialog: root in
@@ -121,47 +122,91 @@ pub(crate) fn uninstall_routes(os: Os, recorded: &[String]) -> String {
 /// fails there with "The authorization was denied since no user interaction was possible" (seen 2026-11-28: the root
 /// landed in the keychain untrusted, and every https:// name failed). Run as the person in their login session,
 /// `security` asks through macOS's own dialog, from a terminal and from the app alike.
+///
+/// The order is what a cancelled dialog leaves: a trust is set after root added the certificate (cancelled: the
+/// certificate is there, untrusted, and the next run only trusts it); a trust is removed before root deletes the
+/// certificate (cancelled: nothing of it was removed).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct Lines {
+    pub(crate) before: String,
     pub(crate) root: String,
     pub(crate) user: String,
 }
 
 impl Lines {
-    fn root(root: String) -> Lines {
+    pub(crate) fn root(root: String) -> Lines {
         Lines {
             root,
-            user: String::new(),
+            ..Lines::default()
         }
     }
 }
+
+/// The SHA-256 of a file's bytes, for a script to check the file is still the one it was planned for.
+pub(crate) fn file_sha256(path: &std::path::Path) -> Option<String> {
+    use sha2::{Digest, Sha256};
+    std::fs::read(path)
+        .ok()
+        .map(|b| hex::encode(Sha256::digest(&b)))
+}
+
+/// A line that stops the script unless the file at `root` still has the bytes it was planned with: the root is trusted
+/// by file, and the dialog that asks for it can take a while, so the file a script trusts is the one the prompt named.
+/// `shasum` (perl's, on every Mac), else openssl's digest, which prints the same hash first (`-r`).
+pub(crate) fn same_file(root: &str, sha: &str) -> String {
+    format!(
+        "[ \"$({{ if command -v shasum >/dev/null 2>&1; then shasum -a 256 {q}; else /usr/bin/openssl dgst -sha256 -r {q}; fi; }} | cut -d ' ' -f 1)\" = {sha} ] || {{ echo 'doze: {name} changed since it was planned; nothing more was done' >&2; exit 1; }}",
+        q = shell_quote(root),
+        sha = shell_quote(sha),
+        name = root.replace('\'', ""),
+    )
+}
+
+/// What the dry run says in place of [`same_file`] when the root is not made yet (it is made just before the run, and
+/// the run checks its bytes then).
+pub(crate) const CHECKED_WHEN_MADE: &str =
+    "# the run checks the root's SHA-256 once it is made, before each step that uses it";
 
 /// Trusts the authority for TLS on this machine. macOS: for TLS and basic chaining only, as mkcert does, never for code
 /// signing or mail. `in_keychain`: the System keychain holds this root already (a run whose trust dialog was cancelled
 /// left it there), so it is not added again (`add-certificates` refuses a duplicate).
 pub(crate) fn trust(os: Os, ca: &Ca, in_keychain: bool) -> Lines {
-    trust_root(os, &ca.root_path(), in_keychain)
+    let sha = file_sha256(&ca.root_path());
+    trust_root(os, &ca.root_path(), in_keychain, sha.as_deref())
 }
 
-/// Trusts the root certificate file at `root` (one that may not be made yet, for a script shown before it runs).
-pub(crate) fn trust_root(os: Os, root: &std::path::Path, in_keychain: bool) -> Lines {
+/// Trusts the root certificate file at `root` (one that may not be made yet, for a script shown before it runs: `sha`
+/// `None`, and the run plans again once it is made).
+pub(crate) fn trust_root(
+    os: Os,
+    root: &std::path::Path,
+    in_keychain: bool,
+    sha: Option<&str>,
+) -> Lines {
     let root = root.display().to_string();
     match os {
-        Os::Mac => Lines {
-            root: if in_keychain {
-                String::new()
-            } else {
-                format!(
-                    "security add-certificates -k {SYSTEM_KEYCHAIN} {}",
+        Os::Mac => {
+            let check = match sha {
+                Some(sha) => same_file(&root, sha),
+                None => CHECKED_WHEN_MADE.to_owned(),
+            };
+            Lines {
+                before: String::new(),
+                root: if in_keychain {
+                    String::new()
+                } else {
+                    format!(
+                        "{check}\nsecurity add-certificates -k {SYSTEM_KEYCHAIN} {}",
+                        shell_quote(&root)
+                    )
+                },
+                // No -k: the certificate is in the System keychain already, and without -k nothing is added anywhere.
+                user: format!(
+                    "{check}\nsecurity add-trusted-cert -d -r trustRoot -p ssl -p basic {}",
                     shell_quote(&root)
-                )
-            },
-            // No -k: the certificate is in the System keychain already, and without -k nothing is added anywhere.
-            user: format!(
-                "security add-trusted-cert -d -r trustRoot -p ssl -p basic {}",
-                shell_quote(&root)
-            ),
-        },
+                ),
+            }
+        }
         Os::Linux => {
             let (path, update) = crate::trust_store::linux_ca_bundle_path();
             Lines::root(format!(
@@ -178,13 +223,12 @@ pub(crate) fn trust_root(os: Os, root: &std::path::Path, in_keychain: bool) -> L
     }
 }
 
-/// Stops trusting the authority's current root.
+/// Stops trusting the authority's current root. Linux: the bundle file is one for every doze home on the machine, so it
+/// goes only while it holds this home's root, current or rotated out (its bytes are a copy of one of them); with no
+/// authority to compare, nothing.
 pub(crate) fn untrust(os: Os, ca: Option<&Ca>) -> Lines {
     match os {
-        Os::Linux => {
-            let (path, update) = crate::trust_store::linux_ca_bundle_path();
-            Lines::root(format!("rm -f {}\n{update}", shell_quote(path)))
-        }
+        Os::Linux => ca.map(linux_untrust).unwrap_or_default(),
         _ => ca
             .map(|c| untrust_root(os, Some(&c.root_path()), &c.fingerprint()))
             .unwrap_or_default(),
@@ -201,10 +245,22 @@ pub(crate) fn untrust_fingerprint(os: Os, ca: Option<&Ca>, fp: &str) -> Lines {
     untrust_root(os, file.as_deref(), fp)
 }
 
-/// Removes one root: the certificate by hash as root, then (macOS) its admin trust by file as the person, through
-/// macOS's dialog (`delete-certificate -t` touches root's own user trust only, and the root was trusted in the admin
-/// store). The file is still there when the person's part runs: the authority's files go after the whole plan. A
-/// fingerprint that is not one never reaches a script.
+/// macOS: a root's admin trust setting removed by its file, as the person, through macOS's dialog. Only while the
+/// keychain trusts it (no dialog for nothing), and only "not found" is let pass: a cancelled or refused dialog stops the
+/// script, so what comes after it (root deleting the certificate, the files going) does not happen.
+pub fn mac_remove_trust(file: &str) -> String {
+    let q = shell_quote(file);
+    format!(
+        "if security verify-cert -L -l -q -p basic -c {q} >/dev/null 2>&1; then\n  \
+         said=$(security remove-trusted-cert -d {q} 2>&1) || case \"$said\" in\n    \
+         *'could not be found'*) ;;\n    *) printf '%s\\n' \"$said\" >&2; exit 1 ;;\n  esac\nfi"
+    )
+}
+
+/// Removes one root: (macOS) its admin trust by file as the person, through macOS's dialog, before root deletes the
+/// certificate by hash (`delete-certificate -t` touches root's own user trust only, and the root was trusted in the
+/// admin store). The file is still there then: the authority's files go after the whole plan. A fingerprint that is not
+/// one never reaches a script.
 fn untrust_root(os: Os, file: Option<&std::path::Path>, fp: &str) -> Lines {
     let mut lines = Lines::default();
     match os {
@@ -216,10 +272,7 @@ fn untrust_root(os: Os, file: Option<&std::path::Path>, fp: &str) -> Lines {
                 );
             }
             if let Some(f) = file.filter(|f| f.exists()) {
-                lines.user = format!(
-                    "security remove-trusted-cert -d {} 2>/dev/null || true",
-                    shell_quote(&f.display().to_string())
-                );
+                lines.before = mac_remove_trust(&f.display().to_string());
             }
         }
         Os::Windows if valid_fingerprint(fp) => {
@@ -233,14 +286,28 @@ fn untrust_root(os: Os, file: Option<&std::path::Path>, fp: &str) -> Lines {
     lines
 }
 
-/// Removes every doze authority the store holds, for when the files that would name them are gone or unreadable.
-pub(crate) fn untrust_unknown(os: Os) -> Vec<Lines> {
-    if os == Os::Linux {
-        // The file is doze's by name, so no fingerprint is needed.
-        return vec![untrust(os, None)];
-    }
-    crate::trust_store::trusted_doze_roots()
+/// Linux: the bundle file removed if it is a copy of one of this home's roots, then the store rebuilt.
+///
+/// Nothing is ever untrusted by name: every doze root is "doze local CA", from every doze home on the machine, and one
+/// home's removal must never untrust another's (until 2026-11-28 a removal with no readable root took every one).
+fn linux_untrust(ca: &Ca) -> Lines {
+    let (path, update) = crate::trust_store::linux_ca_bundle_path();
+    let bundle = shell_quote(path);
+    let mut ours = vec![ca.root_path()];
+    ours.extend(ca.previous().iter().map(|fp| ca.previous_path(fp)));
+    let mut lines: Vec<String> = ours
         .iter()
-        .map(|fp| untrust_root(os, None, fp))
-        .collect()
+        .filter(|f| f.is_file())
+        .map(|f| {
+            format!(
+                "if cmp -s {} {bundle}; then rm -f {bundle}; fi",
+                shell_quote(&f.display().to_string())
+            )
+        })
+        .collect();
+    if lines.is_empty() {
+        return Lines::default();
+    }
+    lines.push(update.to_owned());
+    Lines::root(lines.join("\n"))
 }

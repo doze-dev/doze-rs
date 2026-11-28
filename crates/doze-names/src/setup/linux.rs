@@ -223,6 +223,7 @@ pub(crate) fn install_plan(s: &Setup, f: &Facts) -> Result<Plan, Error> {
         shell: Shell::Sh,
         script: b,
         as_user: String::new(),
+        as_user_before: String::new(),
     })
 }
 
@@ -323,6 +324,7 @@ pub(crate) fn uninstall_plan(s: &Setup, cleanup: &[String]) -> Result<Plan, Erro
         shell: Shell::Sh,
         script: b,
         as_user: String::new(),
+        as_user_before: String::new(),
     })
 }
 

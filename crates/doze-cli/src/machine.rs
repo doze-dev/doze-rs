@@ -47,7 +47,7 @@ pub(crate) fn refused(r: &Refused, plan: &Plan) -> Diagnostic {
             Diagnostic::new(ids::NO_PROMPT, r.to_string()).fix("run it in a terminal")
         }
         // macOS's own trust dialog was closed: said in its own words, last, so the app shows them as they are.
-        Refused::Dialog(why) => Diagnostic::new(ids::PROMPT_CANCELLED, why.clone()),
+        Refused::Dialog { why, .. } => Diagnostic::new(ids::PROMPT_CANCELLED, why.clone()),
         Refused::Failed(why) => Diagnostic::new(
             ids::PRIVILEGED_FAILED,
             format!("the privileged step failed ({}): {why}", plan.what),
@@ -70,22 +70,34 @@ pub(crate) fn missing(what: &str, fix: &str) -> Diagnostic {
 /// root already, the system's prompt when asked for and there is one (Go `adminprompt.Requested`), else sudo on the
 /// terminal. What the script prints goes to stderr, so `--json`'s stdout is the envelope alone.
 ///
-/// Then the plan's person part ([`Plan::as_user`], macOS's trust settings) runs as the person, so macOS can show its
-/// own dialog for it: in root's script it is refused wherever there is no window for that dialog (the app's prompt).
+/// The plan's person parts (macOS's trust settings) run as the person around it, so macOS can show its own dialog for
+/// them: in root's script they are refused wherever there is no window for that dialog (the app's prompt). A removal
+/// of trust runs first, so a cancel there leaves everything as it was; a trust runs last, after root added the
+/// certificate.
 pub(crate) fn run_as_root(plan: &Plan, prompt: bool) -> Result<(), Refused> {
+    use doze_names::setup::{UserPart, UserRefused, run_as_user};
+    doze_os::guard::real_machine(
+        "a privileged script (sudo, the administrator prompt or macOS's dialog)",
+    );
+    let person = |part: UserPart, after_root: bool| -> Result<(), Refused> {
+        let script = part.of(plan);
+        if script.trim().is_empty() {
+            return Ok(());
+        }
+        eprintln!("{}", part.asking());
+        run_as_user(script, part).map_err(|e| match e {
+            UserRefused::Cancelled(_) => Refused::Dialog {
+                why: e.to_string(),
+                after_root,
+            },
+            _ => Refused::Failed(e.to_string()),
+        })
+    };
+    person(UserPart::Untrust, false)?;
     if !plan.script.trim().is_empty() {
         root_part(plan, prompt)?;
     }
-    if !plan.as_user.trim().is_empty() {
-        eprintln!(
-            "macOS asks for your password in its own dialog: trust settings for doze's certificate authority"
-        );
-        doze_names::setup::run_as_user(plan).map_err(|e| match e {
-            doze_names::setup::UserRefused::Cancelled => Refused::Dialog(e.to_string()),
-            _ => Refused::Failed(e.to_string()),
-        })?;
-    }
-    Ok(())
+    person(UserPart::Trust, true)
 }
 
 fn root_part(plan: &Plan, prompt: bool) -> Result<(), Refused> {

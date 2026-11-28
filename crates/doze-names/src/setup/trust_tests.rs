@@ -84,14 +84,22 @@ fn macos_keychain_scripts() {
     let ca = Ca::load_or_create(&dir).unwrap();
     let root = ca.root_path().display().to_string();
     let ts = scripts::trust(Os::Mac, &ca, false);
+    let check = scripts::same_file(&root, &scripts::file_sha256(&ca.root_path()).unwrap());
     assert_eq!(
         ts.root,
-        format!("security add-certificates -k {SYSTEM_KEYCHAIN} '{root}'")
+        format!(
+            "{check}
+security add-certificates -k {SYSTEM_KEYCHAIN} '{root}'"
+        )
     );
     assert_eq!(
         ts.user,
-        format!("security add-trusted-cert -d -r trustRoot -p ssl -p basic '{root}'")
+        format!(
+            "{check}
+security add-trusted-cert -d -r trustRoot -p ssl -p basic '{root}'"
+        )
     );
+    assert!(ts.before.is_empty(), "{ts:?}");
     assert!(
         !ts.root.contains("trusted-cert"),
         "trust settings never run as root: {ts:?}"
@@ -104,10 +112,8 @@ fn macos_keychain_scripts() {
     assert_eq!(again.user, ts.user);
 
     let us = scripts::untrust(Os::Mac, Some(&ca));
-    assert_eq!(
-        us.user,
-        format!("security remove-trusted-cert -d '{root}' 2>/dev/null || true")
-    );
+    assert_eq!(us.before, scripts::mac_remove_trust(&root));
+    assert!(us.user.is_empty(), "{us:?}");
     assert!(
         us.root
             .contains(&format!("delete-certificate -t -Z '{}'", ca.fingerprint()))
@@ -126,7 +132,7 @@ fn macos_keychain_scripts() {
     );
     let us = scripts::untrust_fingerprint(Os::Mac, Some(&again), &old);
     assert!(
-        us.user.contains(&format!(
+        us.before.contains(&format!(
             "remove-trusted-cert -d '{}'",
             again.previous_path(&old).display()
         )) && !us.root.contains("trusted-cert"),
@@ -283,13 +289,24 @@ fn https_for_the_zone_trusts_the_authority_before_and_after_it_is_made() {
     let home = scratch("https");
     let root = crate::ca::root_file(&ca_dir(&home)).display().to_string();
     let mac = https_plan(Os::Mac, &home, None).unwrap();
+    // Not made yet: the dry run says the bytes are checked once it is made (the run plans again then).
     assert_eq!(
         mac.script,
-        format!("security add-certificates -k {SYSTEM_KEYCHAIN} '{root}'\n")
+        format!(
+            "{}
+security add-certificates -k {SYSTEM_KEYCHAIN} '{root}'
+",
+            scripts::CHECKED_WHEN_MADE
+        )
     );
     assert_eq!(
         mac.as_user,
-        format!("security add-trusted-cert -d -r trustRoot -p ssl -p basic '{root}'\n")
+        format!(
+            "{}
+security add-trusted-cert -d -r trustRoot -p ssl -p basic '{root}'
+",
+            scripts::CHECKED_WHEN_MADE
+        )
     );
     assert!(
         mac.what.starts_with("trust the doze certificate authority")
@@ -347,8 +364,9 @@ fn an_authority_already_in_place_is_left_alone() {
     let p = https_plan_with(Os::Mac, &home, Some((&ca, &cancelled))).unwrap();
     assert_eq!(p.script, "", "nothing for root: no doze password prompt");
     assert!(
-        p.as_user.starts_with("security add-trusted-cert -d "),
-        "{p:?}"
+        p.as_user.contains("\nsecurity add-trusted-cert -d ")
+            && p.as_user.starts_with("[ \"$({ if command -v shasum"),
+        "the root's bytes are checked before it is trusted: {p:?}"
     );
     let old = ca.fingerprint();
     let rotated = Ca::rotate(&ca_dir(&home)).unwrap();
@@ -365,7 +383,7 @@ fn an_authority_already_in_place_is_left_alone() {
     assert!(
         p.script
             .contains(&format!("delete-certificate -t -Z '{old}'"))
-            && p.as_user.contains("remove-trusted-cert -d "),
+            && p.as_user_before.contains("remove-trusted-cert -d "),
         "{p:?}"
     );
     let _ = std::fs::remove_dir_all(&home);
@@ -389,16 +407,16 @@ fn removal_takes_the_trust_settings_out_as_the_person() {
         "{p:?}"
     );
     assert!(
-        p.as_user.contains(&format!(
+        p.as_user_before.contains(&format!(
             "security remove-trusted-cert -d '{}'",
             ca.root_path().display()
-        )),
-        "{p:?}"
+        )) && p.as_user.is_empty(),
+        "the trust goes first, as the person: {p:?}"
     );
-    assert!(p.what.ends_with(MAC_TRUST_DIALOG), "{}", p.what);
-    let (root, user) = cleanup_script(Os::Mac, &home);
+    assert!(p.what.ends_with(MAC_UNTRUST_DIALOG), "{}", p.what);
+    let (root, before) = cleanup_script(Os::Mac, &home);
     assert!(root.iter().all(|l| !l.contains("trusted-cert")), "{root:?}");
-    assert!(user.contains("remove-trusted-cert -d "), "{user}");
+    assert!(before.contains("remove-trusted-cert -d "), "{before}");
     let (root, user) = cleanup_script(Os::Linux, &home);
     assert!(user.is_empty() && !root.is_empty(), "{root:?} {user}");
     let _ = std::fs::remove_dir_all(&home);

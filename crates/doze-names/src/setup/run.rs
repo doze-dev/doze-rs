@@ -52,60 +52,116 @@ fn failed(plan: &Plan, why: io::Error) -> Error {
 }
 
 /// Runs the plan's script the way `o` says: what a program that combines several plans under one prompt (`doze doctor
-/// --fix`) calls with the combined one.
+/// --fix`) calls with the combined one. The person's parts run around root's: a removal of trust before it, a trust
+/// after it ([`Plan::as_user_before`], [`Plan::as_user`]).
 pub fn run(o: &mut Options<'_>, plan: &Plan) -> Result<(), Error> {
     if matches!(o.how, How::Print) {
         writeln!(o.out, "# {}", plan.what)?;
         write!(o.out, "{}", pasteable(plan))?;
         return Ok(());
     }
+    let person = |o: &mut Options<'_>, part: UserPart| -> Result<(), Error> {
+        let script = part.of(plan);
+        if script.trim().is_empty() {
+            return Ok(());
+        }
+        writeln!(o.out, "{}", part.asking())?;
+        run_as_user(script, part).map_err(|e| failed(plan, io::Error::other(e.to_string())))
+    };
+    person(o, UserPart::Untrust)?;
     run_root(o, plan)?;
-    if !plan.as_user.trim().is_empty() {
-        writeln!(o.out, "macOS asks in its own dialog: {USER_PART}")?;
-        run_as_user(plan).map_err(|e| failed(plan, io::Error::other(e.to_string())))?;
-    }
-    Ok(())
+    person(o, UserPart::Trust)
 }
 
-/// What the person's part is, said before macOS's dialog shows.
-const USER_PART: &str = "trust settings for doze's certificate authority";
+/// Which of a plan's parts for the person: what macOS's dialog is for, and what a cancel leaves.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UserPart {
+    /// [`Plan::as_user_before`]: trust settings removed, before root deletes the certificates.
+    Untrust,
+    /// [`Plan::as_user`]: the certificate trusted, after root added it to the System keychain.
+    Trust,
+}
 
-/// Why the person's part of a plan ([`Plan::as_user`]) did not finish.
+impl UserPart {
+    /// The part's script in `plan`.
+    pub fn of(self, plan: &Plan) -> &str {
+        match self {
+            UserPart::Untrust => &plan.as_user_before,
+            UserPart::Trust => &plan.as_user,
+        }
+    }
+
+    /// What is said before macOS's dialog shows.
+    pub fn asking(self) -> &'static str {
+        match self {
+            UserPart::Untrust => {
+                "macOS asks for your password in its own dialog: removing the System trust settings of doze's \
+                 certificate authority"
+            }
+            UserPart::Trust => {
+                "macOS asks for your password in its own dialog: trusting doze's certificate authority"
+            }
+        }
+    }
+}
+
+/// The words every cancelled dialog of macOS's starts with: the app tells this cancel from a cancelled password prompt
+/// of its own by them (it ran something already, so "nothing was changed" would be false).
+pub const MAC_DIALOG_CANCELLED: &str = "cancelled in macOS's dialog";
+
+/// Why a person's part of a plan did not finish.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UserRefused {
     /// The person closed macOS's dialog.
-    Cancelled,
+    Cancelled(UserPart),
     /// macOS had no session to show its dialog in (over ssh, or with nobody logged in at the screen).
-    NoDialog,
+    NoDialog(UserPart),
     /// It ran and failed; what it said.
-    Failed(String),
+    Failed(UserPart, String),
 }
 
 impl std::fmt::Display for UserRefused {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            UserRefused::Cancelled => f.write_str(
-                "macOS's dialog to trust doze's certificate authority was cancelled, so https:// names are not \
-                 trusted yet: run it again and allow the change",
+            UserRefused::Cancelled(UserPart::Trust) => write!(
+                f,
+                "{MAC_DIALOG_CANCELLED}: doze's certificate authority is in the System keychain but not trusted yet, \
+                 so https:// names are refused; run it again and allow the change"
             ),
-            UserRefused::NoDialog => f.write_str(
-                "macOS could not show its dialog to trust doze's certificate authority (no login session at the \
-                 screen here): run the command in Terminal on this Mac",
+            UserRefused::Cancelled(UserPart::Untrust) => write!(
+                f,
+                "{MAC_DIALOG_CANCELLED}: doze stopped before its administrator part, so no certificate was deleted \
+                 and each one whose trust was not removed yet is still trusted; run it again and allow the change"
             ),
-            UserRefused::Failed(why) => write!(f, "trusting doze's certificate authority failed: {why}"),
+            UserRefused::NoDialog(part) => write!(
+                f,
+                "macOS could not show its dialog {} doze's certificate authority (no login session at the screen \
+                 here): run the command in Terminal on this Mac",
+                match part {
+                    UserPart::Trust => "to trust",
+                    UserPart::Untrust => "to stop trusting",
+                }
+            ),
+            UserRefused::Failed(UserPart::Trust, why) => {
+                write!(f, "trusting doze's certificate authority failed: {why}")
+            }
+            UserRefused::Failed(UserPart::Untrust, why) => write!(
+                f,
+                "removing the trust of doze's certificate authority failed, so nothing more was removed: {why}"
+            ),
         }
     }
 }
 
-/// Runs the plan's person part ([`Plan::as_user`]) as the person, in their login session, so macOS can show its own
-/// authorization dialog: directly when this process is the person (a terminal, or the app's child); as the person who
-/// ran sudo when this process is root (`launchctl asuser`, which puts the command in their session). Nothing to run
-/// is success.
-pub fn run_as_user(plan: &Plan) -> Result<(), UserRefused> {
-    if plan.as_user.trim().is_empty() {
+/// Runs a person's part of a plan as the person, in their login session, so macOS can show its own authorization
+/// dialog: directly when this process is the person (a terminal, or the app's child); as the person who ran sudo when
+/// this process is root (`launchctl asuser`, which puts the command in their session). Nothing to run is success.
+pub fn run_as_user(script: &str, part: UserPart) -> Result<(), UserRefused> {
+    if script.trim().is_empty() {
         return Ok(());
     }
-    let script = format!("set -e\n{}", plan.as_user);
+    doze_os::guard::real_machine("macOS's trust dialog (security, as the person)");
+    let script = format!("set -e\n{script}");
     let root = doze_os::privilege::is_privileged().unwrap_or(false);
     let sudo_uid = std::env::var("SUDO_UID")
         .ok()
@@ -134,7 +190,7 @@ pub fn run_as_user(plan: &Plan) -> Result<(), UserRefused> {
     let out = c
         .stdin(Stdio::null())
         .output()
-        .map_err(|e| UserRefused::Failed(e.to_string()))?;
+        .map_err(|e| UserRefused::Failed(part, e.to_string()))?;
     let said = format!(
         "{}{}",
         String::from_utf8_lossy(&out.stdout),
@@ -143,21 +199,21 @@ pub fn run_as_user(plan: &Plan) -> Result<(), UserRefused> {
     if !said.trim().is_empty() {
         eprint!("{said}");
     }
-    user_outcome(out.status.success(), &said)
+    user_outcome(out.status.success(), &said, part)
 }
 
-/// What the person's part came to, from its exit and what `security` said: Security framework's own words for a
+/// What a person's part came to, from its exit and what `security` said: Security framework's own words for a
 /// cancelled dialog (errAuthorizationCanceled) and for one it could not show (errAuthorizationInteractionNotAllowed).
-pub fn user_outcome(ok: bool, said: &str) -> Result<(), UserRefused> {
+pub fn user_outcome(ok: bool, said: &str, part: UserPart) -> Result<(), UserRefused> {
     if ok {
         return Ok(());
     }
     let low = said.to_ascii_lowercase();
     if low.contains("canceled by the user") || low.contains("cancelled by the user") {
-        return Err(UserRefused::Cancelled);
+        return Err(UserRefused::Cancelled(part));
     }
     if low.contains("no user interaction was possible") {
-        return Err(UserRefused::NoDialog);
+        return Err(UserRefused::NoDialog(part));
     }
     let last = said
         .lines()
@@ -165,7 +221,7 @@ pub fn user_outcome(ok: bool, said: &str) -> Result<(), UserRefused> {
         .map(str::trim)
         .find(|l| !l.is_empty())
         .unwrap_or("it exited without saying why");
-    Err(UserRefused::Failed(last.to_owned()))
+    Err(UserRefused::Failed(part, last.to_owned()))
 }
 
 /// The plan's root part, unless it has none (all that is left is the person's part: no password prompt for nothing).
@@ -177,7 +233,11 @@ fn run_root(o: &mut Options<'_>, plan: &Plan) -> Result<(), Error> {
     // case, and it used to fail twice over: sudo is absent from most base images (alpine, debian:stable-slim), so a
     // process running as root with every permission it needs shelled out to a missing binary and reported that the
     // privileged step failed, while saying "doze needs sudo once", the opposite of true.
-    if doze_os::privilege::is_privileged().unwrap_or(false) {
+    let privileged = doze_os::privilege::is_privileged().unwrap_or(false);
+    if privileged || !matches!(o.how, How::With(_) | How::Print) {
+        doze_os::guard::real_machine("a privileged setup script");
+    }
+    if privileged {
         return finish(plan, direct(plan).status());
     }
     match &mut o.how {
@@ -282,25 +342,51 @@ fn finish(plan: &Plan, status: io::Result<std::process::ExitStatus>) -> Result<(
 /// stdin through a quoted heredoc sidesteps quoting entirely, and nests with the heredocs inside the script because the
 /// delimiters differ. A PowerShell script is pasted into an elevated PowerShell as it is.
 ///
-/// The person's part ([`Plan::as_user`]) follows, without sudo and said to be so: under sudo, macOS refuses the trust
-/// change wherever it cannot show its dialog.
+/// The person's parts ([`Plan::as_user_before`], [`Plan::as_user`]) come before and after, without sudo and said to be so:
+/// under sudo, macOS refuses the trust change wherever it cannot show its dialog. The parts are one command line joined
+/// by `&&` (their heredocs' bodies follow it, in order), so a part that stops, a cancelled dialog above all, stops
+/// what comes after it: a removal's root part never deletes a certificate whose trust is still set.
 pub fn pasteable(plan: &Plan) -> String {
     match plan.shell {
         Shell::Sh => {
             const DELIM: &str = "DOZE_SETUP";
             const USER_DELIM: &str = "DOZE_AS_YOU";
-            let mut out = String::new();
-            if !plan.script.trim().is_empty() {
-                out.push_str(&format!(
-                    "sudo sh <<'{DELIM}'\n{}\n{DELIM}\n",
-                    plan.script.trim_end_matches('\n')
+            // (note, command, delimiter, body); a person's part with `set -e`: a cancelled dialog stops it, as it does
+            // when doze runs it.
+            let mut parts: Vec<(&str, &str, &str, String)> = Vec::new();
+            let person = |s: &str| format!("set -e\n{}", s.trim_end_matches('\n'));
+            if !plan.as_user_before.trim().is_empty() {
+                parts.push((
+                    AS_YOU_FIRST_NOTE,
+                    "sh",
+                    USER_DELIM,
+                    person(&plan.as_user_before),
                 ));
             }
+            if !plan.script.trim().is_empty() {
+                let body = plan.script.trim_end_matches('\n').to_owned();
+                parts.push(("", "sudo sh", DELIM, body));
+            }
             if !plan.as_user.trim().is_empty() {
-                out.push_str(&format!(
-                    "{AS_YOU_NOTE}\nsh <<'{USER_DELIM}'\n{}\n{USER_DELIM}\n",
-                    plan.as_user.trim_end_matches('\n')
-                ));
+                parts.push((AS_YOU_NOTE, "sh", USER_DELIM, person(&plan.as_user)));
+            }
+            let mut out = String::new();
+            for (note, ..) in &parts {
+                if !note.is_empty() {
+                    out.push_str(note);
+                    out.push('\n');
+                }
+            }
+            let line: Vec<String> = parts
+                .iter()
+                .map(|(_, cmd, delim, _)| format!("{cmd} <<'{delim}'"))
+                .collect();
+            if !line.is_empty() {
+                out.push_str(&line.join(" && "));
+                out.push('\n');
+            }
+            for (_, _, delim, body) in &parts {
+                out.push_str(&format!("{body}\n{delim}\n"));
             }
             out
         }
@@ -311,9 +397,14 @@ pub fn pasteable(plan: &Plan) -> String {
     }
 }
 
-/// The line before the person's part in a pasteable script (the app looks for it to say that macOS asks too).
+/// The line before the person's part after root's (a trust) in a pasteable script (the app looks for "as you, not
+/// under sudo" to say that macOS asks too).
 pub const AS_YOU_NOTE: &str =
     "# then as you, not under sudo: macOS asks for your password in its own dialog";
+
+/// The line before the person's part before root's (a removal of trust) in a pasteable script.
+pub const AS_YOU_FIRST_NOTE: &str =
+    "# first as you, not under sudo: macOS asks for your password in its own dialog";
 
 /// `s` as one single-quoted shell word. The script is assembled from parts and handed to a shell, so quoting is not
 /// optional even where the parts are our own constants.

@@ -249,35 +249,113 @@ fn the_names_authority_is_never_left_behind() {
     );
 }
 
-/// With the names off and no domain, the authority is a leftover; clearing it deletes the certificates as root and
-/// removes the admin trust setting as the person, where macOS can ask (never as root, where it is refused).
+/// With the names off and no domain, the authority is a leftover; clearing it removes the admin trust setting first,
+/// as the person, where macOS can ask (never as root, where it is refused), then deletes this home's roots by
+/// fingerprint as root, then its files. Only this home's: never by the name every doze root shares, never another
+/// home's fingerprint. A cancelled macOS dialog stops it before anything is deleted.
 #[test]
-fn clearing_the_authority_untrusts_it_as_the_person() {
+fn clearing_the_authority_untrusts_it_as_the_person_then_deletes_only_its_own_roots() {
+    use crate::settings::plan::Planned;
     let w = world();
+    let old = "ab".repeat(32);
+    let elsewhere = "cd".repeat(32);
+    std::fs::create_dir_all(w.home.join("ca/previous")).unwrap();
+    std::fs::write(w.home.join(format!("ca/previous/{old}.crt")), "x").unwrap();
+    std::fs::write(
+        w.home.join("ca/previous.json"),
+        serde_json::json!([old, "not-a-fingerprint"]).to_string(),
+    )
+    .unwrap();
     let m = look(&w, true);
     let planned = plan_clear("ca:", &m);
-    let admin = planned
+    let kinds: Vec<&str> = planned
         .iter()
-        .find_map(|p| match p {
-            crate::settings::plan::Planned::Admin { script, .. } => Some(script.clone()),
-            _ => None,
+        .map(|p| match p {
+            Planned::AsYou { .. } => "as you",
+            Planned::Admin { .. } => "admin",
+            Planned::Delete { .. } => "delete",
+            _ => "other",
         })
-        .unwrap();
+        .collect();
+    assert_eq!(kinds, ["as you", "admin", "delete"], "{planned:?}");
+    let (as_you, admin) = match (&planned[0], &planned[1]) {
+        (Planned::AsYou { script: a, .. }, Planned::Admin { script: b, .. }) => {
+            (a.clone(), b.clone())
+        }
+        _ => unreachable!(),
+    };
     assert!(
-        admin.contains("delete-certificate") && !admin.contains("trusted-cert"),
+        as_you.contains("remove-trusted-cert -d")
+            && as_you.contains(
+                &w.home
+                    .join("ca")
+                    .join("previous")
+                    .join(format!("{old}.crt"))
+                    .to_string_lossy()
+                    .into_owned(),
+            ),
+        "{as_you}"
+    );
+    assert!(
+        !as_you.contains("|| true"),
+        "a cancel is never swallowed: {as_you}"
+    );
+    assert!(!admin.contains("trusted-cert"), "{admin}");
+    assert!(
+        admin.contains("delete-certificate -t -Z \"$fp\"")
+            && admin.contains(&format!("-Z '{old}'")),
         "{admin}"
     );
     assert!(
-        planned.iter().any(|p| matches!(p, crate::settings::plan::Planned::AsYou { script, .. } if script.starts_with("security remove-trusted-cert -d "))),
-        "{planned:?}"
+        !admin.contains("-c 'doze local CA'")
+            && !admin.contains("not-a-fingerprint")
+            && !admin.contains(&elsewhere),
+        "never by name, only this home's: {admin}"
     );
+    assert_eq!(
+        super::authority::remove_trust("/x/it's.crt"),
+        doze_names::setup::mac_remove_trust("/x/it's.crt"),
+        "the app removes a trust with the same lines as the CLI"
+    );
+    cleared_in_order_and_a_cancel_stops_it(&m);
+}
+
+/// The clear runs as the plan says: as you, then admin, then the files; a cancelled macOS dialog stops it first.
+fn cleared_in_order_and_a_cancel_stops_it(m: &Machine) {
     let mut hands = Record::default();
-    let done = clear("ca:", &m, &mut hands);
+    let done = clear("ca:", m, &mut hands);
     assert!(!done.bad, "{done:?}");
     let order: Vec<&str> = hands
         .asked
         .iter()
         .map(|a| a.split_whitespace().next().unwrap_or_default())
         .collect();
-    assert_eq!(order, ["admin", "as", "rm"], "{:?}", hands.asked);
+    assert_eq!(order, ["as", "admin", "rm"], "{:?}", hands.asked);
+
+    let mut hands = Record {
+        cancel_as_user: true,
+        ..Record::default()
+    };
+    let done = clear("ca:", m, &mut hands);
+    assert_eq!(done.said, super::clear::UNTRUST_CANCELLED);
+    assert!(!done.bad, "a cancel is the person's choice: {done:?}");
+    assert_eq!(
+        hands.asked.len(),
+        1,
+        "nothing after the dialog: {:?}",
+        hands.asked
+    );
+}
+
+/// A leftover gone since the list was read is said by what it was, never as an empty name.
+#[test]
+fn a_gone_authority_is_named() {
+    let w = world();
+    let mut m = look(&w, true);
+    m.authority = None;
+    let done = clear("ca:", &m, &mut Record::default());
+    assert_eq!(
+        done.said,
+        "doze's certificate authority is no longer left behind; nothing was done"
+    );
 }

@@ -118,6 +118,7 @@ pub(crate) fn install_plan(f: &Facts) -> Result<Option<Plan>, Error> {
         shell: Shell::PowerShell,
         script,
         as_user: String::new(),
+        as_user_before: String::new(),
     }))
 }
 
@@ -133,6 +134,7 @@ pub(crate) fn uninstall_plan(cleanup: &[String]) -> Plan {
         shell: Shell::PowerShell,
         script,
         as_user: String::new(),
+        as_user_before: String::new(),
     }
 }
 

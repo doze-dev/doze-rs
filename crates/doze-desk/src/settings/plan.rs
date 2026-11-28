@@ -202,7 +202,9 @@ pub fn run(
             let (said, bad) = match hands.doze(dir.as_deref(), &cli.args(Verb::Doctor)) {
                 Ok(()) => ("doze doctor found everything in place".into(), false),
                 Err(Fail::Cancelled) => ("doze doctor was cancelled".into(), true),
-                Err(Fail::Failed(why)) => (format!("doze doctor: {why}"), true),
+                Err(Fail::Failed(why) | Fail::Declined(why)) => {
+                    (format!("doze doctor: {why}"), true)
+                }
             };
             Ended {
                 said,

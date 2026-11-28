@@ -87,8 +87,8 @@ fn doze_body(
                 .child(dim(
                     t,
                     if as_you {
-                        "then it runs this: the sudo part as root after the password prompt, the part marked \
-                         “as you” as you"
+                        "then it runs this: the root block as root, through macOS's administrator prompt \
+                         (osascript), and each block marked “as you” as you, in its own order"
                     } else {
                         "then, as root after the password prompt, it runs:"
                     }
@@ -98,8 +98,8 @@ fn doze_body(
             if as_you {
                 body = body.child(dim(
                     t,
-                    "macOS then asks for your password once more, in its own dialog, to trust doze's certificate \
-                     authority: that dialog is macOS's, not doze's"
+                    "for each block marked “as you”, macOS asks for your password in its own dialog (a removal can \
+                     ask once for each certificate): those dialogs are macOS's, not doze's"
                         .into(),
                 ));
             }
@@ -110,7 +110,7 @@ fn doze_body(
         }
         _ => body.child(dim(
             t,
-            "then it asks for the password once, for what is not set up here yet: the domains' routes (/etc/resolver) and, where the stack uses doze's authority, its certificate in the System keychain; on macOS, macOS then asks for your password once more, in its own dialog, to trust that certificate. It prints the script as it runs; asked before Run it would write the domains' record, so it is not.".into(),
+            "then it asks for the password once, for what is not set up here yet: the domains' routes (/etc/resolver) and, where the stack uses doze's authority, its certificate in the System keychain; on macOS, macOS then asks for your password in its own dialog to trust that certificate (a rotation or removal can ask more than once, once for each certificate). It prints the script as it runs; asked before Run it would write the domains' record, so it is not.".into(),
         )),
     }
 }

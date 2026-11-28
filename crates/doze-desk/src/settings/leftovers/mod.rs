@@ -7,6 +7,7 @@
 //! authority ([`gather`]). [`find`] is a pure function of what was read, so the tests feed it made-up machines.
 //! Clearing ([`clear`]) goes through [`super::repair::Hands`] and looks again first.
 
+mod authority;
 mod clear;
 mod gather;
 mod routes;

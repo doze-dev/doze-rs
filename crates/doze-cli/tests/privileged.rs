@@ -64,7 +64,7 @@ fn dry_run_shows_the_script_and_hands_nothing_over() {
         assert_eq!(ran.code, 0, "{args:?}: {}", ran.stderr);
         assert!(ran.stdout.starts_with("# "), "{args:?}: {}", ran.stdout);
         assert!(
-            ran.stdout.contains("sudo sh <<'DOZE_SETUP'\n"),
+            ran.stdout.contains("sudo sh <<'DOZE_SETUP'"),
             "{}",
             ran.stdout
         );
@@ -343,6 +343,35 @@ fn trust_without_domains_checks_rotates_and_keeps_https_for_the_names() {
     let ran = doze(&sb, &host, &["trust", "--remove"]);
     assert_eq!(ran.code, 0, "{}", ran.stderr);
     assert!(root.is_file(), "the zone's authority stays: {}", ran.stdout);
+    assert!(
+        ran.stdout
+            .contains("the certificate authority stays: it serves the .doze names"),
+        "said: {}",
+        ran.stdout
+    );
+
+    // The last stack with a domain leaves while the names are on: its route goes, the authority and its trust stay.
+    record_domain(&sb);
+    let before = handed(&host).len();
+    let ran = doze(&sb, &host, &["trust", "--remove"]);
+    assert_eq!(ran.code, 0, "{}", ran.stderr);
+    assert!(root.is_file(), "the zone's authority stays: {}", ran.stdout);
+    assert!(
+        ran.stdout.contains("the certificate authority stays"),
+        "{}",
+        ran.stdout
+    );
+    let scripts = handed(&host);
+    let as_you = host.as_you.borrow().clone();
+    assert_eq!(scripts.len(), before + 1, "one prompt, for the route");
+    let last = (&scripts[before].1, &as_you[before]);
+    assert!(
+        !last.0.contains("delete-certificate")
+            && !last.0.contains("certutil")
+            && last.1.0.is_empty()
+            && last.1.1.is_empty(),
+        "the authority's trust is not touched: {last:?}"
+    );
 }
 
 /// A cancelled `trust --remove` leaves the record as it was, so the routes are not taken for stale.

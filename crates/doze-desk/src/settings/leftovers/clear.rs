@@ -5,7 +5,7 @@
 
 use std::path::Path;
 
-use super::{Leftover, Machine, find, forget_routes, route_script};
+use super::{Leftover, Machine, authority, find, forget_routes, route_script};
 use crate::settings::plan::Planned;
 use crate::settings::repair::{Fail, Hands};
 
@@ -36,14 +36,18 @@ impl Cleared {
 pub fn clear(id: &str, m: &Machine, hands: &mut dyn Hands) -> Cleared {
     let items = find(m);
     let Some(l) = items.iter().find(|l| l.id == id) else {
-        return Cleared::bad(format!(
-            "{} is no longer left behind; nothing was done",
-            id.split_once(':').map_or(id, |(_, a)| a)
-        ));
+        let what = match id.split_once(':') {
+            Some(("ca", _)) => "doze's certificate authority",
+            Some((_, a)) if !a.is_empty() => a,
+            _ => id,
+        };
+        return Cleared::bad(format!("{what} is no longer left behind; nothing was done"));
     };
     match one(l, m, hands) {
         Ok(said) => Cleared::ok(said),
         Err(Fail::Cancelled) => Cleared::ok("cancelled; nothing was removed"),
+        // macOS's dialog closed partway: the person's choice, said with what stands.
+        Err(Fail::Declined(why)) => Cleared::ok(why),
         Err(Fail::Failed(why)) => Cleared::bad(why),
     }
 }
@@ -61,7 +65,9 @@ pub fn clear_all(m: &Machine, hands: &mut dyn Hands) -> Cleared {
         match one(l, m, hands) {
             Ok(_) => {}
             Err(Fail::Cancelled) => failed.push(format!("{}: cancelled", l.what)),
-            Err(Fail::Failed(why)) => failed.push(format!("{}: {why}", l.what)),
+            Err(Fail::Failed(why) | Fail::Declined(why)) => {
+                failed.push(format!("{}: {why}", l.what))
+            }
         }
     }
     if !routes.is_empty()
@@ -71,7 +77,7 @@ pub fn clear_all(m: &Machine, hands: &mut dyn Hands) -> Cleared {
             "routes: {}",
             match e {
                 Fail::Cancelled => "cancelled".into(),
-                Fail::Failed(why) => why,
+                Fail::Failed(why) | Fail::Declined(why) => why,
             }
         ));
     }
@@ -172,29 +178,27 @@ fn clear_authority(m: &Machine, hands: &mut dyn Hands) -> Result<String, Fail> {
         if !m.admin {
             return Err(Fail::Failed(NO_PROMPT.into()));
         }
-        hands.admin(UNTRUST, &untrust_script())?;
-        hands.as_user(UNTRUST_AS_YOU, &untrust_as_user(&ca.dir))?;
+        // Its trust first, as the person: a cancelled dialog stops here, with nothing deleted. With several roots the
+        // dialog comes once for each, so one closed after the first allowed leaves that one untrusted.
+        hands
+            .as_user(UNTRUST_AS_YOU, &authority::untrust_as_user(&ca.dir))
+            .map_err(|e| match e {
+                Fail::Cancelled => Fail::Declined(UNTRUST_CANCELLED.into()),
+                other => other,
+            })?;
+        hands.admin(UNTRUST, &authority::untrust_script(&ca.dir))?;
     }
     hands.remove_dir(&ca.dir)?;
     Ok("removed doze's certificate authority".into())
 }
 
-const UNTRUST: &str = "stop trusting doze's certificate authority";
-const UNTRUST_AS_YOU: &str = "remove its System trust setting (macOS asks in its own dialog)";
+const UNTRUST: &str = "delete this home's roots from the System keychain";
 
-/// Every doze root out of the System keychain (Go names `Untrust` with `UntrustAll`): each certificate named doze's,
-/// until none is left. As root: the keychain is root's to write.
-fn untrust_script() -> String {
-    "while security delete-certificate -c 'doze local CA' /Library/Keychains/System.keychain >/dev/null 2>&1; do :; done"
-        .into()
-}
-
-/// The root's admin trust setting, by file, as the person: macOS changes the System trust settings only through its
-/// own dialog, which a script run as root under the app's prompt cannot show ("no user interaction was possible").
-fn untrust_as_user(ca: &Path) -> String {
-    let root = crate::settings::quote(&ca.join("root.crt").to_string_lossy());
-    format!("security remove-trusted-cert -d {root}")
-}
+/// A cancelled macOS dialog while the authority's trust was being removed (doze-names says the same for the CLI).
+pub(crate) const UNTRUST_CANCELLED: &str = "cancelled in macOS's dialog: nothing was deleted, and each certificate \
+     whose trust was not removed yet is still trusted";
+const UNTRUST_AS_YOU: &str =
+    "stop trusting doze's certificate authority (macOS asks in its own dialog, once for each root)";
 
 /// A machine leftover needs the administrator's password, and this face cannot ask for it (Go `errNoPrompt`).
 pub(crate) const NO_PROMPT: &str = "this needs the administrator's password, which this app cannot ask for here: in a terminal, doze doctor --fix removes stale routes";
@@ -223,13 +227,13 @@ pub fn plan(id: &str, m: &Machine) -> Vec<Planned> {
             "ca" => {
                 if let Some(ca) = m.authority.as_ref() {
                     if ca.trusted {
-                        out.push(Planned::Admin {
-                            what: UNTRUST.into(),
-                            script: untrust_script(),
-                        });
                         out.push(Planned::AsYou {
                             what: UNTRUST_AS_YOU.into(),
-                            script: untrust_as_user(&ca.dir),
+                            script: authority::untrust_as_user(&ca.dir),
+                        });
+                        out.push(Planned::Admin {
+                            what: UNTRUST.into(),
+                            script: authority::untrust_script(&ca.dir),
                         });
                     }
                     out.push(Planned::Delete {
@@ -286,7 +290,9 @@ pub fn clear_these(ids: &[String], m: &Machine, hands: &mut dyn Hands) -> Cleare
         match one(l, m, hands) {
             Ok(_) => {}
             Err(Fail::Cancelled) => failed.push(format!("{}: cancelled", l.what)),
-            Err(Fail::Failed(why)) => failed.push(format!("{}: {why}", l.what)),
+            Err(Fail::Failed(why) | Fail::Declined(why)) => {
+                failed.push(format!("{}: {why}", l.what))
+            }
         }
     }
     let routes: Vec<String> = items
@@ -301,7 +307,7 @@ pub fn clear_these(ids: &[String], m: &Machine, hands: &mut dyn Hands) -> Cleare
             "routes: {}",
             match e {
                 Fail::Cancelled => "cancelled".into(),
-                Fail::Failed(why) => why,
+                Fail::Failed(why) | Fail::Declined(why) => why,
             }
         ));
     }

@@ -12,6 +12,8 @@ pub(crate) struct Record {
     pub(crate) cancel: bool,
     /// A doze command fails, saying this.
     pub(crate) fail: Option<String>,
+    /// macOS's dialog for a script as the person is closed.
+    pub(crate) cancel_as_user: bool,
 }
 
 impl Hands for Record {
@@ -35,7 +37,11 @@ impl Hands for Record {
     }
     fn as_user(&mut self, what: &str, script: &str) -> Result<(), Fail> {
         self.asked.push(format!("as you {what}: {script}"));
-        Ok(())
+        if self.cancel_as_user {
+            Err(Fail::Cancelled)
+        } else {
+            Ok(())
+        }
     }
     fn terminate(&mut self, pid: u32) -> Result<(), Fail> {
         self.asked.push(format!("term {pid}"));

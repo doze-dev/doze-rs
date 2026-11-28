@@ -128,6 +128,7 @@ impl SystemHands {
 
     /// The system's prompt, the script's output read from a file of the person's own as it grows.
     fn admin_by_prompt(&self, what: &str, script: &str) -> Result<(), Fail> {
+        doze_os::guard::real_machine("the administrator prompt");
         let log = OutputFile::new();
         let wrapped = match &log {
             Some(l) => format!(
@@ -272,6 +273,7 @@ impl Hands for SystemHands {
     }
 
     fn as_user(&mut self, what: &str, script: &str) -> Result<(), Fail> {
+        doze_os::guard::real_machine("macOS's trust dialog (a script as the person)");
         self.say(Said::Run(format!("as you: {what}")));
         self.say(Said::Note(
             "macOS asks for your password in its own dialog…".into(),
@@ -303,6 +305,7 @@ impl Hands for SystemHands {
     }
 
     fn remove_dir(&mut self, dir: &Path) -> Result<(), Fail> {
+        doze_os::guard::real_home_write(dir, "delete a folder");
         self.say(Said::Run(format!(
             "rm -r {}",
             super::quote(&dir.to_string_lossy())
