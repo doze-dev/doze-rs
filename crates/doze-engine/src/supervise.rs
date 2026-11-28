@@ -19,7 +19,8 @@ struct StopReq {
     /// How long to wait for it to exit by itself first (after `stop` steps asked it to).
     patience: Duration,
     grace: Duration,
-    done: oneshot::Sender<()>,
+    /// The processes that had to be killed.
+    done: oneshot::Sender<Vec<String>>,
 }
 
 /// The engine's side of a supervised unit.
@@ -72,18 +73,22 @@ impl Handle {
     }
 
     /// Stops it: waits up to `patience` for it to exit by itself, then asks each process (reverse order) and kills its
-    /// tree after `grace`. Returns once it is gone; a unit that already ended is not an error.
-    pub async fn stop(&self, patience: Duration, grace: Duration) {
+    /// tree after `grace`. Returns once it is gone, with the processes that had to be killed; a unit that already ended
+    /// is not an error.
+    pub async fn stop(&self, patience: Duration, grace: Duration) -> Vec<String> {
         let (done, wait) = oneshot::channel();
         let req = StopReq {
             patience,
             grace,
             done,
         };
-        if self.stop.send(req).await.is_ok() {
-            let _ = wait.await;
-        }
+        let killed = if self.stop.send(req).await.is_ok() {
+            wait.await.unwrap_or_default()
+        } else {
+            Vec::new()
+        };
         let _ = self.ended().await;
+        killed
     }
 }
 
@@ -114,7 +119,7 @@ async fn run(
     if !req.patience.is_zero() {
         let _ = tokio::time::timeout(req.patience, unit.wait_any()).await;
     }
-    unit.stop(req.grace).await;
+    let killed = crate::exec::killed(&unit.stop(req.grace).await);
     let _ = ended.send(Some(Ended::Stopped));
-    let _ = req.done.send(());
+    let _ = req.done.send(killed);
 }

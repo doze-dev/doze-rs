@@ -71,6 +71,7 @@ impl Machine {
             }
             AfterExit::Stays => {}
         }
+        fx.extend(self.shutdown_next());
         fx
     }
 
@@ -125,7 +126,17 @@ impl Machine {
         if cause != Cause::None {
             fx.push(Effect::Journal(Event::new(Kind::Sleep, name).cause(cause)));
         }
+        fx.extend(self.shutdown_next());
         fx
+    }
+
+    /// While shutting down, the stops a needs release has made possible: what nothing holds any more goes next.
+    pub(crate) fn shutdown_next(&mut self) -> Vec<Effect> {
+        if self.shutting {
+            self.stop_all(Cause::Shutdown)
+        } else {
+            Vec::new()
+        }
     }
 
     /// Restart `timer` of `name` is due: wake it, unless a stop or the shutdown cancelled it.
@@ -156,14 +167,38 @@ impl Machine {
         self.table.next_reap(self.idle)
     }
 
-    /// Stops everything, cancelling starts and restarts.
+    /// Stops everything, cancelling starts and restarts, dependants before what they need: an instance another one still
+    /// holds (running, starting, or being stopped) is left for a later pass, made once that one is gone (the shutdown
+    /// makes it itself; [`crate::Engine::stop_all`] calls again until quiet). A consumer that says goodbye to its broker
+    /// on SIGTERM must find the broker still there: stopped together, the 2026-11-28 larder `down` left one waiting out
+    /// its whole grace, then killed. Needs that form a cycle (nothing free, nothing on its way out) are all stopped.
     pub fn stop_all(&mut self, cause: Cause) -> Vec<Effect> {
-        let names: Vec<String> = self
+        // A start already being cancelled is on its way out: asking again would only cancel it twice.
+        let active: Vec<String> = self
             .ctl
             .iter()
-            .filter(|(_, c)| active(c))
+            .filter(|(_, c)| active(c) && !cancelling(c))
             .map(|(n, _)| n.clone())
             .collect();
+        // Only a running unit waits for its dependants: a pending restart or a start in flight serves no one yet, and is
+        // cancelled at once.
+        let free: Vec<String> = active
+            .iter()
+            .filter(|n| {
+                !self.needed_by_a_live_one(n)
+                    || self.ctl.get(n.as_str()).is_none_or(|c| c.unit.is_none())
+            })
+            .cloned()
+            .collect();
+        let settling = self
+            .ctl
+            .values()
+            .any(|c| !c.stopping.is_empty() || (c.boot.is_some() && c.cancel_boot));
+        let names = if free.is_empty() && !settling {
+            active
+        } else {
+            free
+        };
         let mut fx = Vec::new();
         for n in names {
             fx.extend(self.stop(&n, cause.clone()).unwrap_or_default());
@@ -281,6 +316,16 @@ impl Machine {
     pub fn held_by_instances(&self, name: &str) -> u32 {
         self.ctl.values().map(|c| holds_on(c, name)).sum()
     }
+
+    /// Whether an instance that runs, is starting, or is still being stopped needs `name`.
+    fn needed_by_a_live_one(&self, name: &str) -> bool {
+        self.ctl.values().any(|c| {
+            (c.unit.is_some() || c.boot.is_some()) && c.held.iter().any(|h| h == name)
+                || c.stopping
+                    .values()
+                    .any(|(_, h)| h.iter().any(|x| x == name))
+        })
+    }
 }
 
 fn holds_on(c: &Ctl, name: &str) -> u32 {
@@ -294,4 +339,9 @@ fn holds_on(c: &Ctl, name: &str) -> u32 {
 
 fn active(c: &Ctl) -> bool {
     c.unit.is_some() || c.boot.is_some() || c.timer.is_some() || c.restart_now
+}
+
+/// Only a start that is already being cancelled: nothing left for a stop to do.
+fn cancelling(c: &Ctl) -> bool {
+    c.boot.is_some() && c.cancel_boot && c.unit.is_none() && c.timer.is_none() && !c.restart_now
 }

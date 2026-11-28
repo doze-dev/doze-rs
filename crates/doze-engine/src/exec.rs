@@ -264,6 +264,15 @@ fn lost_port(p: &Process, e: &NotReady) -> Option<u16> {
     (port != 0 && crate::ports::lost(port)).then_some(port)
 }
 
+/// The processes of a [`Unit::stop`] whose grace ran out, so they were killed.
+pub(crate) fn killed(stopped: &[(String, std::io::Result<Stopped>)]) -> Vec<String> {
+    stopped
+        .iter()
+        .filter(|(_, s)| matches!(s, Ok(Stopped::Forced(_))))
+        .map(|(n, _)| n.clone())
+        .collect()
+}
+
 /// How long a process gets to stop after it is asked, before its tree is killed (Go: 8 s for SIGTERM).
 pub const STOP_GRACE: Duration = Duration::from_secs(8);
 
@@ -287,10 +296,18 @@ async fn stop_one(
                 out: None,
                 capture: None,
             };
-            let asked = crate::short::run(short, grace, pids).await;
-            return tree
-                .stop_asked(asked.map_err(std::io::Error::other), grace)
-                .await;
+            return match crate::short::run(short, grace, pids).await {
+                Ok(()) => tree.stop_asked(Ok(()), grace).await,
+                // The command could not ask it (missing, refused, timed out): the signal asks instead, with the same
+                // grace, rather than a kill that skips whatever the process does on its way out.
+                Err(e) => {
+                    tracing::warn!(
+                        "the stop command for \"{}\" failed ({e}); asking it with SIGTERM instead",
+                        p.name
+                    );
+                    tree.stop(&Stop::Terminate, grace).await
+                }
+            };
         }
     };
     tree.stop(&how, grace).await
@@ -350,6 +367,14 @@ impl Unit {
                 continue;
             }
             let stopped = stop_one(&p, &mut tree, grace, self.pids.as_ref()).await;
+            if let Ok(Stopped::Forced(_)) = &stopped {
+                // Whatever it meant to do on the way out (a snapshot, a flush, a goodbye) did not happen.
+                tracing::warn!(
+                    "\"{}\" did not exit within {}s of being asked to stop; it was killed (SIGKILL)",
+                    p.name,
+                    grace.as_secs_f32()
+                );
+            }
             out.push((p.name.clone(), stopped));
         }
         if let Some(log) = self.log.take() {

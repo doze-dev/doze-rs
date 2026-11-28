@@ -100,16 +100,37 @@ pub(crate) fn spawn_stop(e: &Engine, name: String, generation: u64) -> JoinHandl
             unwatch(c, &name);
             c.handles.get(&generation).cloned()
         });
+        let mut killed = Vec::new();
         if let Some(h) = handle {
             tracing::info!("reaping \"{name}\"…");
             let patience = stop_steps(&e, &name).await;
-            h.stop(patience, STOP_GRACE).await;
+            killed = h.stop(patience, STOP_GRACE).await;
         }
-        let fx = e.update(|c| {
+        let mut fx = e.update(|c| {
             c.handles.remove(&generation);
             c.m.unit_gone(&name, generation, Now::current())
         });
-        e.run(fx);
+        if !killed.is_empty() {
+            // The journal says so: a sleep that ended in a kill is not the clean stop it would otherwise look like.
+            let how = format!(
+                "killed: {} did not exit within {}s of being asked to stop",
+                killed.join(", "),
+                STOP_GRACE.as_secs()
+            );
+            for f in &mut fx {
+                if let crate::machine::Effect::Journal(ev) = f
+                    && ev.kind == crate::events::Kind::Sleep
+                    && ev.instance == name
+                {
+                    ev.detail.clone_from(&how);
+                }
+            }
+        }
+        // In the shutdown, its going frees what it needed to be stopped next: this stop ends when those have, so the
+        // shutdown that waits for the first ones waits for all (and their journal lines are written by then).
+        for w in e.run(fx) {
+            let _ = w.await;
+        }
     })
 }
 

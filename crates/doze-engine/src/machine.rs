@@ -200,13 +200,19 @@ impl Machine {
         if let Err(e) = self.declared(name) {
             return (Decision::Refuse(e), Vec::new());
         }
+        let running = self.table.state(name).is_some_and(|s| s.running());
         if self.shutting {
+            // What still runs (its dependants are being stopped first) still answers: a dependant's last words on its
+            // way out reach it. Nothing starts.
+            let c = self.ctl(name);
+            if running && c.unit.is_some() && !c.ready_pending && c.boot.is_none() {
+                return (Decision::Running, Vec::new());
+            }
             return (
                 Decision::Refuse(Error::ShuttingDown(name.into())),
                 Vec::new(),
             );
         }
-        let running = self.table.state(name).is_some_and(|s| s.running());
         let off = self.table.is_off(name);
         let c = self.ctl(name);
         if cause == Cause::Restart && !c.restart_now {

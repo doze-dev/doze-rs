@@ -29,11 +29,14 @@ impl Machine {
         for h in &held {
             self.table.release(h, now);
         }
-        if !idle {
-            return Vec::new();
+        let mut fx = Vec::new();
+        if idle {
+            self.table.mark_reaped(name);
+            fx.push(Effect::RemovePids { name: name.into() });
         }
-        self.table.mark_reaped(name);
-        vec![Effect::RemovePids { name: name.into() }]
+        // What it held may be free to stop now.
+        fx.extend(self.shutdown_next());
+        fx
     }
 
     /// Whether `name` has a start in flight or a restart pending (what a `crashing` state promises).
@@ -80,9 +83,11 @@ impl Machine {
             self.table.release(h, now);
         }
         self.table.mark_failed(name, msg);
-        vec![Effect::Journal(
+        let mut fx = vec![Effect::Journal(
             Event::new(Kind::Failed, name).took(took).detail(msg),
-        )]
+        )];
+        fx.extend(self.shutdown_next());
+        fx
     }
 
     /// Start `boot`'s processes run, as unit `generation` (returned). `false`, with a `StopUnit` effect, when the start

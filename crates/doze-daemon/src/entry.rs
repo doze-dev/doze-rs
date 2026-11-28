@@ -52,6 +52,7 @@ pub fn main(args: &[String], version: &str) -> ExitCode {
     if args.iter().any(|a| a == LINT_ARG) {
         return crate::lint::main(&rt, &config, version);
     }
+    doze_engine::warnings::install();
     let ran = rt.block_on(run(&config, version));
     // Dropping the runtime would wait for every blocking task to end; one stuck in the kernel (a read nothing will
     // answer) would keep a stopped daemon alive for ever. The engine has shut down by now: give stragglers a moment.
@@ -336,11 +337,12 @@ async fn run(config: &Path, version: &str) -> Result<(), String> {
     serving.stop();
     // Before the front closes, which releases every name: parked, they keep resolving until the stack is back.
     zone.park();
-    front.close();
     modules.abort();
     meters.abort();
     drop(background);
+    // Open while the engine stops: dependants go first and still reach, on their way out, what they need through it.
     engine.shutdown().await;
+    front.close();
     zone.close().await;
     let _ = std::fs::remove_file(run.pid_file());
     Ok(())
