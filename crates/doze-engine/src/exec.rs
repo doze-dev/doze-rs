@@ -251,8 +251,11 @@ async fn trap_hint(unit: &mut Unit, p: &Process, e: &NotReady) -> String {
     }
 }
 
-/// The `$PORT` a process that died while starting was given, when something else holds it now (asked once its tree
+/// The port a process that died while starting was given, when something else holds it now (asked once its tree
 /// is stopped, so the holder is not the process): it lost the race between the engine's probe and its own bind.
+/// An app is given `$PORT`; a module's engine is given its granted address in its arguments (echo's
+/// `--listen tcp:127.0.0.1:N`), which went unchecked: an engine whose port was taken failed its start instead of
+/// being started again (daemon_catalog on macOS, merge-queue run 46120552141).
 fn lost_port(p: &Process, e: &NotReady) -> Option<u16> {
     if !matches!(
         e,
@@ -260,8 +263,17 @@ fn lost_port(p: &Process, e: &NotReady) -> Option<u16> {
     ) {
         return None;
     }
-    let port = crate::porttrap::env_port(&p.env);
-    (port != 0 && crate::ports::lost(port)).then_some(port)
+    given_ports(p).find(|&port| crate::ports::lost(port))
+}
+
+/// The ports a process was given: its `$PORT`, and every loopback `127.0.0.1:N` in its arguments.
+fn given_ports(p: &Process) -> impl Iterator<Item = u16> + '_ {
+    let env = Some(crate::porttrap::env_port(&p.env)).filter(|&port| port != 0);
+    let args = p.args.iter().filter_map(|a| {
+        let (_, rest) = a.split_once("127.0.0.1:")?;
+        rest.parse::<u16>().ok().filter(|&port| port != 0)
+    });
+    env.into_iter().chain(args)
 }
 
 /// How long a process gets to stop after it is asked, before its tree is killed (Go: 8 s for SIGTERM).
@@ -375,6 +387,33 @@ mod tests {
             hooks: vec![],
             stop: None,
         }
+    }
+
+    /// A module engine's port is in its arguments, not `$PORT`: both count as the port it was given.
+    #[test]
+    fn the_ports_given_include_a_granted_address_in_the_arguments() {
+        let mut p = proc("engine", &[]);
+        p.args = vec![
+            "--listen".into(),
+            "tcp:127.0.0.1:24680".into(),
+            "--other".into(),
+            "unix:/tmp/x".into(),
+        ];
+        p.env.insert("PORT".into(), "13579".into());
+        assert_eq!(given_ports(&p).collect::<Vec<_>>(), [13579, 24680]);
+    }
+
+    /// An engine that died because the port it was granted in its arguments is held by something else is worth
+    /// starting again; one whose port is free, or that timed out, is not.
+    #[test]
+    fn a_granted_port_taken_meanwhile_is_lost() {
+        let port = crate::ports::free_port().unwrap();
+        let mut p = proc("engine", &[]);
+        p.args = vec!["--listen".into(), format!("tcp:127.0.0.1:{port}")];
+        assert_eq!(lost_port(&p, &NotReady::ExitedDuringStartup), None);
+        let _thief = std::net::TcpListener::bind(("127.0.0.1", port)).unwrap();
+        assert_eq!(lost_port(&p, &NotReady::ExitedDuringStartup), Some(port));
+        assert_eq!(lost_port(&p, &NotReady::ExitedImmediately), Some(port));
     }
 
     #[test]
