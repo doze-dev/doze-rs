@@ -8,21 +8,29 @@ impl D<'_> {
     pub(super) fn string(&mut self) -> R<Val> {
         self.expect(b'"')?;
         let start = self.pos;
-        loop {
-            match self.peek() {
-                None => return Err(Violation::Syntax { at: self.pos }),
-                Some(b'"') => {
-                    let v = Val::Str(
-                        u32::try_from(start).unwrap_or(0),
-                        u32::try_from(self.pos - start).unwrap_or(0),
-                    );
-                    self.pos += 1;
-                    return Ok(v);
-                }
-                Some(b'\\') => return self.escaped(start),
-                Some(c) if c < 0x20 => return Err(Violation::Syntax { at: self.pos }),
-                Some(_) => self.pos += 1,
+        // The bytes up to the first that ends the plain run, found in one pass over the slice.
+        let run = self
+            .bytes()
+            .get(start..)
+            .unwrap_or(&[])
+            .iter()
+            .position(|&b| b == b'"' || b == b'\\' || b < 0x20);
+        let Some(run) = run else {
+            self.pos = self.src.len();
+            return Err(Violation::Syntax { at: self.pos });
+        };
+        self.pos = start + run;
+        match self.peek() {
+            Some(b'"') => {
+                let v = Val::Str(
+                    u32::try_from(start).unwrap_or(0),
+                    u32::try_from(run).unwrap_or(0),
+                );
+                self.pos += 1;
+                Ok(v)
             }
+            Some(b'\\') => self.escaped(start),
+            _ => Err(Violation::Syntax { at: self.pos }),
         }
     }
 

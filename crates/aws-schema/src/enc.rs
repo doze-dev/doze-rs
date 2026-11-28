@@ -97,26 +97,36 @@ fn value(t: &Tables, m: &MemberRef<'_>, ar: &Arena, body: &str, v: Val, out: &mu
     Ok(())
 }
 
+/// `s` as a JSON string. A run of bytes that needs no escape (every byte from 0x20 up but `"` and `\`, which covers every byte of
+/// a multi-byte character) is copied whole: a character at a time was the larger part of writing a 1 MB DynamoDB `Query` page.
 fn string(out: &mut Vec<u8>, s: &str) {
+    const H: &[u8; 16] = b"0123456789abcdef";
+    out.reserve(s.len() + 2);
     out.push(b'"');
-    for c in s.chars() {
+    let mut rest = s.as_bytes();
+    while !rest.is_empty() {
+        let run = rest
+            .iter()
+            .position(|&b| b < 0x20 || b == b'"' || b == b'\\')
+            .unwrap_or(rest.len());
+        let (plain, tail) = rest.split_at(run);
+        out.extend_from_slice(plain);
+        let Some((&c, tail)) = tail.split_first() else {
+            break;
+        };
         match c {
-            '"' => out.extend_from_slice(b"\\\""),
-            '\\' => out.extend_from_slice(b"\\\\"),
-            '\n' => out.extend_from_slice(b"\\n"),
-            '\r' => out.extend_from_slice(b"\\r"),
-            '\t' => out.extend_from_slice(b"\\t"),
-            c if (c as u32) < 0x20 => {
-                const H: &[u8; 16] = b"0123456789abcdef";
-                out.extend_from_slice(b"\\u00");
-                out.push(H.get(((c as usize) >> 4) & 0xf).copied().unwrap_or(b'0'));
-                out.push(H.get((c as usize) & 0xf).copied().unwrap_or(b'0'));
-            }
+            b'"' => out.extend_from_slice(b"\\\""),
+            b'\\' => out.extend_from_slice(b"\\\\"),
+            b'\n' => out.extend_from_slice(b"\\n"),
+            b'\r' => out.extend_from_slice(b"\\r"),
+            b'\t' => out.extend_from_slice(b"\\t"),
             c => {
-                let mut buf = [0u8; 4];
-                out.extend_from_slice(c.encode_utf8(&mut buf).as_bytes());
+                out.extend_from_slice(b"\\u00");
+                out.push(H.get(usize::from(c >> 4)).copied().unwrap_or(b'0'));
+                out.push(H.get(usize::from(c & 0xf)).copied().unwrap_or(b'0'));
             }
         }
+        rest = tail;
     }
     out.push(b'"');
 }
@@ -137,4 +147,27 @@ fn base64(out: &mut Vec<u8>, b: &[u8]) {
         }
     }
     out.push(b'"');
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+    use super::string;
+
+    fn quoted(s: &str) -> String {
+        let mut out = Vec::new();
+        string(&mut out, s);
+        String::from_utf8(out).unwrap()
+    }
+
+    #[test]
+    fn a_string_is_escaped_where_json_needs_it_and_copied_whole_elsewhere() {
+        assert_eq!(quoted(""), r#""""#);
+        assert_eq!(quoted("plain text"), r#""plain text""#);
+        assert_eq!(quoted("a\"b\\c"), r#""a\"b\\c""#);
+        assert_eq!(quoted("\n\r\t\u{1}\u{1f}"), r#""\n\r\t\u0001\u001f""#);
+        assert_eq!(quoted("é→😀/"), "\"é→😀/\"");
+        assert_eq!(quoted("\"\""), r#""\"\"""#);
+        assert_eq!(quoted("x\u{0}"), r#""x\u0000""#);
+    }
 }

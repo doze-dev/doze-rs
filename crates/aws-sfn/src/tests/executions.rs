@@ -204,3 +204,51 @@ async fn test_state_runs_one_state() {
     assert_eq!(retried["error"], "Oops");
     w.stop().await;
 }
+
+/// A machine keeps its newest 1,000 finished executions: each finish past that drops the oldest, found in the index by start time.
+#[tokio::test]
+async fn a_machine_keeps_its_newest_thousand_finished_executions() {
+    let w = World::new();
+    let m = w
+        .machine(
+            "many",
+            json!({"StartAt": "P", "States": {"P": {"Type": "Pass", "End": true}}}),
+        )
+        .await;
+    let mut started = Vec::new();
+    // Named in order, so two started in the same millisecond still have an oldest.
+    for i in 0..1_003 {
+        let s = w
+            .ok(
+                "StartExecution",
+                json!({"stateMachineArn": m, "name": format!("e{i:04}")}),
+            )
+            .await;
+        started.push(s["executionArn"].as_str().unwrap().to_owned());
+    }
+    let listed = w
+        .ok(
+            "ListExecutions",
+            json!({"stateMachineArn": m, "maxResults": 1000}),
+        )
+        .await;
+    let arns: Vec<&str> = listed["executions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["executionArn"].as_str().unwrap())
+        .collect();
+    assert_eq!(arns.len(), 1_000);
+    assert!(listed.get("nextToken").is_none());
+    for gone in &started[..3] {
+        assert!(!arns.contains(&gone.as_str()), "{gone} was dropped");
+        assert_eq!(
+            w.call("DescribeExecution", json!({"executionArn": gone}))
+                .await
+                .unwrap_err()
+                .code,
+            "ExecutionDoesNotExist"
+        );
+    }
+    assert!(arns.contains(&started[3].as_str()));
+}

@@ -103,3 +103,25 @@ fn what_it_refuses_of_a_secret_that_exists() {
         ("InvalidRequestException".into(), marked.into())
     );
 }
+
+/// What a request asks the authorizer for is read from its decoded input: a batch is on each secret it lists.
+#[test]
+fn a_batch_get_is_asked_for_on_each_secret_it_names() {
+    let mut w = World::new();
+    let made = w.create("kept", "v");
+    let call =
+        w.h.call(
+            w.h.op("BatchGetSecretValue"),
+            &json!({"SecretIdList": ["kept", "gone"]}),
+        )
+        .unwrap();
+    let needs = w.core.needs(&call);
+    let on: Vec<&str> = needs.iter().map(|n| n.resource.as_str()).collect();
+    assert_eq!(
+        on,
+        [
+            made["ARN"].as_str().unwrap(),
+            "arn:aws:secretsmanager:us-east-1:000000000000:secret:gone"
+        ]
+    );
+}

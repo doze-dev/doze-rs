@@ -2,9 +2,10 @@
 //! changing a schedule also passes its execution role, which needs `iam:PassRole` on the role (documented).
 
 use aws_model_scheduler::Operation;
+use aws_model_scheduler::tables::TABLES;
 use aws_peers::Need;
+use aws_peers::input::In;
 use aws_wire::service::Call;
-use serde_json::Value;
 
 use crate::core::Core;
 use crate::model::{DEFAULT_GROUP, group_arn, schedule_arn};
@@ -16,8 +17,8 @@ impl Core {
         let Some(op) = Operation::from_index(call.op) else {
             return Vec::new();
         };
-        let body: Value = serde_json::from_str(&call.body).unwrap_or(Value::Null);
-        let text = |m: &str| body.get(m).and_then(Value::as_str).unwrap_or_default();
+        let body = In::of(&TABLES, call);
+        let text = |m: &str| body.get(m).and_then(|v| v.as_str()).unwrap_or_default();
         let (region, account) = (&call.caller.region, &call.caller.account_id);
         let action = format!("scheduler:{op:?}");
         let group = Some(text("GroupName"))
@@ -37,7 +38,7 @@ impl Core {
             O::ListSchedules | O::ListScheduleGroups => vec![Need::new(&action, "*")],
         };
         if matches!(op, O::CreateSchedule | O::UpdateSchedule)
-            && let Some(role) = body.pointer("/Target/RoleArn").and_then(Value::as_str)
+            && let Some(role) = body.pointer("/Target/RoleArn").and_then(|v| v.as_str())
         {
             needs.push(Need::new("iam:PassRole", role));
         }

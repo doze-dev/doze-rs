@@ -115,7 +115,8 @@ impl Core {
                 },
                 reason: why
                     .clone()
-                    .unwrap_or_else(|| allowed_by(&principal, &decision)),
+                    .unwrap_or_else(|| allowed_by(&principal, &decision))
+                    .into(),
                 by: identity_policy(&principal, &decision).map(|s| (s.id.clone(), s.kind)),
                 at_ms: self.now_ms(),
             });

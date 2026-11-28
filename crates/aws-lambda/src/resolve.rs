@@ -87,6 +87,7 @@ impl Core {
         let probe = Req {
             body: Value::Null,
             caller: ask.caller.clone(),
+            payload: None,
         };
         let (snap, version) = self
             .snap_of(&probe, function, qualifier.as_deref())

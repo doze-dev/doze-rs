@@ -139,18 +139,7 @@ impl Shared {
             return verdict;
         }
         if !(caller.access_key_id.starts_with("AKIA") || caller.access_key_id.starts_with("ASIA")) {
-            let now = self.clock.now_ms();
-            let root = format!("arn:aws:iam::{}:root", caller.account_id);
-            self.record(needs.into_iter().map(|need| Seen {
-                principal: root.clone(),
-                role: None,
-                action: need.action,
-                resource: need.resource,
-                decision: "allowed",
-                reason: "the account root is allowed everything".into(),
-                by: None,
-                at_ms: now,
-            }));
+            self.record_root(caller, &needs);
             return Ok(());
         }
         match self
@@ -178,6 +167,24 @@ impl Shared {
     fn forget_log(&self) {
         if let Ok(mut log) = self.log.lock() {
             *log = None;
+        }
+    }
+
+    /// The account root's questions, all allowed: logged without a string made for any of them unless its row is new (the root's
+    /// ARN is made once per account, the reason is a fixed sentence).
+    fn record_root(&self, caller: &Caller, needs: &[Need]) {
+        if needs.is_empty() {
+            return;
+        }
+        let at_ms = self.clock.now_ms();
+        if let Ok(mut log) = self.log.lock() {
+            log.get_or_insert_with(AccessLog::default).note_root(
+                &caller.account_id,
+                needs
+                    .iter()
+                    .map(|n| (n.action.as_str(), n.resource.as_str())),
+                at_ms,
+            );
         }
     }
 

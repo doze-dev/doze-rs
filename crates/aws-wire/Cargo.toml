@@ -28,3 +28,4 @@ aws-model-lambda = { path = "../aws-model-lambda" }
 aws-model-iam = { path = "../aws-model-iam" }
 aws-model-sqs = { path = "../aws-model-sqs" }
 aws-model-s3 = { path = "../aws-model-s3" }
+aws-model-dynamodb = { path = "../aws-model-dynamodb" }

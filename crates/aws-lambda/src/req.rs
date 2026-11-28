@@ -1,6 +1,9 @@
 //! A request as the handlers read it: the JSON the gateway built from path, query, headers and body, and who is calling.
 
+use aws_model_lambda::tables::TABLES;
+use aws_peers::input::In;
 use aws_wire::service::{Call, Caller};
+use bytes::Bytes;
 use serde_json::{Map, Value};
 
 use crate::arn::{self, FnRef};
@@ -11,13 +14,20 @@ use aws_wire::ApiError;
 pub(crate) struct Req {
     pub(crate) body: Value,
     pub(crate) caller: Caller,
+    /// The `Payload` blob of an invoke, read from the decoded tree (from the wire the gateway puts it there as bytes, never in `body`).
+    pub(crate) payload: Option<Bytes>,
 }
 
 impl Req {
     pub(crate) fn new(call: &Call) -> Self {
+        let payload = In::of(&TABLES, call)
+            .get("Payload")
+            .and_then(|v| v.as_bytes())
+            .map(Bytes::copy_from_slice);
         Self {
             body: serde_json::from_str(&call.body).unwrap_or(Value::Null),
             caller: call.caller.clone(),
+            payload,
         }
     }
 

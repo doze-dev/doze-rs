@@ -4,9 +4,10 @@
 //! explicit deny refuses whatever they allow.
 
 use aws_model_ssm::Operation;
+use aws_model_ssm::tables::TABLES;
 use aws_peers::Need;
+use aws_peers::input::In;
 use aws_wire::service::Call;
-use serde_json::Value;
 
 use crate::core::Core;
 use crate::resource_policy::{document_key, parameter_key};
@@ -17,20 +18,20 @@ impl Core {
         let Some(op) = Operation::from_index(call.op) else {
             return Vec::new();
         };
-        let body: Value = serde_json::from_str(&call.body).unwrap_or(Value::Null);
+        let body = In::of(&TABLES, call);
         let (region, account) = (&call.caller.region, &call.caller.account_id);
         let action = format!("ssm:{op:?}");
         let on = |name: &str| self.parameter_need(&action, call, name);
         let document = |name: &str| self.document_need(&action, call, name);
-        let text = |key: &str| body.get(key).and_then(Value::as_str);
+        let text = |key: &str| body.get(key).and_then(|v| v.as_str());
         let one = |key: &str| text(key).map(on);
         match op {
             Operation::GetParameters | Operation::DeleteParameters => body
                 .get("Names")
-                .and_then(Value::as_array)
+                .and_then(|v| v.as_array())
                 .into_iter()
                 .flatten()
-                .filter_map(Value::as_str)
+                .filter_map(|v| v.as_str())
                 .map(on)
                 .collect(),
             Operation::GetParametersByPath => one("Path").into_iter().collect(),

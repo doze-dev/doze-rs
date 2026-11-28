@@ -34,5 +34,6 @@ tracing = "0.1"
 
 [dev-dependencies]
 aws-core = { path = "../aws-core" }
+aws-model-lambda = { path = "../aws-model-lambda" }
 aws-model-sqs = { path = "../aws-model-sqs" }
 tokio = { version = "1", default-features = false, features = ["rt", "net", "time", "sync", "macros", "io-util"] }

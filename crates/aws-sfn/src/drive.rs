@@ -258,8 +258,10 @@ impl Core {
     pub(crate) fn ended(&mut self, e: &mut Execution) {
         self.close_runs(e, "ABORTED", true);
         self.stop_items(&e.arn);
+        // A succeeded execution cannot be redriven: its interpreter state, and the copy of its input the state holds, are not kept.
         if e.status == Run::Succeeded {
             e.exec.frames.clear();
+            e.exec.input = String::new();
         }
         self.effects.ended.push(crate::effects::Ended {
             arn: e.arn.clone(),
@@ -281,29 +283,46 @@ impl Core {
     /// Puts an execution back after a step. A finished Express execution is not kept: nothing can describe it (AWS keeps its
     /// history only in its log group).
     pub(crate) fn store(&mut self, e: Execution) {
+        if let Some(was) = self.executions.get(&e.arn) {
+            self.index.forget(was);
+        }
         if e.express && e.status != Run::Running {
             self.executions.remove(&e.arn);
             return;
         }
+        self.index.put(&e);
         self.executions.insert(e.arn.clone(), e);
     }
 
-    /// Keeps the newest executions of a machine and drops the oldest finished ones with their history.
+    /// Removes an execution (its history and Map Runs are the caller's).
+    pub(crate) fn remove_execution(&mut self, arn: &str) {
+        if let Some(gone) = self.executions.remove(arn) {
+            self.index.forget(&gone);
+        }
+    }
+
+    /// Keeps the newest executions of a machine and drops the oldest finished ones with their history. The machine's finished
+    /// executions are found in the index, oldest first, so a finish costs the few it drops.
     fn trim(&mut self, machine: &str, keep: &str) {
         const KEEP: usize = 1_000;
-        let mut finished: Vec<(i64, String)> = self
+        let kept = self
             .executions
-            .iter()
-            .filter(|(_, x)| x.machine_arn == machine && x.status != Run::Running && x.arn != keep)
-            .map(|(k, x)| (x.start_ms, k.to_owned()))
-            .collect();
-        if finished.len() < KEEP {
+            .get(keep)
+            .filter(|x| x.machine_arn == machine && x.status != Run::Running)
+            .is_some();
+        let finished = self.index.finished_count(machine) - usize::from(kept);
+        if finished < KEEP {
             return;
         }
-        finished.sort();
-        let drop = finished.len() + 1 - KEEP;
-        for (_, k) in finished.into_iter().take(drop) {
-            self.executions.remove(&k);
+        let doomed: Vec<String> = self
+            .index
+            .finished(machine)
+            .filter(|(_, arn)| arn != keep)
+            .take(finished + 1 - KEEP)
+            .map(|(_, arn)| arn.clone())
+            .collect();
+        for k in doomed {
+            self.remove_execution(&k);
             self.history
                 .delete_range(&format!("{k}/"), &format!("{k}0"));
         }
@@ -311,10 +330,10 @@ impl Core {
 
     /// The next time anything is due, over every running execution.
     pub(crate) fn next_due(&self) -> Option<i64> {
-        self.executions
-            .iter()
-            .filter(|(_, e)| e.status == Run::Running)
-            .filter_map(|(_, e)| e.exec.next_due())
+        self.index
+            .running()
+            .filter_map(|arn| self.executions.get(arn))
+            .filter_map(|e| e.exec.next_due())
             .min()
     }
 
@@ -325,12 +344,14 @@ impl Core {
         }
         let now = self.now_ms().max(at);
         let due: Vec<String> = self
-            .executions
-            .iter()
-            .filter(|(_, e)| {
-                e.status == Run::Running && e.exec.next_due().is_some_and(|d| d <= now)
+            .index
+            .running()
+            .filter(|arn| {
+                self.executions
+                    .get(arn)
+                    .is_some_and(|e| e.exec.next_due().is_some_and(|d| d <= now))
             })
-            .map(|(k, _)| k.to_owned())
+            .map(str::to_owned)
             .collect();
         self.queue.extend(due.into_iter().map(Work::Wake));
         self.process();
@@ -350,12 +371,7 @@ impl Core {
     /// After a restart: the calls that were out are made again, the activities announced again.
     pub(crate) fn resume(&mut self, caller: &Caller) {
         self.last_caller = Some(caller.clone());
-        let running: Vec<String> = self
-            .executions
-            .iter()
-            .filter(|(_, e)| e.status == Run::Running)
-            .map(|(k, _)| k.to_owned())
-            .collect();
+        let running: Vec<String> = self.index.running().map(str::to_owned).collect();
         for arn in running {
             let Some(mut e) = self.executions.get(&arn).cloned() else {
                 continue;

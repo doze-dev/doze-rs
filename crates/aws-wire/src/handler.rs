@@ -4,6 +4,8 @@ use aws_schema::arena::{Arena, NIL};
 use aws_schema::build::Object;
 use aws_schema::view::{Shape, View};
 
+mod tree;
+
 use crate::ApiError;
 use crate::service::{Call, Output, Reply};
 
@@ -41,12 +43,13 @@ pub fn empty() -> Reply {
 
 /// An answer written as JSON, for a handler that builds its answer as a `serde_json::Value`: the value is read into the operation's
 /// output shape (its structure must fit; the size limits and required members of the model are not held against it). `null` is an answer with nothing in it.
+/// The value is read straight into the tree (`tree`), not written out as text and decoded again; `_patterns` is no longer needed.
 ///
 /// # Errors
 /// An internal error when the value is not a valid output of the operation (a fault of the handler's, not of the caller).
 pub fn reply_json(
     tables: &aws_schema::tables::Tables,
-    patterns: &aws_schema::patterns::Patterns,
+    _patterns: &aws_schema::patterns::Patterns,
     op: u32,
     value: &serde_json::Value,
 ) -> Reply {
@@ -58,13 +61,10 @@ pub fn reply_json(
         return empty();
     };
     let mut arena = Arena::new();
-    let text = value.to_string();
-    let root = aws_schema::json::decode_lenient(tables, patterns, shape, &text, &mut arena)
-        .map_err(|v| {
-            ApiError::internal(format!(
-                "a handler wrote an answer its own model refuses: {v:?}"
-            ))
-        })?;
-    arena.detach(&text);
+    let root = tree::read(tables, shape, value, &mut arena).map_err(|v| {
+        ApiError::internal(format!(
+            "a handler wrote an answer its own model refuses: {v:?}"
+        ))
+    })?;
     Ok(Output { arena, root })
 }

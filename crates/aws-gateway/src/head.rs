@@ -75,15 +75,20 @@ pub(crate) fn endpoint_of(parts: &Parts) -> String {
         .get(http::header::HOST)
         .and_then(|h| h.to_str().ok())
         .unwrap_or("localhost");
-    format!("http://{host}")
+    // One allocation of the right size; `format!` would grow it as it wrote.
+    let mut endpoint = String::with_capacity(7 + host.len());
+    endpoint.push_str("http://");
+    endpoint.push_str(host);
+    endpoint
 }
 
 /// Checks the head of the request in `Verify` mode; `None` in `Trust` mode.
 pub(crate) async fn authenticate(
     shared: &Shared,
     parts: &Parts,
-    signing_name: &str,
+    claim: &Claim,
 ) -> Result<Option<aws_auth::Pending>, AuthError> {
+    let signing_name = claim.service.as_str();
     let Auth::Verify(creds) = &shared.config.auth else {
         return Ok(None);
     };
@@ -97,9 +102,8 @@ pub(crate) async fn authenticate(
     };
     let now = SystemClock.now_ms() / 1000;
     // A key the fixed credentials do not hold may be one IAM issued: ask its source, which is only woken for keys that look issued.
-    let claim = aws_auth::claim::Claim::parse(parts)?;
     let mut extra = None;
-    if let (Some(claim), Some(source)) = (&claim, &shared.config.credential_source)
+    if let Some(source) = &shared.config.credential_source
         && aws_auth::Credentials::lookup(creds.as_ref(), &claim.access_key_id, |c| c.is_none())
     {
         extra = source

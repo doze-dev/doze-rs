@@ -124,3 +124,44 @@ fn aliases_are_held_to_their_rules() {
         )
     );
 }
+
+/// What a request asks the authorizer for is read from its decoded input: a ciphertext names its key, and the encryption context
+/// is passed on in the order of its keys.
+#[test]
+fn a_decrypt_is_asked_for_on_the_key_its_ciphertext_names_with_its_context() {
+    let mut w = World::new();
+    let key = w.key(&json!({}));
+    let context = json!({"tenant": "b", "app": "a"});
+    let blob = w.ok(
+        "Encrypt",
+        &json!({"KeyId": key, "Plaintext": "aGk=", "EncryptionContext": context}),
+    )["CiphertextBlob"]
+        .clone();
+    let call =
+        w.h.call(
+            w.h.op("Decrypt"),
+            &json!({"CiphertextBlob": blob, "EncryptionContext": context}),
+        )
+        .unwrap();
+    let needs = w.core.needs(&call);
+    assert_eq!(needs.len(), 1);
+    assert_eq!(needs[0].action, "kms:Decrypt");
+    assert_eq!(
+        needs[0].resource,
+        format!("arn:aws:kms:us-east-1:000000000000:key/{key}")
+    );
+    assert_eq!(
+        needs[0].context,
+        vec![
+            (
+                "kms:EncryptionContextKeys".to_owned(),
+                vec!["app".to_owned(), "tenant".to_owned()]
+            ),
+            ("kms:EncryptionContext:app".to_owned(), vec!["a".to_owned()]),
+            (
+                "kms:EncryptionContext:tenant".to_owned(),
+                vec!["b".to_owned()]
+            ),
+        ]
+    );
+}

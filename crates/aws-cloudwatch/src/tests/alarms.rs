@@ -368,3 +368,30 @@ fn an_anomaly_detector_is_stored_and_found_again() {
         json!([])
     );
 }
+
+/// What a request asks the authorizer for is read from its decoded input: each alarm a list names.
+#[test]
+fn deleting_alarms_is_asked_for_on_each_alarm() {
+    let w = World::new();
+    let call =
+        w.h.call(w.h.op("DeleteAlarms"), &json!({"AlarmNames": ["a", "b"]}))
+            .unwrap();
+    let needs = crate::authz::needs(&call);
+    let on: Vec<(&str, &str)> = needs
+        .iter()
+        .map(|n| (n.action.as_str(), n.resource.as_str()))
+        .collect();
+    assert_eq!(
+        on,
+        [
+            (
+                "cloudwatch:DeleteAlarms",
+                "arn:aws:cloudwatch:us-east-1:000000000000:alarm:a"
+            ),
+            (
+                "cloudwatch:DeleteAlarms",
+                "arn:aws:cloudwatch:us-east-1:000000000000:alarm:b"
+            ),
+        ]
+    );
+}

@@ -3,9 +3,10 @@
 //! need is gated.
 
 use aws_model_kms::Operation;
+use aws_model_kms::tables::TABLES;
 use aws_peers::Need;
+use aws_peers::input::In;
 use aws_wire::service::Call;
-use serde_json::Value;
 
 use crate::core::Core;
 use crate::crypto;
@@ -18,8 +19,8 @@ impl Core {
         let Some(op) = Operation::from_index(call.op) else {
             return Vec::new();
         };
-        let body: Value = serde_json::from_str(&call.body).unwrap_or(Value::Null);
-        let text = |key: &str| body.get(key).and_then(Value::as_str);
+        let body = In::of(&TABLES, call);
+        let text = |key: &str| body.get(key).and_then(|v| v.as_str());
         let (region, account) = (&call.caller.region, &call.caller.account_id);
         let everything =
             |action: &str| Need::new(action, format!("arn:aws:kms:{region}:{account}:*"));
@@ -37,9 +38,9 @@ impl Core {
                 self.on_key(
                     call,
                     "kms:ReEncryptFrom",
-                    text("SourceKeyId")
-                        .map(str::to_owned)
-                        .or_else(|| blob_key(text("CiphertextBlob"))),
+                    text("SourceKeyId").map(str::to_owned).or_else(|| {
+                        blob_key(body.get("CiphertextBlob").and_then(|v| v.as_bytes()))
+                    }),
                     &body,
                 ),
                 self.on_key(
@@ -49,16 +50,16 @@ impl Core {
                     &body,
                 ),
             ],
-            O::Decrypt => vec![
-                self.on_key(
+            O::Decrypt => {
+                vec![self.on_key(
                     call,
                     &name,
-                    text("KeyId")
-                        .map(str::to_owned)
-                        .or_else(|| blob_key(text("CiphertextBlob"))),
+                    text("KeyId").map(str::to_owned).or_else(|| {
+                        blob_key(body.get("CiphertextBlob").and_then(|v| v.as_bytes()))
+                    }),
                     &body,
-                ),
-            ],
+                )]
+            }
             O::CreateAlias | O::UpdateAlias => {
                 let mut needs = Vec::new();
                 if let Some(alias) = text("AliasName") {
@@ -76,7 +77,7 @@ impl Core {
     }
 
     /// An action on the key `given` names, with its policy, and the encryption context the request carries.
-    fn on_key(&self, call: &Call, action: &str, given: Option<String>, body: &Value) -> Need {
+    fn on_key(&self, call: &Call, action: &str, given: Option<String>, body: &In<'_>) -> Need {
         let located = given.as_deref().and_then(|g| self.locate(call, g).ok());
         let mut need = match (&located, &given) {
             (Some(id), _) => Need::new(action, key_arn(call, id)),
@@ -89,10 +90,13 @@ impl Core {
             .as_deref()
             .and_then(|id| self.keys.get(id))
             .and_then(|k| k.policy.clone());
-        if let Some(context) = body.get("EncryptionContext").and_then(Value::as_object) {
-            let keys: Vec<String> = context.keys().cloned().collect();
+        if let Some(context) = body.get("EncryptionContext") {
+            // In the order of their names, as the parsed body listed them.
+            let mut pairs: Vec<(&str, In<'_>)> = context.pairs().collect();
+            pairs.sort_by_key(|(k, _)| *k);
+            let keys: Vec<String> = pairs.iter().map(|(k, _)| (*k).to_owned()).collect();
             need = need.with("kms:EncryptionContextKeys", keys);
-            for (k, v) in context {
+            for (k, v) in pairs {
                 if let Some(v) = v.as_str() {
                     need = need.with(&format!("kms:EncryptionContext:{k}"), vec![v.to_owned()]);
                 }
@@ -108,8 +112,7 @@ impl Core {
     }
 }
 
-/// The id of the key a ciphertext blob (base64) was made under.
-fn blob_key(blob: Option<&str>) -> Option<String> {
-    let bytes = aws_core::base64::decode(blob?)?;
-    crypto::parse(&bytes).map(|b| b.key_id.to_owned())
+/// The id of the key a ciphertext blob was made under.
+fn blob_key(blob: Option<&[u8]>) -> Option<String> {
+    crypto::parse(blob?).map(|b| b.key_id.to_owned())
 }

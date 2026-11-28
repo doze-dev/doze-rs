@@ -8,6 +8,7 @@
 
 mod authz;
 pub mod envelope;
+pub mod input;
 mod metrics;
 pub mod naming;
 pub mod seen;

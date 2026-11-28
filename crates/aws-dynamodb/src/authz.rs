@@ -3,18 +3,24 @@
 //! The context keys `dynamodb:LeadingKeys` and `dynamodb:Attributes` are not supplied: a policy that tests them finds them absent.
 
 use aws_model_dynamodb::Operation;
+use aws_model_dynamodb::tables::TABLES;
 use aws_peers::Need;
+use aws_peers::input::In;
 use aws_wire::service::Call;
-use serde_json::Value;
 
-use crate::req::{str_of, table_arn};
+use crate::req::table_arn;
+
+/// The text of member `key` of `v`.
+fn str_of<'a>(v: &In<'a>, key: &str) -> Option<&'a str> {
+    v.text(key)
+}
 
 /// Every thing `call` asks to do.
 pub(crate) fn needs(call: &Call) -> Vec<Need> {
     let Some(op) = Operation::from_index(call.op) else {
         return Vec::new();
     };
-    let body: Value = serde_json::from_str(&call.body).unwrap_or(Value::Null);
+    let body = In::of(&TABLES, call);
     let (region, account) = (call.caller.region.as_str(), call.caller.account_id.as_str());
     let on = |action: &str, name: &str| {
         let bare = name.rsplit_once("table/").map_or(name, |(_, n)| n);
@@ -42,23 +48,23 @@ pub(crate) fn needs(call: &Call) -> Vec<Need> {
         }
         Operation::BatchGetItem | Operation::BatchWriteItem => body
             .get("RequestItems")
-            .and_then(Value::as_object)
             .into_iter()
-            .flat_map(|m| m.keys().map(|t| on(&action, t)))
+            .flat_map(In::keys)
+            .map(|t| on(&action, t))
             .collect(),
         Operation::TransactWriteItems | Operation::TransactGetItems => transaction(&body, &on),
-        Operation::ExecuteStatement => partiql(std::slice::from_ref(&body), region, account),
+        Operation::ExecuteStatement => partiql(vec![body], region, account),
         Operation::BatchExecuteStatement => partiql(
             body.get("Statements")
-                .and_then(Value::as_array)
-                .map_or(&[][..], Vec::as_slice),
+                .and_then(|v| v.as_array())
+                .unwrap_or_default(),
             region,
             account,
         ),
         Operation::ExecuteTransaction => partiql(
             body.get("TransactStatements")
-                .and_then(Value::as_array)
-                .map_or(&[][..], Vec::as_slice),
+                .and_then(|v| v.as_array())
+                .unwrap_or_default(),
             region,
             account,
         ),
@@ -75,7 +81,7 @@ pub(crate) fn needs(call: &Call) -> Vec<Need> {
 /// What the backup, restore, export, import and policy operations ask for.
 fn task_needs(
     op: Operation,
-    body: &Value,
+    body: &In<'_>,
     action: &str,
     on: &dyn Fn(&str, &str) -> Need,
 ) -> Option<Vec<Need>> {
@@ -100,7 +106,7 @@ fn task_needs(
         Operation::ImportTable => vec![on(
             action,
             body.get("TableCreationParameters")
-                .and_then(|p| str_of(p, "TableName"))
+                .and_then(|p| str_of(&p, "TableName"))
                 .unwrap_or_default(),
         )],
         Operation::ExportTableToPointInTime => {
@@ -111,7 +117,7 @@ fn task_needs(
 }
 
 /// An action on the ARN a member gives.
-fn by_arn(action: &str, body: &Value, member: &str) -> Vec<Need> {
+fn by_arn(action: &str, body: &In<'_>, member: &str) -> Vec<Need> {
     vec![Need::new(
         format!("dynamodb:{action}"),
         str_of(body, member).unwrap_or("*"),
@@ -120,10 +126,10 @@ fn by_arn(action: &str, body: &Value, member: &str) -> Vec<Need> {
 
 /// A PartiQL statement asks for `dynamodb:PartiQLSelect` (`Insert`, `Update`, `Delete`) on the table, or on the index it reads. One that
 /// does not parse asks for nothing: it is refused on its own terms.
-fn partiql(statements: &[Value], region: &str, account: &str) -> Vec<Need> {
+fn partiql(statements: Vec<In<'_>>, region: &str, account: &str) -> Vec<Need> {
     statements
-        .iter()
-        .filter_map(|s| crate::partiql::action_of(str_of(s, "Statement")?))
+        .into_iter()
+        .filter_map(|s| crate::partiql::action_of(str_of(&s, "Statement")?))
         .map(|(action, table, index)| {
             let mut arn = table_arn(region, account, &table);
             if let Some(ix) = index {
@@ -135,11 +141,11 @@ fn partiql(statements: &[Value], region: &str, account: &str) -> Vec<Need> {
 }
 
 /// A transaction asks for the action of each of its parts.
-fn transaction(body: &Value, on: &dyn Fn(&str, &str) -> Need) -> Vec<Need> {
+fn transaction(body: &In<'_>, on: &dyn Fn(&str, &str) -> Need) -> Vec<Need> {
     let items = body
         .get("TransactItems")
-        .and_then(Value::as_array)
-        .map_or(&[][..], Vec::as_slice);
+        .and_then(|v| v.as_array())
+        .unwrap_or_default();
     items
         .iter()
         .filter_map(|i| {
@@ -152,8 +158,8 @@ fn transaction(body: &Value, on: &dyn Fn(&str, &str) -> Need) -> Vec<Need> {
             ]
             .iter()
             .find_map(|(key, action)| {
-                let part = i.get(*key)?;
-                Some(on(action, str_of(part, "TableName").unwrap_or_default()))
+                let part = i.get(key)?;
+                Some(on(action, str_of(&part, "TableName").unwrap_or_default()))
             })
         })
         .collect()

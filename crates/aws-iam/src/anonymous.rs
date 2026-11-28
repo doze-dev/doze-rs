@@ -6,6 +6,8 @@
 //! `--iam off` asks nothing, so an unsigned request is served as before; `--iam soft` (the default) logs what would be refused,
 //! with what to do about it, and serves it; `--iam enforce` refuses it.
 
+use std::borrow::Cow;
+
 use aws_iam_policy::{Context, Decision, Policies, Request, Subject, Verdict};
 use aws_peers::{Mode, Need};
 use aws_wire::ApiError;
@@ -36,9 +38,9 @@ pub(crate) fn authorize(
                 Verdict::ImplicitDeny => "implicitDeny",
             },
             reason: if allowed {
-                "allowed by the resource-based policy, which grants it to anyone".to_owned()
+                Cow::Borrowed("allowed by the resource-based policy, which grants it to anyone")
             } else {
-                hint(need)
+                Cow::Owned(hint(need))
             },
             by: None,
             at_ms: now_ms,

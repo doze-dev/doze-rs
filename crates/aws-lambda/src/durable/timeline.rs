@@ -30,6 +30,7 @@ fn req(body: Value) -> Req {
     Req {
         body,
         caller: caller(),
+        payload: None,
     }
 }
 

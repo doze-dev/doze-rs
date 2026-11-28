@@ -1,9 +1,10 @@
 //! What a request asks to do, for the authorizer: the IAM action (`logs:PutLogEvents`) and the ARN of the log group or stream it names.
 
 use aws_model_cloudwatch_logs::Operation;
+use aws_model_cloudwatch_logs::tables::TABLES;
 use aws_peers::Need;
+use aws_peers::input::In;
 use aws_wire::service::Call;
-use serde_json::Value;
 
 use crate::model::group_arn;
 use crate::req::name_of_identifier;
@@ -14,8 +15,8 @@ pub(crate) fn needs(call: &Call) -> Vec<Need> {
     let Some(op) = Operation::from_index(call.op) else {
         return Vec::new();
     };
-    let body: Value = serde_json::from_str(&call.body).unwrap_or(Value::Null);
-    let text = |key: &str| body.get(key).and_then(Value::as_str);
+    let body = In::of(&TABLES, call);
+    let text = |key: &str| body.get(key).and_then(|v| v.as_str());
     let (region, account) = (&call.caller.region, &call.caller.account_id);
     let action = format!("logs:{op:?}");
     let group = text("logGroupName")
@@ -35,10 +36,10 @@ pub(crate) fn needs(call: &Call) -> Vec<Need> {
     if op == O::StartLiveTail {
         let arns: Vec<String> = body
             .get("logGroupIdentifiers")
-            .and_then(Value::as_array)
+            .and_then(|v| v.as_array())
             .map(|a| {
                 a.iter()
-                    .filter_map(Value::as_str)
+                    .filter_map(|v| v.as_str())
                     .map(str::to_owned)
                     .collect()
             })

@@ -885,6 +885,7 @@ version = "0.0.0"
 dependencies = [
  "aws-auth",
  "aws-core",
+ "aws-model-lambda",
  "aws-model-sqs",
  "aws-peers",
  "aws-schema",
@@ -1236,6 +1237,7 @@ dependencies = [
  "aws-model-dynamodb",
  "aws-model-eventbridge",
  "aws-model-s3",
+ "aws-model-sfn",
  "aws-schema",
  "aws-seal",
  "aws-wire",
@@ -1563,6 +1565,7 @@ version = "0.0.0"
 dependencies = [
  "aws-auth",
  "aws-core",
+ "aws-model-dynamodb",
  "aws-model-iam",
  "aws-model-lambda",
  "aws-model-s3",

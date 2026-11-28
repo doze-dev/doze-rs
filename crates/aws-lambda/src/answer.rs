@@ -42,19 +42,19 @@ pub(crate) fn parse_failure(payload: &[u8]) -> ApiError {
     ))
 }
 
-/// The payload of an invoke request: absent is `{}`; what is there must be JSON.
+/// The payload of an invoke request: absent is `{}`; what is there must be JSON. The bytes are the decoded tree's (no base64 here),
+/// and they are only checked, not built into a value.
 pub(crate) fn payload_of(r: &Req) -> Result<Bytes, ApiError> {
-    let bytes = r
-        .opt("Payload")
-        .and_then(base64::decode)
-        .unwrap_or_default();
-    if bytes.is_empty() {
+    let Some(bytes) = r.payload.clone().filter(|b| !b.is_empty()) else {
         return Ok(Bytes::from_static(b"{}"));
-    }
-    if serde_json::from_slice::<Value>(&bytes).is_err() {
+    };
+    // Skipping a string does not check its UTF-8, as reading it into a value did: that is checked first, whole.
+    if std::str::from_utf8(&bytes).is_err()
+        || serde_json::from_slice::<serde::de::IgnoredAny>(&bytes).is_err()
+    {
         return Err(parse_failure(&bytes));
     }
-    Ok(Bytes::from(bytes))
+    Ok(bytes)
 }
 
 pub(crate) fn client_context_of(r: &Req) -> Option<String> {
@@ -135,6 +135,39 @@ pub(crate) fn exit_document(id: &str, status: Option<&str>) -> Bytes {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn req(payload: Option<&[u8]>) -> Req {
+        Req {
+            body: Value::Null,
+            caller: aws_wire::service::Caller {
+                access_key_id: "test".into(),
+                account_id: "000000000000".into(),
+                region: "us-east-1".into(),
+                endpoint: String::new(),
+                service: None,
+                session_token: None,
+            },
+            payload: payload.map(Bytes::copy_from_slice),
+        }
+    }
+
+    #[test]
+    fn the_payload_is_the_trees_bytes_checked_as_json() {
+        assert_eq!(payload_of(&req(None)).unwrap(), Bytes::from_static(b"{}"));
+        assert_eq!(
+            payload_of(&req(Some(b""))).unwrap(),
+            Bytes::from_static(b"{}")
+        );
+        let json = br#"{"a":[1,"\u00e9",{"b":null}]}"#;
+        assert_eq!(
+            payload_of(&req(Some(json))).unwrap(),
+            Bytes::from_static(json)
+        );
+        assert!(payload_of(&req(Some(b"{not json"))).is_err());
+        assert!(payload_of(&req(Some(b"{} trailing"))).is_err());
+        // Text that is not UTF-8 is not JSON, even inside a string a check that skips strings would pass.
+        assert!(payload_of(&req(Some(b"\"\xff\""))).is_err());
+    }
 
     #[test]
     fn a_payload_that_is_not_json_is_refused_in_jacksons_words() {

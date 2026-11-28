@@ -2,12 +2,54 @@
 //! policy as the resource layer. Creating or re-pointing a function at a role also asks for `iam:PassRole` on the role, to Lambda.
 
 use aws_model_lambda::Operation;
+use aws_model_lambda::tables::TABLES;
 use aws_peers::Need;
+use aws_peers::input::In;
 use aws_wire::service::Call;
+use serde_json::{Map, Value};
 
 use crate::arn;
 use crate::core::Core;
 use crate::req::Req;
+
+/// The text members `needs` reads.
+const TEXT: &[&str] = &[
+    "FunctionName",
+    "Qualifier",
+    "Role",
+    "LayerName",
+    "Arn",
+    "UUID",
+    "Resource",
+    "ResourceArn",
+    "DurableExecutionArn",
+    "CallbackId",
+    "CodeSigningConfigArn",
+];
+
+/// The request as `needs` reads it: only the members it looks at, read from the decoded input. Parsing the whole body again would
+/// read every byte of an `Invoke` payload (up to 6 MB) for a function name.
+fn slim(call: &Call) -> Req {
+    let input = In::of(&TABLES, call);
+    let mut body = Map::new();
+    for key in TEXT {
+        if let Some(text) = input.text(key) {
+            body.insert((*key).to_owned(), Value::String(text.to_owned()));
+        }
+    }
+    if let Some(n) = input.get("VersionNumber").and_then(|v| v.as_i64()) {
+        body.insert("VersionNumber".to_owned(), Value::from(n));
+    }
+    // Only whether tags were given is asked.
+    if input.get("Tags").is_some() {
+        body.insert("Tags".to_owned(), Value::Object(Map::new()));
+    }
+    Req {
+        body: Value::Object(body),
+        caller: call.caller.clone(),
+        payload: None,
+    }
+}
 
 impl Core {
     /// Every thing `call` asks to do. Empty for a request that is not understood (it is refused on its own terms).
@@ -15,7 +57,7 @@ impl Core {
         let Some(op) = Operation::from_index(call.op) else {
             return Vec::new();
         };
-        let r = Req::new(call);
+        let r = slim(call);
         let action = format!("lambda:{op:?}");
         let mut needs = self.resource_need(op, &r, &action);
         let role = match op {

@@ -181,7 +181,7 @@ impl Core {
 
     /// Removes an execution, its Map Runs and its history.
     fn forget(&mut self, arn: &str) {
-        self.executions.remove(arn);
+        self.remove_execution(arn);
         let runs: Vec<String> = self
             .map_runs
             .iter()

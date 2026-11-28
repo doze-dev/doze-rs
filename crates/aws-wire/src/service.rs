@@ -233,6 +233,13 @@ pub trait Service: Send + Sync + 'static {
         false
     }
 
+    /// Whether operation `op` of a restJson1 service takes a blob bound to the whole body (Lambda's `Invoke` `Payload`) as its bytes in
+    /// the decoded tree only: it is then not in `call.body`, and a service that says yes reads it from the arena. The default, no, puts
+    /// it in `call.body` as base64 too (API Gateway reads an import's `body` from there).
+    fn payload_aside(&self, _op: u32) -> bool {
+        false
+    }
+
     /// Whether every client error is answered 400, whatever status the model gives it (KMS does this).
     fn flat_client_errors(&self) -> bool {
         false
@@ -393,34 +400,4 @@ fn bound(what: &str, actual: Option<f64>, lo: Option<f64>, hi: Option<f64>) -> S
 }
 
 #[cfg(test)]
-mod tests {
-    #![allow(clippy::unwrap_used)]
-    use aws_model_sqs::tables::TABLES;
-    use aws_schema::json::decode;
-    use aws_schema::patterns::Patterns;
-
-    use super::*;
-
-    #[test]
-    fn a_missing_member_is_named() {
-        let shape = TABLES
-            .op(TABLES.find_op("SendMessage").unwrap())
-            .unwrap()
-            .input
-            .unwrap();
-        let v = decode(
-            &TABLES,
-            &Patterns::new(&TABLES),
-            shape,
-            r#"{"MessageBody":"x"}"#,
-            &mut Arena::new(),
-        )
-        .unwrap_err();
-        let e = default_invalid(&TABLES, &v);
-        assert_eq!((e.status, e.code.as_ref()), (400, "ValidationException"));
-        assert_eq!(
-            e.message,
-            "The request must contain the parameter QueueUrl."
-        );
-    }
-}
+mod tests;

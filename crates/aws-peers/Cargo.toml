@@ -28,4 +28,5 @@ aws-kms = { path = "../aws-kms" }
 aws-model-dynamodb = { path = "../aws-model-dynamodb" }
 aws-model-eventbridge = { path = "../aws-model-eventbridge" }
 aws-model-s3 = { path = "../aws-model-s3" }
+aws-model-sfn = { path = "../aws-model-sfn" }
 tokio = { version = "1", default-features = false, features = ["rt", "macros", "time", "sync"] }

@@ -18,7 +18,7 @@ pub(crate) fn decode_call(
     bytes: Bytes,
 ) -> Result<Call, ApiError> {
     let tables = entry.service.tables();
-    let body = String::from_utf8(bytes.to_vec()).map_err(|_| {
+    let body = body_text(bytes).map_err(|_| {
         ApiError::new(
             400,
             "SerializationException",
@@ -51,6 +51,12 @@ pub(crate) fn decode_call(
     })
 }
 
+/// The body as text, checked for UTF-8. A body the gateway holds alone (one read in several chunks, or inflated) becomes the text
+/// without a copy; only one that shares its buffer with hyper's is copied, once.
+pub(crate) fn body_text(bytes: Bytes) -> Result<String, std::string::FromUtf8Error> {
+    String::from_utf8(Vec::from(bytes))
+}
+
 pub(super) fn encode_output(
     entry: &Entry,
     op: u32,
@@ -65,8 +71,25 @@ pub(super) fn encode_output(
     if root == NIL {
         return Ok(b"{}".to_vec());
     }
-    let mut out = Vec::new();
+    // What the tree holds is about what it writes: one allocation, not a doubling for each size a large answer passes.
+    let mut out = Vec::with_capacity(arena.held_bytes().min(32 << 20));
     encode(tables, shape, arena, "", root, &mut out)
         .map_err(|_| ApiError::internal("The response could not be written."))?;
     Ok(out)
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+    use super::*;
+
+    #[test]
+    fn a_body_held_alone_becomes_text_without_a_copy() {
+        let held = br#"{"QueueUrl":"q"}"#.to_vec();
+        let at = held.as_ptr();
+        let text = body_text(Bytes::from(held)).unwrap();
+        assert_eq!(text, r#"{"QueueUrl":"q"}"#);
+        assert_eq!(text.as_ptr(), at, "the body's own buffer is the text");
+        assert!(body_text(Bytes::from_static(b"\xff")).is_err());
+    }
 }

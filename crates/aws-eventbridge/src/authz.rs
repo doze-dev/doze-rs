@@ -2,9 +2,10 @@
 //! the thing is a bus. `PutEvents` is judged once for each bus its entries name.
 
 use aws_model_eventbridge::Operation;
+use aws_model_eventbridge::tables::TABLES;
 use aws_peers::Need;
+use aws_peers::input::In;
 use aws_wire::service::Call;
-use serde_json::Value;
 
 use crate::core::Core;
 use crate::model::key;
@@ -17,8 +18,8 @@ impl Core {
         let Some(op) = Operation::from_index(call.op) else {
             return Vec::new();
         };
-        let body: Value = serde_json::from_str(&call.body).unwrap_or(Value::Null);
-        let text = |m: &str| body.get(m).and_then(Value::as_str).unwrap_or_default();
+        let body = In::of(&TABLES, call);
+        let text = |m: &str| body.get(m).and_then(|v| v.as_str()).unwrap_or_default();
         let (region, account) = (&call.caller.region, &call.caller.account_id);
         let action = format!("events:{op:?}");
         let bus_of = |m: &str| {
@@ -100,7 +101,7 @@ impl Core {
         if matches!(op, O::PutRule | O::CreateEventBus)
             && body
                 .get("Tags")
-                .and_then(Value::as_array)
+                .and_then(|v| v.as_array())
                 .is_some_and(|t| !t.is_empty())
         {
             let target = if op == O::PutRule {
@@ -114,16 +115,16 @@ impl Core {
     }
 
     /// One need for each distinct bus the entries name.
-    fn put_events_needs(&self, body: &Value, on_bus: &dyn Fn(&str) -> Need) -> Vec<Need> {
+    fn put_events_needs(&self, body: &In<'_>, on_bus: &dyn Fn(&str) -> Need) -> Vec<Need> {
         let mut buses: Vec<String> = body
             .get("Entries")
-            .and_then(Value::as_array)
+            .and_then(|v| v.as_array())
             .into_iter()
             .flatten()
             .map(|e| {
                 let given = e
                     .get("EventBusName")
-                    .and_then(Value::as_str)
+                    .and_then(|v| v.as_str())
                     .filter(|b| !b.is_empty());
                 let given = given.unwrap_or(DEFAULT_BUS);
                 bus_name(given).unwrap_or(given).to_owned()

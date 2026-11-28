@@ -201,14 +201,21 @@ pub(crate) async fn respond(shared: &Shared, req: http::Request<Incoming>) -> Re
 
 /// Answers a request to an AWS API (one no service's own address took).
 async fn api(shared: &Shared, id: &RequestId, parts: &Parts, body: Incoming) -> Response<RespBody> {
-    // A REST service (S3) streams its bodies and words its errors its own way, so it has its own path.
-    let claim = match Claim::parse(parts) {
-        Ok(found) => found,
+    // A REST service (S3) streams its bodies and words its errors its own way, so it has its own path. The signature is read once
+    // here: what the JSON, Query and CBOR paths are handed is this same reading.
+    let parsed = Claim::parse(parts);
+    let (claim, parsed) = match parsed {
+        Ok(Some(signed)) => (Some(signed), Ok(None)),
+        Ok(None) => (None, Ok(None)),
         // boto3 signs an S3 presigned URL with SigV2 unless told otherwise, and S3 accepts it. A verifying gateway checks it (in
         // `rest.rs`); a trusting one takes the access key as given and holds the URL to its expiry.
-        Err(AuthError::UnsupportedAlgorithm) => crate::presign::sigv2_claim(parts),
-        Err(_) => None,
+        Err(AuthError::UnsupportedAlgorithm) => (
+            crate::presign::sigv2_claim(parts),
+            Err(AuthError::UnsupportedAlgorithm),
+        ),
+        Err(e) => (None, Err(e)),
     };
+    let signed = claim.is_some() && parsed.is_ok();
     // A request with no signature at all is a person with curl or a browser: S3 serves it as the anonymous principal, whom IAM
     // (soft or enforce) judges by the bucket's policy and ACLs. A verifying gateway does so only when IAM is there to judge.
     let claim = claim.or_else(|| {
@@ -223,16 +230,22 @@ async fn api(shared: &Shared, id: &RequestId, parts: &Parts, body: Incoming) -> 
         }
         c
     });
-    if let Some(claim) = claim
-        && let Some(entry) = shared.rest_entry(&claim.service, parts).filter(|e| {
+    let rest = claim.as_ref().and_then(|c| {
+        shared.rest_entry(&c.service, parts).filter(|e| {
             let meta = e.service.meta();
             meta.speaks(Protocol::RestXml) || meta.speaks(Protocol::RestJson1)
         })
-    {
-        crate::observe::service(parts, entry, &claim);
-        return crate::rest::respond(shared, entry, id, parts, body, claim).await;
-    }
-    match handle(shared, id, parts, body).await {
+    });
+    let claim = match (rest, claim) {
+        (Some(entry), Some(claim)) => {
+            crate::observe::service(parts, entry, &claim);
+            return crate::rest::respond(shared, entry, id, parts, body, claim).await;
+        }
+        (_, claim) => claim,
+    };
+    // The other paths see the signature as the request carried it: a SigV4 claim, none, or why it could not be read.
+    let parsed = if signed { Ok(claim) } else { parsed };
+    match handle(shared, id, parts, body, parsed).await {
         Ok(out) => out,
         Err(out) => out.map(RespBody::whole),
     }
@@ -248,10 +261,9 @@ async fn handle(
     id: &RequestId,
     parts: &Parts,
     body: Incoming,
+    parsed: Result<Option<Claim>, AuthError>,
 ) -> Result<Response<RespBody>, Fail> {
-    let Some(claim) =
-        Claim::parse(parts).map_err(|e| early(id, parts, &from_auth(&e, Family::Coral)))?
-    else {
+    let Some(claim) = parsed.map_err(|e| early(id, parts, &from_auth(&e, Family::Coral)))? else {
         // No signature: only an operation its model marks as taking none (STS's web identity and SAML) is answered.
         return whole(crate::query::unsigned(shared, id, parts, body).await);
     };
@@ -279,7 +291,7 @@ async fn handle(
         return Err(early(id, parts, &unserved_protocol(meta)));
     };
     let fail = |e: &ApiError| json_fail(parts, entry, (version, id), e);
-    let authed = authenticate(shared, parts, claim.service.as_str())
+    let authed = authenticate(shared, parts, &claim)
         .await
         .map_err(|e| fail(&from_auth(&e, Family::Coral)))?;
     let bytes = read_body(body, shared.config.max_body_bytes)

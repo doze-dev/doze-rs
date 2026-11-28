@@ -2,9 +2,10 @@
 //! and the resource policy on each.
 
 use aws_model_secrets_manager::Operation;
+use aws_model_secrets_manager::tables::TABLES;
 use aws_peers::Need;
+use aws_peers::input::In;
 use aws_wire::service::Call;
-use serde_json::Value;
 
 use crate::core::Core;
 
@@ -14,7 +15,7 @@ impl Core {
         let Some(op) = Operation::from_index(call.op) else {
             return Vec::new();
         };
-        let body: Value = serde_json::from_str(&call.body).unwrap_or(Value::Null);
+        let body = In::of(&TABLES, call);
         let (region, account) = (&call.caller.region, &call.caller.account_id);
         let action = format!("secretsmanager:{op:?}");
         let anything = || {
@@ -32,13 +33,13 @@ impl Core {
                 format!("arn:aws:secretsmanager:{region}:{account}:secret:{id}"),
             ),
         };
-        let text = |key: &str| body.get(key).and_then(Value::as_str);
+        let text = |key: &str| body.get(key).and_then(|v| v.as_str());
         match op {
             Operation::ListSecrets | Operation::GetRandomPassword => anything(),
             Operation::CreateSecret => text("Name").map(on).into_iter().collect(),
             Operation::BatchGetSecretValue => {
-                match body.get("SecretIdList").and_then(Value::as_array) {
-                    Some(ids) => ids.iter().filter_map(Value::as_str).map(on).collect(),
+                match body.get("SecretIdList").and_then(|v| v.as_array()) {
+                    Some(ids) => ids.iter().filter_map(|v| v.as_str()).map(on).collect(),
                     None => anything(),
                 }
             }

@@ -234,3 +234,23 @@ fn a_scheduled_query_runs_when_due_and_keeps_its_history() {
         )
     );
 }
+
+/// What a request asks the authorizer for is read from its decoded input: a put is on its stream.
+#[test]
+fn putting_events_is_asked_for_on_the_stream() {
+    let w = World::new();
+    let call = w
+        .h
+        .call(
+            w.h.op("PutLogEvents"),
+            &json!({"logGroupName": "/app", "logStreamName": "one", "logEvents": [{"timestamp": NOW, "message": "m"}]}),
+        )
+        .unwrap();
+    let needs = crate::authz::needs(&call);
+    assert_eq!(needs.len(), 1);
+    assert_eq!(needs[0].action, "logs:PutLogEvents");
+    assert_eq!(
+        needs[0].resource,
+        "arn:aws:logs:us-east-1:000000000000:log-group:/app:log-stream:one"
+    );
+}

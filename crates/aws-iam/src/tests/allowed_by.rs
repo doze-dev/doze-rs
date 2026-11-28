@@ -234,7 +234,7 @@ fn seen(
         action: action.into(),
         resource: "*".into(),
         decision,
-        reason: String::new(),
+        reason: "".into(),
         by: by.map(|(n, k)| (n.to_owned(), k)),
         at_ms: 0,
     }

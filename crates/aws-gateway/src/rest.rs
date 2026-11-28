@@ -115,7 +115,7 @@ async fn handle(
     } else if crate::presign::is_anonymous(&claim) {
         None
     } else {
-        authenticate(shared, parts, &claim.service)
+        authenticate(shared, parts, &claim)
             .await
             .map_err(|e| from_auth(&e, family(json)))?
     };

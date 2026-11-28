@@ -351,6 +351,14 @@ impl Service for Lambda {
         Operation::from_index(op).is_some_and(core::built)
     }
 
+    /// An invoke's payload reaches the function as the bytes the gateway read, never as base64 in the call's JSON (`Req::payload`).
+    fn payload_aside(&self, op: u32) -> bool {
+        matches!(
+            Operation::from_index(op),
+            Some(Operation::Invoke | Operation::InvokeWithResponseStream)
+        )
+    }
+
     /// A call from a peer (S3, SNS, EventBridge, CloudWatch invoking a function; Step Functions): the same operations, answered as
     /// the model's output.
     fn call(&self, call: Call) -> BoxFuture<'_, Reply> {

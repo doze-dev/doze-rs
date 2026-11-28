@@ -73,6 +73,8 @@ pub(crate) struct Core {
     pub(crate) machines: Records<Machine>,
     pub(crate) activities: Records<Activity>,
     pub(crate) executions: Records<Execution>,
+    /// The running executions, and each machine's finished ones by start (kept with every `store`).
+    pub(crate) index: crate::model::ExecIndex,
     pub(crate) map_runs: Records<MapRun>,
     /// History events, a row each, keyed `<execution ARN>/<id>`.
     pub(crate) history: RowTable,
@@ -189,6 +191,7 @@ impl Core {
 
     fn with(clock: Arc<dyn Clock>, t: Tables, peers: Option<Arc<Peers>>, db: Option<Db>) -> Self {
         Self {
+            index: crate::model::ExecIndex::of(t.executions.iter().map(|(_, e)| e)),
             machines: t.machines,
             activities: t.activities,
             executions: t.executions,

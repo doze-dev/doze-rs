@@ -2019,3 +2019,46 @@ Size: `release` 23,162,720 B before, 23,311,600 B after (+148,880 B, not yet bis
 service). `release-aws` after: 12,388,544 B, 308 packages, idle 8,000 KB (samples 8,000, 7,920, 8,032), after use 8,880 KB, 1 thread
 (`cargo xtask weight doze-aws`); the `release-aws` before build was stopped when work paused. No new crate (`doze-store` turns on
 tokio's `rt` feature, already linked).
+
+## Workstream 5: the request hot path and memory (2026-11-27, branch `perf-hotpath`), release-aws, darwin/arm64
+
+Measured on a throwaway server (`--no-console` for the loads, the console on for idle), with a bun driver that signs under
+`--auth trust` (scratch `load.ts`), server CPU from `ps -o time` around the load, peak from `vmmap -summary` ("Physical
+footprint (peak)"), idle heap from `heap(1)` 2.5 s after start. Base is `db6cbc2c8`; profiles were taken with `sample` on a
+`release-aws` build with line tables. Every row is two or more runs; the spread is in the text.
+
+| | base | after | what did it |
+|---|---|---|---|
+| idle heap | 462,640 B | **159,424 B** | one set of pattern slots a model, allocated at its first match (E) |
+| idle footprint (dirty) | 3.3 MB | 2.9 MB | the same |
+| binary | 12,237,920 B | 12,254,576 B | +16.7 KB |
+| Lambda `Invoke`, 6 MB echo, server CPU | 520-580 ms | **44 ms** | base64 by table; payload into the tree once (D) |
+| the same, peak footprint | 141-150 MB | **70-76 MB** | |
+| DynamoDB `Query`, 1 MB page, server CPU | 28-31 ms | **11-14 ms** | strings copied in runs (encoder, decoder); `reply_json` without text (A3) |
+| the same, one at a time, peak | 24.4 MB | 19.2 MB | |
+| Kinesis `PutRecords` 500 × 10 KB, server CPU | 200-214 ms | 131 ms | base64 by table (the rest is Kinesis' own work) |
+| SQS `SendMessage` × 10,000, `--iam off` / `soft`, server CPU | 2.1-2.8 s / 2.3-2.7 s | 2.2-2.3 s / 2.1 s | soft costs no more than off within noise (B, C, A2) |
+| Step Functions, 5,000 executions with 10 KB input, peak | 86-88 MB | **67-69 MB** | a succeeded execution drops the interpreter's input copy (F) |
+| access log, 50,000 new rows into a full log | 113 ms | 14 ms | a recency list instead of a scan of 2,000 rows a row (B; `cargo test -p aws-iam --release accesslog_bench -- --ignored`) |
+
+What the profiles showed and what changed:
+
+- **base64** (`aws-core`) searched the 64-character alphabet for every character: 1,850 of 2,679 samples of a 6 MB `Invoke`, most
+  of a 5 MB `PutRecords`. A 256-entry table.
+- **JSON strings**: the encoder pushed a string a character at a time (half of a 1 MB `Query` page's encode); it now copies the runs
+  that need no escape. The decoder finds a string's end with one slice scan.
+- **`reply_json`** wrote the handler's `Value` to text and decoded it back leniently, then copied every string again (`detach`):
+  1,530 of 3,542 actor samples of a `Query`. `handler::tree` reads the value into the arena by the shape, with the same checks; a
+  test holds it to the text path byte for byte.
+- **Lambda `Invoke`**: the payload went to base64 in a `Value`, to text, through the decoder, then Lambda parsed the 8 MB body
+  again, decoded the base64 again and built a `Value` of the payload to validate it. Now the body is added to the decoded tree as
+  the blob (`Service::payload_aside`, Lambda's two invoke operations), read from there, and checked without building a value.
+- **Patterns** were built three times a model (gateway, bus, service), 80 B a slot, 1,476 slots over the 18 models, at start.
+- **authz**: every service but SQS and Kinesis reads its needs from the decoded tree (`aws_peers::input::In`) instead of parsing the
+  body again; SQS and Kinesis are workstream 1's to switch.
+
+Found and left to their owners: `doze_store::Records` keeps each record's encoded bytes beside the record (`Row::written`) to
+tell a change, which doubles every table's memory (a finished Step Functions execution is held twice); an SNS `Publish` to ten SQS
+subscriptions takes about 70 ms, nearly all of it ten durable SQS commits one after another (the bus's serialization is about 1%
+of it, so no typed fast path was added for it); idle RSS moves between 4.5 and 7.9 MB from start to start with the same 2.9 MB
+footprint, which is file-backed text paged in or not (the noise #36 records), not heap.

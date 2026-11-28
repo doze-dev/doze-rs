@@ -86,16 +86,49 @@ impl Arena {
         self.nodes.get(i as usize)
     }
 
-    pub(crate) fn link(&mut self, from: u32, to: u32) {
+    /// Makes `to` the node after `from` (the next member, item, or map key).
+    pub fn link(&mut self, from: u32, to: u32) {
         if let Some(n) = self.nodes.get_mut(from as usize) {
             n.next = to;
         }
+    }
+
+    /// Copies `bytes` in as a blob.
+    pub fn push_blob(&mut self, bytes: &[u8]) -> Val {
+        let o = u32::try_from(self.bin.len()).unwrap_or(0);
+        self.bin.extend_from_slice(bytes);
+        Val::Blob(o, u32::try_from(bytes.len()).unwrap_or(0))
     }
 
     pub fn push_text(&mut self, s: &str) -> Val {
         let o = u32::try_from(self.text.len()).unwrap_or(0);
         self.text.push_str(s);
         Val::Esc(o, u32::try_from(s.len()).unwrap_or(0))
+    }
+
+    /// Adds `bytes` as member `member` of the structure at `parent` (first among its members), copied once into the arena: a blob the
+    /// gateway read whole (a payload bound to the body, Lambda's `Invoke`) goes in as it is, with no base64 and no JSON text between.
+    /// False, and nothing added, if `parent` is not a structure or the arena would pass 4 GiB.
+    pub fn add_blob(&mut self, parent: u32, member: u32, bytes: &[u8]) -> bool {
+        let Some(Val::Obj(first)) = self.node(parent).map(|n| n.val) else {
+            return false;
+        };
+        let (Ok(off), Ok(len)) = (u32::try_from(self.bin.len()), u32::try_from(bytes.len())) else {
+            return false;
+        };
+        if off.checked_add(len).is_none() {
+            return false;
+        }
+        self.bin.extend_from_slice(bytes);
+        let at = self.push(Node {
+            next: first,
+            member,
+            val: Val::Blob(off, len),
+        });
+        if let Some(p) = self.nodes.get_mut(parent as usize) {
+            p.val = Val::Obj(at);
+        }
+        true
     }
 
     #[must_use]

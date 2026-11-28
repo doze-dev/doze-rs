@@ -3,9 +3,10 @@
 //! the default policy hangs on: the account of the caller.
 
 use aws_model_sns::Operation;
+use aws_model_sns::tables::TABLES;
 use aws_peers::Need;
+use aws_peers::input::In;
 use aws_wire::service::Call;
-use serde_json::Value;
 
 use crate::arn;
 use crate::core::Core;
@@ -53,8 +54,8 @@ impl Core {
         let Some(op) = Operation::from_index(call.op) else {
             return Vec::new();
         };
-        let body: Value = serde_json::from_str(&call.body).unwrap_or(Value::Null);
-        let text = |key: &str| body.get(key).and_then(Value::as_str).unwrap_or_default();
+        let body = In::of(&TABLES, call);
+        let text = |key: &str| body.get(key).and_then(|v| v.as_str()).unwrap_or_default();
         let (region, account) = (&call.caller.region, &call.caller.account_id);
         let action = format!("SNS:{}", action_of(op));
         // A topic by the ARN a request gives: its policy, if the topic is there.
@@ -119,13 +120,13 @@ impl Core {
     /// `Publish` is on a topic, a device endpoint or a phone number.
     fn publish_need(
         &self,
-        body: &Value,
+        body: &In<'_>,
         action: &str,
         on_topic: &dyn Fn(&str, &str) -> Need,
     ) -> Vec<Need> {
         let text = |key: &str| {
             body.get(key)
-                .and_then(Value::as_str)
+                .and_then(|v| v.as_str())
                 .filter(|t| !t.is_empty())
         };
         let target = text("TopicArn").or(text("TargetArn"));

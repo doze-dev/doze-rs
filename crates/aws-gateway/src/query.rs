@@ -28,7 +28,7 @@ pub(crate) async fn handle(
         crate::observe::failed(parts, e);
         Box::new(query::failure(meta, tables, id, e))
     };
-    let authed = authenticate(shared, parts, claim.service.as_str())
+    let authed = authenticate(shared, parts, &claim)
         .await
         .map_err(|e| fail(&from_auth(&e, Family::Query)))?;
     let bytes = read_body(body, shared.max_body_bytes())
