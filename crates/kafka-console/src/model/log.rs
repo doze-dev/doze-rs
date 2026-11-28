@@ -187,6 +187,8 @@ pub struct LogDurability {
     pub offline: Option<String>,
     pub stop: LogStop,
     pub fsync_ms: i64,
+    /// An acks=all append is acknowledged after its flush (`--fsync-on-ack`).
+    pub fsync_on_ack: bool,
     /// Every record before this offset is on disk (the end at the last completed flush), if known.
     pub flushed_through: Option<i64>,
 }

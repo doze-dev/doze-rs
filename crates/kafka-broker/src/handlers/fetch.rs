@@ -11,7 +11,7 @@ use kafka_meta::Topic;
 use kafka_storage::fs::Fs;
 use kafka_wire::ResponseError;
 use kafka_wire::api::Response;
-use kafka_wire::ids::{PartitionId, TopicId, TopicName};
+use kafka_wire::ids::{Offset, PartitionId, TopicId, TopicName};
 use kafka_wire::messages::fetch_request::FetchTopic;
 use kafka_wire::messages::{FetchRequest, FetchResponse};
 use tokio::time::{Instant, timeout_at};
@@ -220,30 +220,53 @@ fn blocking_round<F: Fs>(
     how: round::How,
     budget: Budget,
 ) -> round::Round {
-    if at_the_end(wanted) {
+    if in_memory(wanted, how.version) {
         return round::read(wanted, req, how, budget);
     }
     crate::blocking::run(|| round::read(wanted, req, how, budget))
 }
 
-/// Whether every partition asked for is refused or read from its end: the round then opens and reads no file (a read at
-/// the end answers from memory, `LogReader::read_once`) and runs where it is. Handing the worker over for it
-/// (`block_in_place`) wakes a blocking thread twice a fetch, and a quiet consumer fetches every half second (Java's
-/// `fetch.max.wait.ms`), so the thread's keep-alive never ran out: one quiet consumer group took an idle broker from 3
-/// threads to 7, for good (weight.md, "A quiet consumer").
-fn at_the_end<F: Fs>(wanted: &[Wanted<'_, F>]) -> bool {
-    wanted.iter().all(|w| {
-        w.request
-            .partitions
-            .iter()
-            .zip(&w.places)
-            .all(|(asked, place)| match place {
-                Place::Error(_) => true,
-                Place::Open(partition) => {
-                    asked.fetch_offset == partition.reader().end_offset().get()
-                }
-            })
-    })
+/// The most bytes a round reads on the runtime's own thread: a copy out of the page cache that size takes tens of
+/// microseconds, less than handing the worker over.
+const READ_HERE: u64 = 256 << 10;
+
+/// Whether the round touches nothing but memory, and runs where it is: every partition asked for is refused, read from
+/// its end (a read at the end answers from memory, `LogReader::read_once`), or read by a consumer that keeps up, from
+/// where the last append or read of the newest segment ended (`LogReader::unread_near_the_end`: bytes written moments
+/// ago, in the page cache, and found with no index lookup), with at most [`READ_HERE`] bytes in all; and the records
+/// need no conversion to an old message format.
+///
+/// Handing the worker over (`block_in_place`) for every round cost two thread switches a fetch, and the blocking thread it
+/// left behind lingered: one quiet consumer group took an idle broker from 3 threads to 7 for good (weight.md, "A quiet
+/// consumer"), and a consumer that keeps up paid it on every batch it read ("Hand-offs on the hot path").
+fn in_memory<F: Fs>(wanted: &[Wanted<'_, F>], version: i16) -> bool {
+    let mut bytes = 0u64;
+    for w in wanted {
+        for (asked, place) in w.request.partitions.iter().zip(&w.places) {
+            let Place::Open(partition) = place else {
+                continue;
+            };
+            let reader = partition.reader();
+            let Some(from) = Offset::new(asked.fetch_offset) else {
+                return false;
+            };
+            if from == reader.end_offset() {
+                continue;
+            }
+            if version < round::BATCHES_FROM {
+                return false;
+            }
+            let Some(unread) = reader.unread_near_the_end(from) else {
+                return false;
+            };
+            let most = u64::try_from(asked.partition_max_bytes.max(0)).unwrap_or(0);
+            bytes += unread.min(most);
+            if bytes > READ_HERE {
+                return false;
+            }
+        }
+    }
+    true
 }
 
 #[cfg(test)]

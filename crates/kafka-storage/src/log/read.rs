@@ -63,6 +63,21 @@ impl<F: Fs> LogReader<F> {
         self.shared.end()
     }
 
+    /// How many bytes a read from `from` would find, if that is cheap to know: `from` is in the newest segment, where the
+    /// last append or read of it ended (a consumer that keeps up). Those bytes were written moments ago, so they are in
+    /// the page cache, and reading them is a copy from memory. Anything else (an older segment, an offset in the middle of
+    /// one) is `None`.
+    #[must_use]
+    pub fn unread_near_the_end(&self, from: Offset) -> Option<u64> {
+        let segments = self.shared.segments.load();
+        let active = segments.last()?;
+        if from < active.base() {
+            return None;
+        }
+        let pos = active.hinted(from.get())?;
+        Some(active.committed().saturating_sub(pos))
+    }
+
     /// A channel that changes whenever the end offset does. Wait on it to wait for data: a change made after
     /// the receiver was created is never missed, so reading and then waiting cannot lose a wake-up.
     #[must_use]
@@ -117,6 +132,18 @@ impl<F: Fs> LogReader<F> {
 /// step over (the index puts it within one interval and one batch of them), so that one read usually does it all.
 const HEADROOM: usize = 16 << 10;
 
+/// The most a read asks for at first: `max_bytes` and the headroom, unless the headroom would take the read into the next
+/// of the pool's size classes (a fetch of 1 MiB a partition would take a 2 MiB buffer for 16 KiB more). A read from a hint
+/// starts at its batch and needs no headroom; one that does and runs short reads again.
+fn in_its_class(max_bytes: usize) -> usize {
+    let with = max_bytes.saturating_add(HEADROOM);
+    if crate::pool::pooled(max_bytes) && with.next_power_of_two() > max_bytes.next_power_of_two() {
+        max_bytes.next_power_of_two()
+    } else {
+        with
+    }
+}
+
 /// How far past the index entry nearest a limit that falls in the segment a read looks: the batch holding the limit
 /// begins within an index interval of that entry, and its header is what is wanted. (A read that needs more asks again.)
 const LIMIT_SLACK: u64 = 64 << 10;
@@ -169,27 +196,44 @@ fn read_segment<F: Fs>(
     segment: &SegmentView<F>,
     from: Offset,
     max_bytes: usize,
+    limits: (Option<Offset>, bool),
+) -> io::Result<Option<Bytes>> {
+    // A reader that keeps up starts where the last append or read ended, with no index lookup. Should that position not
+    // hold a batch after all, the index decides, as for any other offset.
+    if let Some(pos) = segment.hinted(from.get())
+        && let Ok(found) = read_segment_at(segment, from, pos, max_bytes, limits)
+    {
+        return Ok(found);
+    }
+    let pos = segment.seek(from.get())?;
+    // An index entry is the start of a batch, so before the end of the log: one at or past it is a damaged index,
+    // and reading on from the next segment would silently skip every record in between.
+    if pos > 0 && pos >= segment.committed() {
+        return Err(not_a_batch(pos));
+    }
+    read_segment_at(segment, from, pos, max_bytes, limits)
+}
+
+/// [`read_segment`] from `pos`, the start of a batch at or before the first one holding `from`.
+fn read_segment_at<F: Fs>(
+    segment: &SegmentView<F>,
+    from: Offset,
+    mut pos: u64,
+    max_bytes: usize,
     (limit, bounded): (Option<Offset>, bool),
 ) -> io::Result<Option<Bytes>> {
     let committed = segment.committed();
-    let mut pos = segment.seek(from.get())?;
-    // An index entry is the start of a batch, so before the end of the log: one at or past it is a damaged index,
-    // and reading on from the next segment would silently skip every record in between.
-    if pos > 0 && pos >= committed {
-        return Err(not_a_batch(pos));
-    }
     // A limit inside this segment (a read-committed fetch's last stable offset, or the end of the log) bounds what is
     // worth reading: nothing at or past it is returned, however much room `max_bytes` leaves.
     let reach = limit
         .filter(|_| bounded)
         .and_then(|l| segment.seek(l.get()).ok())
         .map_or(u64::MAX, |p| p.saturating_add(LIMIT_SLACK));
+    let most = in_its_class(max_bytes);
     let ask = |pos: u64| {
         let wanted = usize::try_from(reach.saturating_sub(pos)).unwrap_or(usize::MAX);
-        usize::try_from(committed.saturating_sub(pos)).map_or(usize::MAX, |room| {
-            room.min(max_bytes.saturating_add(HEADROOM))
-                .min(wanted.max(HEADROOM))
-        })
+        usize::try_from(committed.saturating_sub(pos))
+            .map_or(usize::MAX, |room| room.min(most).min(wanted.max(HEADROOM)))
     };
     let mut chunk = Chunk::read(segment, pos, ask(pos))?;
     // Step over the batches that end before the offset.
@@ -205,6 +249,7 @@ fn read_segment<F: Fs>(
     };
     // Take whole batches while they fit, but always the first.
     let (start, mut total, mut peek) = (pos, 0u64, first);
+    let mut next = None;
     loop {
         if limit.is_some_and(|l| peek.base_offset >= l.get())
             || (total > 0 && total + peek.total_len > max_bytes as u64)
@@ -212,6 +257,7 @@ fn read_segment<F: Fs>(
             break;
         }
         total += peek.total_len;
+        next = peek.next_offset();
         if start + total >= committed {
             break;
         }
@@ -222,6 +268,10 @@ fn read_segment<F: Fs>(
             committed,
             ask(start + total),
         )?;
+    }
+    // Where this reader will ask next.
+    if let Some(next) = next {
+        segment.remember(next, start + total);
     }
     let len = usize::try_from(total).unwrap_or(usize::MAX);
     match chunk.get(start, len) {

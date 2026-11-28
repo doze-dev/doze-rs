@@ -25,6 +25,8 @@ pub struct Intervals {
     pub cleaner_on: bool,
     /// `--fsync-interval`.
     pub fsync: Duration,
+    /// `--fsync-on-ack`: an acks=all produce is answered after its flush.
+    pub fsync_on_ack: bool,
     /// `--offsets-retention`.
     pub offsets_retention: Duration,
     /// `--group-initial-rebalance-delay`.
@@ -76,6 +78,7 @@ impl<F: Fs> ConsoleView<'_, F> {
                 cleaner: b.config.log_cleaner_every,
                 cleaner_on: b.config.log_cleaner_enable,
                 fsync: b.config.fsync_interval,
+                fsync_on_ack: b.config.fsync_on_ack,
                 offsets_retention: b.config.offsets_retention,
                 group_initial_rebalance: b.config.group_initial_rebalance_delay,
                 consumer_session: b.config.consumer_session_timeout,

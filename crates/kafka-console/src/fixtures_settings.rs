@@ -122,10 +122,10 @@ fn intervals() -> SettingsIntervals {
             ),
             interval(
                 "Flush after a write",
-                "an acks=1 write is flushed within this time (0 flushes at once)",
+                "a write is flushed within this time (0 flushes at once)",
                 "500ms",
                 "--fsync-interval",
-                "acks=all flushes before it answers",
+                "acks=all too, as in Kafka; --fsync-on-ack flushes it before it answers",
             ),
             interval(
                 "Offsets retention",

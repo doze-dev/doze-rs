@@ -66,10 +66,12 @@ Test: `log::tests::read::a_reader_can_wait_for_the_end_to_move`
 ## Durability
 
 ### S9. Sync makes everything appended so far durable
-It flushes what is not known to be on disk: the active log, the
-active index if it changed, and the directory if its entries changed (a sealed segment was flushed whole by the roll
-that sealed it). Nothing dirty means no system call. When it
-returns Ok, every record appended before the call is on disk.
+It flushes what is not known to be on disk: the active log, and the directory if its entries changed (a sealed segment
+was flushed whole, log and index, by the roll that sealed it). The active segment's index is flushed by the roll and by
+a clean close, not by a sync: it is never trusted after a stop that does not vouch for the log (recovery writes it again
+from the log, S14), and a stop that vouches flushed it, so flushing it with every acknowledgement bought only an fsync
+(2026-11-27, weight.md "Hand-offs on the hot path"). Nothing dirty means no system call. When it returns Ok, every
+record appended before the call is on disk.
 Test: `log::tests::tickets::a_ticket_is_durable_once_a_sync_covers_it`, `log::tests::durability::a_sync_with_nothing_dirty_makes_no_system_call`, `segment::tests::sync_flushes_only_what_changed`
 
 ### S10. One sync covers every append before it (group commit)
@@ -94,9 +96,10 @@ Test: `log::tests::append::a_payload_is_appended_whole_or_not_at_all`
 
 ### S13. What is read back at open is not known to be on disk
 Unless the last stop vouches for the partition (S21), the active segment's log, its index and the directory each start
-dirty, so the first sync of the partition flushes all three, whatever this process wrote. (They are three claims: a
-process that restarts before it flushed the index it rewrote must still flush it, or a power cut after the next roll
-leaves a sealed segment with a stale index. Found by the simulation.)
+dirty, whatever this process wrote: the first sync flushes the log and the directory, and the index stays owed until the
+roll or the close, which flush it (S9). (They are three claims: a process that restarts before it flushed the index it
+rewrote must still flush it, or a power cut after the next roll leaves a sealed segment with a stale index. Found by the
+simulation.)
 Test: `log::tests::durability::what_is_read_back_at_open_is_flushed_log_index_and_directory_each_by_itself`
 
 ## Recovery (open)

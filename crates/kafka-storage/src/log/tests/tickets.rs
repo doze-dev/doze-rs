@@ -32,8 +32,8 @@ fn one_sync_covers_every_append_before_it() {
     log.sync().unwrap();
     assert_eq!(
         fsyncs(&fs) - before,
-        2,
-        "the log and its index, once, for all three"
+        1,
+        "the log, once, for all three (its index waits for the roll or the close)"
     );
     assert!(tickets.iter().all(Ticket::is_durable));
 }

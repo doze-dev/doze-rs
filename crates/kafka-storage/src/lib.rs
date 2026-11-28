@@ -9,6 +9,7 @@ mod index;
 pub mod log;
 mod logstart;
 pub mod marker;
+pub mod pool;
 mod retention;
 mod scan;
 mod segment;

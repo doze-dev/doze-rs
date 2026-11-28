@@ -39,11 +39,10 @@ impl<F: Fs> PartitionLog<F> {
     ) -> Result<Appended, StorageError> {
         self.check_online()?;
         let size: u64 = batches.iter().map(|b| b.len() as u64).sum();
-        let (active, limit) = (self.active.size(), self.config.segment_bytes);
-        if active > 0 && (active + size > limit || self.too_old_to_append_to(now)) {
+        if self.would_roll(size, now) {
             self.roll()?;
         }
-        let (first, mark) = (self.end, self.active.mark());
+        let (first, mark, began) = (self.end, self.active.mark(), self.active.size());
         let broker_time = (clock == TimestampType::LogAppend).then_some(now);
         let mut next = first;
         for batch in batches {
@@ -60,6 +59,8 @@ impl<F: Fs> PartitionLog<F> {
             })?;
         }
         self.active.publish();
+        // Where a consumer that was caught up will read next: where this append began.
+        self.active.view().remember_append(first.get(), began);
         self.end = next;
         self.append_seq += 1;
         self.shared.end.send_replace(next);
@@ -68,6 +69,14 @@ impl<F: Fs> PartitionLog<F> {
             next_offset: next,
             ticket: self.ticket_for(self.append_seq),
         })
+    }
+
+    /// Whether appending `size` bytes at `now` would first roll the segment: seal it, flush it and its directory, and
+    /// make new files. Every other append is a write into the page cache, which a caller may do on its own thread.
+    #[must_use]
+    pub fn would_roll(&self, size: u64, now: TimestampMs) -> bool {
+        let active = self.active.size();
+        active > 0 && (active + size > self.config.segment_bytes || self.too_old_to_append_to(now))
     }
 
     /// Whether the active segment has been open longer than `segment.ms` allows (source: `LogSegment.shouldRoll`): it is

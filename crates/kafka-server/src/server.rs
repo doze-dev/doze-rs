@@ -55,7 +55,10 @@ impl Server {
             tasks.clone(),
             tls,
         ));
-        tasks.spawn(crate::pool::POOL.trim_when_quiet(crate::pool::QUIET, stop.clone()));
+        tasks.spawn(
+            kafka_storage::pool::POOL
+                .trim_when_quiet(kafka_storage::pool::QUIET, stop.clone().cancelled_owned()),
+        );
         Ok(Running { addr, stop, tasks })
     }
 }

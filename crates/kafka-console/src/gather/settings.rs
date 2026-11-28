@@ -134,9 +134,13 @@ fn interval_rows(
             start,
             (
                 "Flush after a write",
-                "an acks=1 write is flushed within this time (0 flushes at once)",
+                "a write is flushed within this time (0 flushes at once)",
                 "--fsync-interval",
-                n("acks=all flushes before it answers"),
+                n(if i.fsync_on_ack {
+                    "acks=all flushes before it answers (--fsync-on-ack)"
+                } else {
+                    "acks=all too, as in Kafka; --fsync-on-ack flushes it before it answers"
+                }),
             ),
             i.fsync,
         ),

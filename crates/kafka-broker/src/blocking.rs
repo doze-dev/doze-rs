@@ -9,6 +9,10 @@
 //! process from 3 threads to 5 and back ten seconds later. A request pays that once under load, when the threads are reused;
 //! a chore paid it on every pass. `spawn_blocking` starts at most one pool thread, reuses it for every step of the pass, and
 //! the runtime's own workers are never swapped.
+//!
+//! A task that owns its state (a partition's writer) uses [`with_moved`]: the state goes to the pool and comes back. And the
+//! cheapest way of all is not to hand off: work that only touches memory or the page cache (a small append, a read of recent
+//! records, a Metadata answer) runs where it is (weight.md, "Hand-offs on the hot path").
 
 use tokio::runtime::{Handle, RuntimeFlavor};
 
@@ -36,4 +40,19 @@ pub(crate) async fn in_background<T: Send + 'static>(f: impl FnOnce() -> T + Sen
         },
         _ => f(),
     }
+}
+
+/// Runs `f` on `state` on the blocking pool, the state moved there and back, for a task that owns what the work needs
+/// (a partition's writer owns its log). Like [`in_background`], the runtime's workers are never swapped and the pool's
+/// threads are reused; unlike [`run`], no thread is started per call and none is left behind. Outside a multi-threaded
+/// runtime (tests) it just runs.
+pub(crate) async fn with_moved<S: Send + 'static, T: Send + 'static>(
+    mut state: S,
+    f: impl FnOnce(&mut S) -> T + Send + 'static,
+) -> (S, T) {
+    in_background(move || {
+        let out = f(&mut state);
+        (state, out)
+    })
+    .await
 }

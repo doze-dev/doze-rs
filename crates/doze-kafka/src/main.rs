@@ -117,8 +117,14 @@ fn broker() -> Result<()> {
         unprotected = settings.console.unprotected,
         "console flags"
     );
+    // The blocking pool takes what may block: flushes, cold reads, opening partitions, the chores. The hot path does not
+    // use it (weight.md, "Hand-offs on the hot path"), so it is small: at most 64 threads (tokio's default is 512, which
+    // only a storm of cold reads would reach, each a thread), and one idle for 5 s goes (not 10), so a burst's threads
+    // are gone soon after it.
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(args.worker_threads)
+        .max_blocking_threads(64)
+        .thread_keep_alive(std::time::Duration::from_secs(5))
         .thread_name("doze-kafka")
         .enable_all()
         .build()?;

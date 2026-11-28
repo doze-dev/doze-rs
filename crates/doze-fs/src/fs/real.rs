@@ -216,6 +216,49 @@ impl FsFile for RealFile {
         std::os::unix::fs::FileExt::write_all_at(&self.0, data, pos)
     }
 
+    /// One `pwritev` for all of `parts` (more only if the system writes less than asked). Where rustix is not built in (the
+    /// lean broker on Linux), each part is written in turn.
+    #[cfg(any(target_vendor = "apple", all(unix, feature = "space")))]
+    fn write_all_vectored_at(&self, parts: &[&[u8]], pos: u64) -> io::Result<()> {
+        // The slices are kept on the stack: a batch is two parts (a header and a body), and a write per batch should not
+        // allocate. More parts than that fall back to a Vec.
+        const ON_STACK: usize = 4;
+        let total: usize = parts.iter().map(|p| p.len()).sum();
+        let mut done = 0;
+        while done < total {
+            // The parts from `done` on: the first cut where an earlier write stopped inside it.
+            let mut skip = done;
+            let rest = parts.iter().filter_map(|p| {
+                if skip >= p.len() {
+                    skip -= p.len();
+                    return None;
+                }
+                let rest = p.get(skip..).unwrap_or_default();
+                skip = 0;
+                Some(std::io::IoSlice::new(rest))
+            });
+            let mut stack = [std::io::IoSlice::new(&[]); ON_STACK];
+            let heap: Vec<std::io::IoSlice<'_>>;
+            let left: &[std::io::IoSlice<'_>] = if parts.len() <= ON_STACK {
+                let mut n = 0;
+                for (slot, slice) in stack.iter_mut().zip(rest) {
+                    *slot = slice;
+                    n += 1;
+                }
+                stack.get(..n).unwrap_or_default()
+            } else {
+                heap = rest.collect();
+                &heap
+            };
+            let n = rustix::io::pwritev(&self.0, left, pos + done as u64)?;
+            if n == 0 {
+                return Err(io::ErrorKind::WriteZero.into());
+            }
+            done += n;
+        }
+        Ok(())
+    }
+
     #[cfg(windows)]
     fn write_all_at(&self, data: &[u8], pos: u64) -> io::Result<()> {
         let (mut data, mut pos) = (data, pos);

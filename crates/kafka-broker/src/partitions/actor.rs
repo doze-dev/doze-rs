@@ -132,35 +132,60 @@ struct Memory {
     upkeep: Arc<Upkeep>,
 }
 
+/// The writer's state, moved to the blocking pool and back for work that may block.
+struct Writer<F: Fs> {
+    log: PartitionLog<F>,
+    memory: Memory,
+    /// The commands of one wakeup, kept across wakeups so a busy partition allocates once. It starts empty and grows to
+    /// the largest group seen: an idle partition holds nothing.
+    group: Vec<Command<F>>,
+}
+
+/// The most bytes of appends written on the writer's own task. Such a group is a write into the page cache (no roll, no
+/// flush, no history to read), cheaper than handing the task's state to the blocking pool and back: an app's batches of
+/// a few kilobytes. A bulk producer's batches (up to a megabyte) go to the pool: a write that size can stall while the
+/// kernel holds back dirty pages, and two stalled writers would hold both of the runtime's workers (measured: 256 KiB here
+/// let a 1 KB-record load fall from about 1M to 400k records/s in two rounds of five on a busy machine).
+const WRITTEN_HERE: u64 = 64 << 10;
+
 /// Takes commands until the queue closes or a Close arrives: appends are written in the order they came, then one
 /// flush is made if any of them asked to be durable (every producer waiting on it is released by that one
 /// flush). Appends that did not ask for it are flushed `fsync_interval` after the first of them, and only while
 /// there is something to flush: an idle partition holds no timer.
+///
+/// A small group of appends that need no flush is written here, on the runtime's worker; everything else that may block
+/// (a flush, a roll, the first read of the producers' history, the chores) moves the writer to the blocking pool and
+/// back, so a worker is never swapped out (weight.md, "Hand-offs on the hot path").
 pub(super) async fn run<F: Fs>(
-    mut log: PartitionLog<F>,
+    log: PartitionLog<F>,
     mut queue: mpsc::Receiver<Command<F>>,
     fsync_interval: Duration,
     txns: Arc<RwLock<TxnIndex>>,
     upkeep: Arc<Upkeep>,
 ) {
     let mut unflushed_since: Option<Instant> = None;
-    let mut memory = Memory {
+    let memory = Memory {
         producers: Producers::default(),
         loaded: false,
         txns,
         cleaned_to: 0,
         upkeep,
     };
-    // The commands of one wakeup, kept across wakeups so a busy partition allocates once. It starts empty and grows to
-    // the largest group seen: an idle partition holds nothing.
-    let mut group: Vec<Command<F>> = Vec::new();
+    let mut w = Writer {
+        log,
+        memory,
+        group: Vec::new(),
+    };
     loop {
         let next = match unflushed_since {
             Some(since) => tokio::select! {
                 c = queue.recv() => c,
                 () = sleep_until(since + fsync_interval) => {
                     // A failed flush is the log's to remember: it refuses the next write.
-                    let _ = blocking::run(|| log.sync());
+                    (w, ()) = blocking::with_moved(w, |w| {
+                        let _ = w.log.sync();
+                    })
+                    .await;
                     unflushed_since = None;
                     continue;
                 }
@@ -168,14 +193,21 @@ pub(super) async fn run<F: Fs>(
             None => queue.recv().await,
         };
         let Some(first) = next else { break };
-        group.push(first);
-        while group.len() < GROUP {
+        w.group.push(first);
+        while w.group.len() < GROUP {
             match queue.try_recv() {
-                Ok(c) => group.push(c),
+                Ok(c) => w.group.push(c),
                 Err(_) => break,
             }
         }
-        let (closing, outcome) = blocking::run(|| work(&mut log, &mut memory, &mut group));
+        let (closing, outcome) = if light(&w.log, &w.memory, &w.group) {
+            work(&mut w.log, &mut w.memory, &mut w.group)
+        } else {
+            let (back, out) =
+                blocking::with_moved(w, |w| work(&mut w.log, &mut w.memory, &mut w.group)).await;
+            w = back;
+            out
+        };
         match outcome {
             Flushed::Everything => unflushed_since = None,
             Flushed::NotYet => {
@@ -184,13 +216,36 @@ pub(super) async fn run<F: Fs>(
             Flushed::NothingWritten => {}
         }
         if let Some(done) = closing {
-            let clean = blocking::run(|| log.close()).is_ok();
+            let clean = blocking::in_background(move || w.log.close()).await.is_ok();
             let _ = done.send(clean);
             return;
         }
     }
     // Every handle is gone: flush what there is.
-    let _ = blocking::run(|| log.close());
+    let _ = blocking::in_background(move || w.log.close()).await;
+}
+
+/// Whether a group can be written on the writer's own task: only appends, none asking for a flush, at most
+/// [`WRITTEN_HERE`] bytes, none that would roll the segment, none that would first read the producers' history back
+/// (a writer that has not yet) or first record that the log holds transactions (a small file, flushed).
+fn light<F: Fs>(log: &PartitionLog<F>, memory: &Memory, group: &[Command<F>]) -> bool {
+    let (mut bytes, mut now) = (0u64, None);
+    for command in group {
+        let Command::Append(a) = command else {
+            return false;
+        };
+        let attributes = a.batch.attributes();
+        let transactional = attributes.is_transactional() || attributes.is_control();
+        if a.durable
+            || (transactional && !log.holds_transactions())
+            || (a.batch.producer().is_some() && !memory.loaded)
+        {
+            return false;
+        }
+        bytes += a.batch.len() as u64;
+        now = now.max(Some(a.now));
+    }
+    bytes <= WRITTEN_HERE && now.is_some_and(|now| !log.would_roll(bytes, now))
 }
 
 enum Flushed {

@@ -71,9 +71,15 @@ pub struct Config {
     pub max_open_descriptors: usize,
     /// Broker-wide values that topics override.
     pub defaults: Defaults,
-    /// Appends that did not ask to be durable (`acks=1`) are flushed this long after the first of them. Zero
-    /// flushes each group at once.
+    /// Appends that did not ask to be durable are flushed this long after the first of them. Zero flushes each group
+    /// at once.
     pub fsync_interval: Duration,
+    /// Whether an `acks=all` produce is answered only once it is flushed (`--fsync-on-ack`). Off, as Kafka has it
+    /// (`log.flush.interval.messages` is never reached by default, and one broker has no replicas to wait for):
+    /// `acks=all` is answered once written, like `acks=1`, and flushed by `fsync_interval`. A crash of the broker
+    /// loses nothing either way; a crash of the machine can lose up to `fsync_interval` of writes unless this is on.
+    /// Transaction markers are flushed before they are answered either way.
+    pub fsync_on_ack: bool,
     /// How long the first rebalance of an empty consumer group waits for more members to arrive, so that members
     /// starting together share a generation. Zero: not at all.
     pub group_initial_rebalance_delay: Duration,
@@ -143,6 +149,7 @@ impl Config {
             max_open_descriptors: 0,
             defaults: Defaults::default(),
             fsync_interval: Duration::from_millis(500),
+            fsync_on_ack: false,
             group_initial_rebalance_delay: Duration::from_millis(200),
             offsets_retention: Duration::from_secs(7 * 24 * 3600),
             transactional_id_expiration: Duration::from_secs(7 * 24 * 3600),

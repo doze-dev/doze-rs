@@ -15,7 +15,6 @@ mod connections;
 pub mod fault;
 mod frames;
 mod observer;
-mod pool;
 mod server;
 mod session;
 #[cfg(feature = "tls")]

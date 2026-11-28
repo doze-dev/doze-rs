@@ -65,6 +65,7 @@ fn durability() -> LogDurability {
         offline: None,
         stop: LogStop::Clean,
         fsync_ms: 500,
+        fsync_on_ack: false,
         flushed_through: Some(16_098),
     }
 }

@@ -59,6 +59,7 @@ pub(crate) const GROUPS: [(&str, &[&str]); 7] = [
             "group-initial-rebalance-delay",
             "consumer-session-timeout",
             "fsync-interval",
+            "fsync-on-ack",
         ],
     ),
     (

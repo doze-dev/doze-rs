@@ -87,6 +87,7 @@ impl Args {
         broker.default_partitions = self.default_partitions;
         broker.max_partitions = self.max_partitions;
         broker.fsync_interval = self.fsync_interval;
+        broker.fsync_on_ack = self.fsync_on_ack;
         broker.group_initial_rebalance_delay = self.group_initial_rebalance_delay;
         broker.consumer_session_timeout = self.consumer_session_timeout;
         // A test knob no flag covers: the least time between two computations of a consumer group's assignment.

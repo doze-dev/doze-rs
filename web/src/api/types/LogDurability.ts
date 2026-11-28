@@ -6,6 +6,10 @@ import type { LogStop } from "./LogStop";
  */
 export type LogDurability = { offline: string | null, stop: LogStop, fsync_ms: number, 
 /**
+ * An acks=all append is acknowledged after its flush (`--fsync-on-ack`).
+ */
+fsync_on_ack: boolean, 
+/**
  * Every record before this offset is on disk (the end at the last completed flush), if known.
  */
 flushed_through: number | null, };

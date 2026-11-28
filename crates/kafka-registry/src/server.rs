@@ -184,8 +184,17 @@ async fn answer(
             _ => return Ok(plain(408, Vec::new(), Some(api::CONTENT_TYPE))),
         };
     }
-    let resp = tokio::task::spawn_blocking(move || api.serve(&r)).await;
-    let resp = resp.unwrap_or_else(|_| Response::internal());
+    // A read with no password to check is answered from memory (every schema is loaded at start) and runs here. A write
+    // (compatibility checks, parsing, the store) and a sign-in (a password hash is slow on purpose) go to the blocking
+    // pool, so a request never holds up the runtime's few workers (weight.md, "Hand-offs on the hot path").
+    let reads = matches!(r.method.as_str(), "GET" | "HEAD") && r.authorization.is_none();
+    let resp = if reads {
+        api.serve(&r)
+    } else {
+        tokio::task::spawn_blocking(move || api.serve(&r))
+            .await
+            .unwrap_or_else(|_| Response::internal())
+    };
     if !resp.delay.is_zero() {
         tokio::time::sleep(resp.delay).await;
     }

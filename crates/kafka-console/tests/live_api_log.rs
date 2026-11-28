@@ -180,7 +180,8 @@ async fn a_log_that_is_not_due_says_why_and_the_cleaner_then_leaves_it_alone() {
 /// the pass did (the log start that moved, from and to).
 #[tokio::test]
 async fn retention_is_named_before_and_after_a_pass() {
-    let w = world("al-retention", |_, _| {}).await;
+    // acks=all waits for its flush here (--fsync-on-ack), so the durability card below has a flush to show.
+    let w = world("al-retention", |b, _| b.fsync_on_ack = true).await;
     w.create_topic(
         "orders",
         1,
@@ -224,7 +225,8 @@ async fn retention_is_named_before_and_after_a_pass() {
     );
     assert_eq!(after["view"]["retention"]["moved_total"], 1);
     assert_eq!(after["view"]["start"], moved);
-    // J234, J235: the durability card says how far the log is on disk (acks=all: to its end), and a segment its index.
+    // J234, J235: the durability card says how far the log is on disk (acks=all with --fsync-on-ack: to its end), and a
+    // segment its index.
     let d = &after["view"]["durability"]["flushed_through"];
     assert_eq!(d, &after["view"]["end"], "{d}");
     let seg = &after["view"]["segments"][0];

@@ -12,6 +12,7 @@ fn ints() -> Intervals {
         cleaner: Duration::from_secs(15),
         cleaner_on: true,
         fsync: Duration::from_millis(500),
+        fsync_on_ack: false,
         offsets_retention: Duration::from_secs(7 * 24 * 3600),
         group_initial_rebalance: Duration::from_millis(200),
         consumer_session: Duration::from_secs(45),

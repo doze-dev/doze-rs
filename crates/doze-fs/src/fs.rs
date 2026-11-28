@@ -172,6 +172,21 @@ pub trait FsFile: Send + Sync + 'static {
     /// Anything the system refuses; some of the bytes may have been written.
     fn write_all_at(&self, data: &[u8], pos: u64) -> io::Result<()>;
 
+    /// Writes all of `parts`, one after another, at `pos`: in one system call where the platform has a positioned
+    /// gather write (`pwritev`), so a batch's header and body, held apart, go out together without being copied into
+    /// one buffer. By default each part is written in turn.
+    ///
+    /// # Errors
+    /// Anything the system refuses; some of the bytes may have been written.
+    fn write_all_vectored_at(&self, parts: &[&[u8]], pos: u64) -> io::Result<()> {
+        let mut at = pos;
+        for part in parts {
+            self.write_all_at(part, at)?;
+            at += part.len() as u64;
+        }
+        Ok(())
+    }
+
     /// Cuts or extends the file to `len` bytes.
     ///
     /// # Errors

@@ -10,7 +10,10 @@ use tokio_util::sync::CancellationToken;
 
 use crate::Timeouts;
 use crate::connection::End;
-use crate::pool::{self, POOL};
+use kafka_storage::pool::{self, POOL};
+
+/// The room a read is given: the connection's starting buffer (`connection::BUFFER`).
+const READ_ROOM: usize = 8 << 10;
 
 /// [`next`], but only until `login_by` if there is one: a connection that has not logged in by then is
 /// `End::LoginTooSlow`, whatever it is doing. The budget is for the whole login, counted from the accept, so
@@ -61,6 +64,11 @@ pub(crate) async fn next<S: AsyncRead + Unpin>(
             Some(d) => (d, End::Slow),
             None => (Instant::now() + timeouts.idle, End::Idle),
         };
+        // Frames are split off the front of the buffer, so its spare room wears down and a frame would come in two reads or
+        // more. Room is made again first: in place once the frames handed on are dropped, or in a new buffer.
+        if buf.capacity() - buf.len() < READ_ROOM / 2 {
+            buf.reserve(READ_ROOM);
+        }
         let read = tokio::select! {
             r = timeout_at(until, stream.read_buf(buf)) => r,
             () = stop.cancelled() => return Err(End::Stopped),

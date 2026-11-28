@@ -146,7 +146,9 @@ impl<F: Fs> Broker<F> {
     ) -> ProduceResponse {
         // Every partition's batch is queued with its writer before any answer is waited for, so the writers work
         // at once and each flushes a group.
-        let durable = req.acks == -1;
+        // acks=all waits for the flush only when asked to (`Config::fsync_on_ack`); otherwise it is answered as Kafka
+        // answers it on one broker, once written.
+        let durable = req.acks == -1 && self.config.fsync_on_ack;
         let id = req.transactional_id.as_ref().map(|t| t.0.as_str());
         // Each topic is looked up, and the caller's right to write it asked, once.
         let topics: Vec<_> = req
