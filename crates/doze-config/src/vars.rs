@@ -115,7 +115,10 @@ fn stray_cli(cli: &BTreeMap<String, String>, seen: &BTreeMap<String, At>) -> Res
             "; it declares none (a variable \"{stray}\" {{ … }} block makes one)"
         ));
     }
-    Err(Error::msg(msg))
+    Err(Error::msg(msg).with_fix(format!(
+        "pass --var only for a variable doze.hcl declares, or declare variable {} {{ … }}",
+        go_quote(stray)
+    )))
 }
 
 struct One<'s> {

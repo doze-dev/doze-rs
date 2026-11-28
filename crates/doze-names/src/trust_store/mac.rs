@@ -13,6 +13,11 @@ use std::path::Path;
 
 pub(crate) const SYSTEM_KEYCHAIN: &str = "/Library/Keychains/System.keychain";
 pub(crate) const RESOLVER_DIR: &str = "/etc/resolver";
+/// Has mDNSResponder read /etc/resolver again, in the same script that wrote or removed a file there (no second
+/// prompt). Measured on macOS 27: a new file was not listed by `scutil --dns`, nor used, for over two minutes, and a
+/// network-change notification did not help; this HUP made it at once. A failure (no such process) is not the script's.
+#[cfg(feature = "setup")]
+pub(crate) const RELOAD_RESOLVERS: &str = "killall -HUP mDNSResponder 2>/dev/null || true";
 
 /// The port the zone's resolver listens on, as a resolver file spells it.
 pub(crate) fn resolver_port() -> String {

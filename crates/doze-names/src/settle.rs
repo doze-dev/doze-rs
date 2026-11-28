@@ -73,6 +73,60 @@ pub fn wait_resolved(
     left
 }
 
+/// The declared domains (`dev.acme.com`; a wildcard has no name of its own to ask for) a live stack serves now:
+/// once their route is in place, the system should answer them at once. A domain no live stack serves goes to the
+/// internet's answer meanwhile ([`crate::upstream`]), which may rightly be "no such name", so it is not waited for.
+pub fn served_domains(reg: &Registry, domains: &[String]) -> Vec<String> {
+    domains
+        .iter()
+        .filter(|d| !crate::domains::wildcard(d) && reg.resolve(d).is_some())
+        .cloned()
+        .collect()
+}
+
+/// After a run that wrote routes: waits, up to `budget`, until the system resolves each of `hosts` (the routed domains
+/// a live stack serves, [`served_domains`]), and says how each ended. A route the system has not read yet looks
+/// exactly like this: the file is there, and the name still goes to the internet.
+pub fn wait_routed(
+    hosts: &[String],
+    (budget, every): (Duration, Duration),
+    resolves: &dyn Fn(&str) -> bool,
+) -> Vec<String> {
+    let start = Instant::now();
+    let mut lines = Vec::new();
+    let mut left: Vec<String> = hosts.to_vec();
+    loop {
+        left.retain(|h| {
+            let yes = resolves(h);
+            if yes {
+                lines.push(format!(
+                    "✓ the system resolves {h} (after {:.1}s)",
+                    start.elapsed().as_secs_f32()
+                ));
+            }
+            !yes
+        });
+        if left.is_empty() || start.elapsed() >= budget {
+            break;
+        }
+        std::thread::sleep(every);
+    }
+    for h in left {
+        lines.push(format!(
+            "✗ the system does not resolve {h} yet ({:.0}s after its route was written){ROUTE_HINT}",
+            start.elapsed().as_secs_f32()
+        ));
+    }
+    lines
+}
+
+/// What to look at when the system has not read a route yet, where there is a way.
+const ROUTE_HINT: &str = if cfg!(target_os = "macos") {
+    ": scutil --dns should list its resolver file; sudo killall -HUP mDNSResponder has the system read it"
+} else {
+    ""
+};
+
 /// How a person clears the system's cache at once, where there is a way.
 const FLUSH_HINT: &str = if cfg!(target_os = "macos") {
     " (sudo killall -HUP mDNSResponder clears it at once)"
@@ -133,6 +187,37 @@ mod tests {
         );
         assert_eq!(left, vec!["db.shop.doze".to_string()]);
         assert!(said.lock().unwrap()[1].contains("still refuses db.shop.doze"));
+    }
+
+    #[test]
+    fn a_routed_domain_is_waited_for_until_the_system_reads_its_route() {
+        let asked = AtomicUsize::new(0);
+        // The system reads the new route on its third ask for dev.acme.com; api.acme.com never resolves.
+        let resolves = |h: &str| h == "dev.acme.com" && asked.fetch_add(1, Ordering::SeqCst) >= 2;
+        let lines = wait_routed(
+            &["dev.acme.com".into(), "api.acme.com".into()],
+            (Duration::from_millis(30), Duration::from_millis(1)),
+            &resolves,
+        );
+        assert_eq!(lines.len(), 2, "{lines:?}");
+        assert!(
+            lines[0].starts_with("✓ the system resolves dev.acme.com (after "),
+            "{lines:?}"
+        );
+        assert!(
+            lines[1].starts_with("✗ the system does not resolve api.acme.com yet"),
+            "{lines:?}"
+        );
+        assert!(wait_routed(&[], (Duration::from_secs(5), EVERY), &|_| false).is_empty());
+    }
+
+    #[test]
+    fn only_domains_a_live_stack_serves_are_waited_for() {
+        let home = std::env::temp_dir().join(format!("dz-settle-served-{}", std::process::id()));
+        let reg = Registry::open(&home, "test");
+        let none = served_domains(&reg, &["dev.acme.com".into(), "*.acme.com".into()]);
+        assert!(none.is_empty(), "{none:?}");
+        let _ = std::fs::remove_dir_all(&home);
     }
 
     #[test]

@@ -197,6 +197,27 @@ fn a_recorded_domain_is_checked_and_routed_with_the_zone() {
     assert!(one.what.contains(domain), "{}", one.what);
     assert!(one.script.contains(domain));
     assert!(one.script.starts_with("set -e\n(\n"));
+    // macOS reads neither route until mDNSResponder is told to: each part that writes one tells it, after the write,
+    // inside the one script (no second prompt).
+    const HUP: &str = "killall -HUP mDNSResponder 2>/dev/null || true";
+    // Built the way the plan builds it (the resolver folder, then the zone's file), so it matches on Windows too.
+    let zone = format!(
+        "> '{}'",
+        dir.path().join("etc/resolver").join("doze").display()
+    );
+    let route = format!("> '/etc/resolver/{domain}'");
+    let at = |needle: &str| {
+        one.script
+            .find(needle)
+            .unwrap_or_else(|| panic!("no {needle:?} in\n{}", one.script))
+    };
+    let hups: Vec<usize> = one.script.match_indices(HUP).map(|(i, _)| i).collect();
+    assert_eq!(hups.len(), 2, "{}", one.script);
+    assert!(
+        at(&zone) < hups[0] && hups[0] < at(&route) && at(&route) < hups[1],
+        "{}",
+        one.script
+    );
 }
 
 #[test]

@@ -98,6 +98,7 @@ pub(crate) fn run_trust(ctx: &mut Ctx<'_>, mode: &Mode, a: &Trust) -> Outcome {
         Some(plan) => {
             run(ctx, &plan)?;
             settle(&home, &mut req).map_err(|e| machine::failed(&e))?;
+            said.extend(resolved(&home, &stack.domains, ctx.host.settle()));
         }
     }
     req.prune.clear();
@@ -200,6 +201,19 @@ fn settle(home: &Path, req: &mut TrustRequest) -> Result<(), doze_names::Error> 
         ca.forget_untrusted_previous()?;
     }
     Ok(())
+}
+
+/// Whether the system answers the routed domains a live stack serves, waited for (bounded) as the person: a route
+/// written is not one the system has read (macOS: the script has mDNSResponder read it). Nothing for a stack that is
+/// down: its domains are the internet's until it comes up.
+pub(crate) fn resolved(
+    home: &Path,
+    domains: &[String],
+    budget: std::time::Duration,
+) -> Vec<String> {
+    use doze_names::settle::{EVERY, served_domains, system_resolves, wait_routed};
+    let served = served_domains(&doze_names::Registry::open(home, "doze trust"), domains);
+    wait_routed(&served, (budget, EVERY), &system_resolves)
 }
 
 fn steps(req: &TrustRequest) -> Vec<Check> {

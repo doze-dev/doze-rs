@@ -56,6 +56,9 @@ pub struct Error {
     pub diags: Diagnostics,
     /// The message, for a refusal without diagnostics; the rendered diagnostics otherwise.
     pub text: String,
+    /// What to do about a refusal without a position, when the refusal knows (`add names = true …`); not part of
+    /// [`Error::text`], which is Go's word for word. A caller with none says its own generic fix.
+    pub fix: Option<String>,
 }
 
 impl Error {
@@ -65,7 +68,15 @@ impl Error {
             fault: Fault::Invalid,
             diags: Diagnostics::default(),
             text: text.into(),
+            fix: None,
         }
+    }
+
+    /// The same refusal, with what to do about it.
+    #[must_use]
+    pub fn with_fix(mut self, fix: impl Into<String>) -> Error {
+        self.fix = Some(fix.into());
+        self
     }
 
     pub fn failed(text: impl Into<String>) -> Error {
@@ -125,6 +136,7 @@ pub fn diag_error(src: &dyn Sources, diags: Diagnostics) -> Error {
             body.trim_end_matches(['\n', ' ', '\t'])
         ),
         diags,
+        fix: None,
     }
 }
 

@@ -236,6 +236,27 @@ fn trust_routes_the_recorded_domains() {
     assert_eq!(ran.code, 0, "{}", ran.stderr);
     assert!(ran.stdout.contains(DOMAIN), "{}", ran.stdout);
     assert_eq!(handed(&host).len(), 1, "a dry run hands nothing over");
+
+    let ran = doze(&sb, &host, &["trust", "--remove"]);
+    assert_eq!(ran.code, 0, "{}", ran.stderr);
+    let scripts = handed(&host);
+    assert_eq!(scripts.len(), 2, "one prompt for the removal");
+    // macOS keeps using a resolver file written, or listing one removed, until mDNSResponder is told (seen on macOS
+    // 27 for both): the HUP follows the write and the removal, in the same script.
+    if cfg!(target_os = "macos") {
+        const HUP: &str = "killall -HUP mDNSResponder 2>/dev/null || true";
+        let file = format!("'/etc/resolver/{DOMAIN}'");
+        for (script, change) in [
+            (&scripts[0].1, format!("> {file}")),
+            (&scripts[1].1, format!("rm -f {file}")),
+        ] {
+            let (at, hup) = (script.find(&change), script.find(HUP));
+            assert!(
+                at.is_some() && hup.is_some() && at < hup,
+                "{change:?} then the HUP:\n{script}"
+            );
+        }
+    }
 }
 
 #[test]

@@ -227,13 +227,9 @@ impl<'a> Loader<'a, '_> {
         Ok((rest, after, refs, waits))
     }
 
-    fn decode_runnable(&mut self, cfg: &mut Config, i: usize, known: &Declared) -> Result<()> {
-        let Some(r) = self.runnables.get(i) else {
-            return Ok(());
-        };
-        let (rest, after, refs, waits) = self.split_after(cfg, r, known)?;
-        let what = title(r.kind, "", &r.name);
-        if r.kind == Kind::Service {
+    /// Arguments a service or task does not take that a person reaches for, refused with where they went.
+    fn refuse_args(&self, kind: Kind, what: &str, rest: &Body<'a>) -> Result<()> {
+        if kind == Kind::Service {
             let (gone, _, _) = rest.partial_content(&attrs_schema(&["front", "logs"]));
             for arg in ["front", "logs"] {
                 if let Some(a) = gone.attr(arg) {
@@ -248,6 +244,34 @@ impl<'a> Loader<'a, '_> {
                 }
             }
         }
+        // Said the way a module block's are (`validate::check_domains`), not as an unknown argument: a person reaching
+        // for their own hostname on a service or a task should learn where it goes.
+        let (own, _, _) = rest.partial_content(&attrs_schema(&["domains", "cert", "key"]));
+        for arg in ["domains", "cert", "key"] {
+            if let Some(a) = own.attr(arg) {
+                let why = if kind == Kind::Service {
+                    "a service is reached by its doze name"
+                } else {
+                    "a task runs to an end and serves nothing"
+                };
+                return Err(pos_err(
+                    self.files,
+                    &At::new(a.file, a.name_range),
+                    format!("{what}: `{arg}` is for app blocks; {why}"),
+                    "",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    fn decode_runnable(&mut self, cfg: &mut Config, i: usize, known: &Declared) -> Result<()> {
+        let Some(r) = self.runnables.get(i) else {
+            return Ok(());
+        };
+        let (rest, after, refs, waits) = self.split_after(cfg, r, known)?;
+        let what = title(r.kind, "", &r.name);
+        self.refuse_args(r.kind, &what, &rest)?;
         let spec = if r.kind == Kind::Service {
             &SERVICE
         } else {
