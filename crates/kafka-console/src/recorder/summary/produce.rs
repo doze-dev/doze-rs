@@ -2,6 +2,7 @@
 
 use kafka_wire::messages::{ProduceRequest, ProduceResponse};
 
+use crate::recorder::clip;
 use crate::recorder::facts::{self, Facts, PartResult};
 
 pub(super) fn request(r: &ProduceRequest, f: &mut Facts) {
@@ -9,9 +10,11 @@ pub(super) fn request(r: &ProduceRequest, f: &mut Facts) {
     if let Some(t) = &r.transactional_id {
         f.txn(&t.0);
     }
+    f.expect(r.topic_data.len(), 0);
     for t in &r.topic_data {
+        let mut id: IdText = [0; 36];
         f.topic(
-            &named(&t.name.0, t.topic_id),
+            named(&t.name.0, t.topic_id, &mut id),
             t.partition_data.iter().map(|p| p.index),
         );
         for p in &t.partition_data {
@@ -30,10 +33,15 @@ pub(super) fn request(r: &ProduceRequest, f: &mut Facts) {
 }
 
 pub(super) fn response(r: &ProduceResponse, f: &mut Facts) {
+    let results = r.responses.iter().map(|t| t.partition_responses.len());
+    f.expect(0, results.sum());
     for t in &r.responses {
+        // Named once per topic, and only for the results that are kept: their name is the request's, shared.
+        let mut id: IdText = [0; 36];
+        let name = named(&t.name.0, t.topic_id, &mut id);
         for p in &t.partition_responses {
-            f.part(PartResult {
-                topic: crate::recorder::clip::name(&named(&t.name.0, t.topic_id)),
+            f.part(p.error_code, |f| PartResult {
+                topic: f.shared(name),
                 partition: p.index,
                 code: p.error_code,
                 offset: (p.error_code == 0).then_some(p.base_offset),
@@ -42,20 +50,21 @@ pub(super) fn response(r: &ProduceResponse, f: &mut Facts) {
             });
             f.say(p.error_message.as_deref());
             if let Some(e) = p.record_errors.first() {
-                f.record_note = e
-                    .batch_index_error_message
-                    .as_deref()
-                    .and_then(crate::recorder::clip::text);
+                f.record_note = e.batch_index_error_message.as_deref().and_then(clip::text);
             }
         }
     }
 }
 
-/// A topic as a request or answer names it: by name, or from v13 (KIP-516) by id, as Fetch's are.
-pub(super) fn named(name: &str, id: kafka_wire::Uuid) -> String {
+/// Room on the stack for a topic id written out as text (36 bytes, hyphenated).
+pub(super) type IdText = [u8; 36];
+
+/// A topic as a request or answer names it: by name, or from v13 (KIP-516) by id, as Fetch's are. An id is written into
+/// `id`, so neither way allocates.
+pub(super) fn named<'a>(name: &'a str, topic_id: kafka_wire::Uuid, id: &'a mut IdText) -> &'a str {
     if name.is_empty() {
-        id.to_string()
+        topic_id.hyphenated().encode_lower(id)
     } else {
-        name.to_owned()
+        name
     }
 }

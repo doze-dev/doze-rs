@@ -1814,3 +1814,21 @@ The logs bench now leaves the page and closes the window after its follow (`afte
 44 MB after closing. A `malloc_zone_pressure_relief` when the logs page goes was tried and not kept: on macOS 27 it
 gives back 0 bytes, as does the call `window_gone` already makes (the allocator returns empty pages itself: "Malloc
 Small (empty)" held 864 KB dirty of 27.5 MB).
+
+## The recorder's allocations (2026-11-27)
+
+The console's recorder runs on every Kafka request while the console is on, which is the default. `cargo test -p kafka-console
+--test recorder_allocations -- --ignored --nocapture` plays 100,000 synthetic requests through it as the server does (produces
+and fetches on eight connections, two topics of twelve partitions each, the fetches naming their topics by id, a Metadata
+answer every hundred) and counts allocations with a counting allocator in that test binary only. Before: **60.44** allocations
+per request (6,044,097, 274 MB allocated). After: **8.92** (892,123, 157 MB). What went: a `String` and a clipped copy of the
+topic name for every partition result, including the results past the 16 a row keeps (the cap is now checked first, and a
+kept result shares the request's clipped name, an `Arc<str>`); a topic id written out as a `String` for every topic of every
+Metadata answer, even when the recorder already knew it (it is now written on the stack and looked up first); and the boxed
+facts and the list of timings of a repeat that then folded into an earlier row (the fold key is now computed from the
+facts, and a repeat is merged before any row is built). The lists of topics, partitions and results are sized once. What is
+left is the request's own facts (its topics, partitions and results, and the `Pending` box the server hands back) and, for a
+request that is not a repeat, its row. The recorder still takes its lock twice per request: `begin` needs the connection's
+`Who`, and `end` is not given the client id, so one acquisition would cost a copy of the client id per request instead. The
+answer is now summarised before `end` takes the lock, so the lock is held only for the topic-name table, the connection and
+the ring.
