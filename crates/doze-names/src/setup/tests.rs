@@ -84,14 +84,20 @@ fn the_macos_script_boots_out_before_bootstrap() {
         )) > 0
     );
     let port = crate::trust_store::mac_resolver_port();
-    assert!(script.ends_with(&format!(
-        "printf 'nameserver 127.0.0.1\\nport {port}\\n' > {}\n",
-        shell_quote(&p(&s.paths.resolver_dir.join("doze")))
-    )));
+    // The route is written, then mDNSResponder told to read it, in the same script (one prompt): it does not on its own.
+    let reload = crate::trust_store::MAC_RELOAD_RESOLVERS;
+    assert!(
+        script.ends_with(&format!(
+            "printf 'nameserver 127.0.0.1\\nport {port}\\n' > {}\n{reload}\n",
+            shell_quote(&p(&s.paths.resolver_dir.join("doze")))
+        )),
+        "{script}"
+    );
+    assert_eq!(reload, "killall -HUP mDNSResponder 2>/dev/null || true");
     let un = mac::uninstall_plan(&s, &["echo cleanup".into()]).script;
     assert!(
         un.contains(&format!(
-            "rm -f {}",
+            "rm -f {}\n{reload}\n",
             shell_quote(&p(&s.paths.resolver_dir.join("doze")))
         )) && un.ends_with("echo cleanup\n"),
         "{un}"

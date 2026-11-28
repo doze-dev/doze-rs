@@ -15,7 +15,7 @@ use crate::paint::Paint;
 use crate::project;
 use crate::view::View;
 use doze_doctor::domains::StackDomains;
-use doze_doctor::repair::{self, Repair};
+use doze_doctor::repair::{self, Kind, Repair};
 use doze_doctor::{Check, Machine, State};
 use doze_names::setup::{Plan, Shell, pasteable};
 use serde::Serialize;
@@ -176,6 +176,14 @@ fn finish(
     let still = r
         .after(m, ctx.host.settle())
         .map_err(|e| machine::failed(&e))?;
+    // Routes the script wrote: whether the system answers them now (what doze trust says after its run).
+    if let Some(stack) = stack.filter(|_| r.parts.iter().any(|p| p.kind == Kind::Domains)) {
+        said.extend(crate::cmd::trust::resolved(
+            m.home(),
+            &stack.domains,
+            ctx.host.settle(),
+        ));
+    }
     let mut checks = doze_doctor::names::checks(m);
     if stack.is_some() {
         checks.extend(doze_doctor::domains::checks(m, stack));

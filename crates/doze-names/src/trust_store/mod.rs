@@ -113,8 +113,8 @@ pub(crate) fn output(program: &str, args: &[&str]) -> Option<String> {
 pub(crate) use linux::ca_bundle_path as linux_ca_bundle_path;
 #[cfg(feature = "setup")]
 pub(crate) use mac::{
-    RESOLVER_DIR as MAC_RESOLVER_DIR, SYSTEM_KEYCHAIN, points_here as mac_points_here,
-    resolver_port as mac_resolver_port,
+    RELOAD_RESOLVERS as MAC_RELOAD_RESOLVERS, RESOLVER_DIR as MAC_RESOLVER_DIR, SYSTEM_KEYCHAIN,
+    points_here as mac_points_here, resolver_port as mac_resolver_port,
 };
 #[cfg(feature = "setup")]
 pub(crate) use windows::{ROUTE_COMMENT, rules as machine_nrpt_rules};

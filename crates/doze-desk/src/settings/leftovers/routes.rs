@@ -36,9 +36,14 @@ pub fn valid_domain(d: &str) -> bool {
         })
 }
 
-/// The script that removes the routes' resolver files: only valid domains, each quoted.
+/// Has mDNSResponder read /etc/resolver again (the names crate's `MAC_RELOAD_RESOLVERS`): macOS 27 went on using a
+/// changed folder for minutes until told. Its failure is not the script's.
+const RELOAD_RESOLVERS: &str = "killall -HUP mDNSResponder 2>/dev/null || true";
+
+/// The script that removes the routes' resolver files: only valid domains, each quoted, then the system told to read
+/// the folder again. Empty when no domain is valid.
 pub fn route_script(domains: &[String]) -> String {
-    domains
+    let mut lines: Vec<String> = domains
         .iter()
         .filter(|d| valid_domain(d))
         .map(|d| {
@@ -47,8 +52,11 @@ pub fn route_script(domains: &[String]) -> String {
                 super::super::quote(&format!("/etc/resolver/{d}"))
             )
         })
-        .collect::<Vec<_>>()
-        .join("\n")
+        .collect();
+    if !lines.is_empty() {
+        lines.push(RELOAD_RESOLVERS.into());
+    }
+    lines.join("\n")
 }
 
 /// Forgets routes that are gone from the record, unless a project still declares them (Go names `RouteRemoved`).
@@ -93,7 +101,11 @@ mod tests {
         assert_eq!(m.keys().collect::<Vec<_>>(), ["shop.test"]);
         assert!(parse_routes("{").is_empty());
         let s = route_script(&["shop.test".into(), "x;y".into()]);
-        assert_eq!(s, "rm -f '/etc/resolver/shop.test'");
+        assert_eq!(
+            s,
+            "rm -f '/etc/resolver/shop.test'\nkillall -HUP mDNSResponder 2>/dev/null || true"
+        );
+        assert_eq!(route_script(&["x;y".into()]), "");
     }
 
     #[test]

@@ -143,9 +143,11 @@ cat > {job} <<'PLIST'
 launchctl bootstrap system {job}
 mkdir -p {resolver_dir}
 printf 'nameserver 127.0.0.1\\nport {port}\\n' > {resolver}
+{reload}
 ",
         program = shell_quote(&s.daemon.program.display().to_string()),
         resolver = q(&resolver_file(s)),
+        reload = crate::trust_store::MAC_RELOAD_RESOLVERS,
     );
     Plan {
         what: format!("install the doze network daemon and route .{SUFFIX} to the resolver"),
@@ -187,8 +189,10 @@ pub(crate) fn uninstall_plan(s: &Setup, cleanup: &[String]) -> Plan {
 launchctl bootout system {old} 2>/dev/null || true
 rm -f {job} {old} {helper}
 rm -f {}
+{}
 ",
-        q(&resolver_file(s))
+        q(&resolver_file(s)),
+        crate::trust_store::MAC_RELOAD_RESOLVERS
     );
     for line in cleanup {
         script.push_str(line);

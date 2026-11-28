@@ -1,5 +1,5 @@
 use super::*;
-use crate::trust_store::{SYSTEM_KEYCHAIN, mac_resolver_port};
+use crate::trust_store::{MAC_RELOAD_RESOLVERS, SYSTEM_KEYCHAIN, mac_resolver_port};
 
 fn scratch(tag: &str) -> PathBuf {
     let d = std::env::temp_dir().join(format!("doze-names-trust-{tag}-{}", std::process::id()));
@@ -38,6 +38,13 @@ fn the_macos_scripts_quote_and_touch_only_what_they_are_asked_to() {
         !s.contains("other.example"),
         "a route not asked for was written:\n{s}"
     );
+    assert_reloads_after_every_route(&s);
+    let removal = scripts::routes(Os::Mac, &[], &[], &strings(&["old.acme.com"]), &|_| false);
+    assert_reloads_after_every_route(&removal);
+    assert!(
+        removal.starts_with("rm -f '/etc/resolver/old.acme.com'"),
+        "{removal}"
+    );
     let foreign = scripts::routes(
         Os::Mac,
         &[],
@@ -50,6 +57,24 @@ fn the_macos_scripts_quote_and_touch_only_what_they_are_asked_to() {
         "someone else's route files are never touched: {foreign}"
     );
     macos_keychain_scripts();
+}
+
+/// macOS does not read a resolver file written or removed until mDNSResponder is told to (seen on macOS 27: over two
+/// minutes, and a network-change notification did not help): the script ends with the HUP, once, after every write and
+/// removal, and tolerates its failure.
+fn assert_reloads_after_every_route(s: &str) {
+    let lines: Vec<&str> = s.lines().collect();
+    let hup = lines
+        .iter()
+        .position(|l| *l == MAC_RELOAD_RESOLVERS)
+        .unwrap_or_else(|| panic!("no reload in\n{s}"));
+    assert_eq!(hup, lines.len() - 1, "the reload comes last:\n{s}");
+    assert_eq!(s.matches("killall -HUP mDNSResponder").count(), 1, "{s}");
+    assert!(MAC_RELOAD_RESOLVERS.ends_with("|| true"));
+    assert!(
+        lines[..hup].iter().all(|l| l.contains("/etc/resolver")),
+        "{s}"
+    );
 }
 
 /// The keychain half of the test above.
@@ -142,6 +167,14 @@ fn trust_and_untrust_touch_only_the_requests_routes() {
         !script.contains("dev.aud.example"),
         "another project's route was written:\n{script}"
     );
+    let at = |s: &str, needle: &str| {
+        s.find(needle)
+            .unwrap_or_else(|| panic!("no {needle:?} in\n{s}"))
+    };
+    assert!(
+        at(&script, "> '/etc/resolver/api.aud.example'") < at(&script, MAC_RELOAD_RESOLVERS),
+        "the reload comes after the write:\n{script}"
+    );
 
     let mut o = Options {
         out: &mut out,
@@ -156,6 +189,10 @@ fn trust_and_untrust_touch_only_the_requests_routes() {
     assert!(
         !script.contains("printf") && !script.contains("dev.aud.example"),
         "removal installs nothing:\n{script}"
+    );
+    assert!(
+        at(&script, "rm -f '/etc/resolver/api.aud.example'") < at(&script, MAC_RELOAD_RESOLVERS),
+        "the reload comes after the removal too:\n{script}"
     );
     assert_eq!(routes.claimants("dev.aud.example"), [one_s]);
     assert_eq!(routes.claimants("api.aud.example"), [two_s]);
@@ -197,6 +234,10 @@ fn linux_restates_the_list_and_windows_writes_a_rule_per_route() {
     assert!(w.contains("-Comment 'doze route'"), "{w}");
     assert!(w.contains("$_.Namespace -contains '.old.acme.com'"), "{w}");
     assert!(!w.contains("dev.acme.com"), "only what was asked: {w}");
+    assert!(
+        !s.contains("mDNSResponder") && !w.contains("mDNSResponder"),
+        "the reload is macOS's alone"
+    );
 
     let dir = scratch("stores").join("ca");
     let ca = Ca::load_or_create(&dir).unwrap();

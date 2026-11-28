@@ -7,7 +7,8 @@ use super::linux_units::ROUTES_DROP_IN;
 use super::run::{ps_quote, shell_quote};
 use crate::ca::Ca;
 use crate::trust_store::{
-    MAC_RESOLVER_DIR, ROUTE_COMMENT, SYSTEM_KEYCHAIN, mac_resolver_port, valid_fingerprint,
+    MAC_RELOAD_RESOLVERS, MAC_RESOLVER_DIR, ROUTE_COMMENT, SYSTEM_KEYCHAIN, mac_resolver_port,
+    valid_fingerprint,
 };
 use crate::{RESOLVER_IFACE, SUFFIX};
 
@@ -45,6 +46,10 @@ pub(crate) fn routes(
                     "rm -f {}",
                     shell_quote(&format!("{MAC_RESOLVER_DIR}/{d}"))
                 ));
+            }
+            // A file written or removed is not read until mDNSResponder is told to (MAC_RELOAD_RESOLVERS says why).
+            if !lines.is_empty() {
+                lines.push(MAC_RELOAD_RESOLVERS.into());
             }
         }
         Os::Linux => {
