@@ -9,6 +9,12 @@
 //!
 //! **Timeouts** are the caller's (each service's own, as AWS documents them): the whole exchange, connecting included, must finish in
 //! [`Request::timeout`]. Callers run requests off their actor, so nothing waits on one but the delivery itself.
+//!
+//! **At most [`MAX_UNDER_WAY`] requests are under way at once**, in the whole process: SNS and EventBridge may each have ten thousand
+//! deliveries waiting, and without a cap a fan-out opened as many sockets (and asked the resolver as often) at once. A request waits
+//! for its turn before its timeout starts. **Names**: an IP address and `localhost` are connected to without asking the resolver
+//! (`getaddrinfo` blocks, so it runs on the blocking pool); other names are resolved for each request. Connections are still not
+//! kept: a delivery to the same place is a new connection, which a local endpoint answers in well under a millisecond.
 
 mod answer;
 pub mod jwks;
@@ -21,13 +27,17 @@ mod url;
 pub mod test_server;
 
 use std::fmt;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::OnceLock;
 use std::time::Duration;
 
 use tokio::net::TcpStream;
-use tokio::sync::OnceCell;
+use tokio::sync::{OnceCell, Semaphore};
 
 pub use tls::Trust;
+
+/// The most requests under way at once, in the whole process.
+pub const MAX_UNDER_WAY: usize = 64;
 
 /// A request to send.
 #[derive(Debug)]
@@ -69,6 +79,8 @@ impl<'a> Request<'a> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Answer {
     pub status: u16,
+    /// The status line's reason phrase (`Not Found`), as the server wrote it; empty when only the status was read.
+    pub reason: String,
     pub headers: Vec<(String, String)>,
     pub body: Vec<u8>,
 }
@@ -104,6 +116,7 @@ impl fmt::Display for Failure {
 pub struct Client {
     trust: Trust,
     tls: OnceCell<Result<tls::Connectors, String>>,
+    turns: Semaphore,
 }
 
 impl Client {
@@ -112,7 +125,14 @@ impl Client {
         Self {
             trust,
             tls: OnceCell::new(),
+            turns: Semaphore::new(MAX_UNDER_WAY),
         }
+    }
+
+    /// How many requests may start now (for tests).
+    #[cfg(test)]
+    pub(crate) fn free_turns(&self) -> usize {
+        self.turns.available_permits()
     }
 
     /// Makes the request.
@@ -127,9 +147,13 @@ impl Client {
             )));
         };
         let at = format!("{}:{}", t.host, t.port);
+        // WHY: the semaphore is never closed, so acquiring cannot fail.
+        let Ok(_turn) = self.turns.acquire().await else {
+            return Err(Failure::Connect("the client is closed".to_owned()));
+        };
         let exchange = async {
             let wire = answer::wire(r, t.authority, &t.path);
-            let mut tcp = TcpStream::connect((t.host, t.port))
+            let mut tcp = connect(t.host, t.port)
                 .await
                 .map_err(|e| Failure::Connect(format!("could not connect to {at}: {e}")))?;
             if !t.tls {
@@ -168,6 +192,23 @@ impl Client {
             .clone()
             .map_err(|e| Failure::Tls(format!("outbound TLS is not available: {e}")))
     }
+}
+
+/// A connection to `host`: an address and `localhost` (its IPv4 address, then its IPv6 one) without the resolver, a name through it.
+async fn connect(host: &str, port: u16) -> std::io::Result<TcpStream> {
+    if let Ok(ip) = host.parse::<IpAddr>() {
+        return TcpStream::connect(SocketAddr::new(ip, port)).await;
+    }
+    if host.eq_ignore_ascii_case("localhost") {
+        let v4 = TcpStream::connect(SocketAddr::new(Ipv4Addr::LOCALHOST.into(), port)).await;
+        return match v4 {
+            Ok(s) => Ok(s),
+            Err(e) => TcpStream::connect(SocketAddr::new(Ipv6Addr::LOCALHOST.into(), port))
+                .await
+                .map_err(|_| e),
+        };
+    }
+    TcpStream::connect((host, port)).await
 }
 
 static CLIENT: OnceLock<Client> = OnceLock::new();

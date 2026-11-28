@@ -106,6 +106,7 @@ fn under_enforce_the_role_decides() {
         clock: Arc::new(ManualClock::at(START)),
         tasks: doze_runtime::Tasks::new(),
         sessions: crate::role::Sessions::default(),
+        retrying: std::sync::atomic::AtomicUsize::new(0),
     });
     let inv = Invocation {
         schedule_arn: "arn:aws:scheduler:us-east-1:000000000000:schedule/default/s".into(),

@@ -124,6 +124,7 @@ impl World {
             clock: self.clock.clone(),
             tasks: Tasks::new(),
             sessions: crate::role::Sessions::default(),
+            retrying: std::sync::atomic::AtomicUsize::new(0),
         })
     }
 

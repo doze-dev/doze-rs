@@ -1,24 +1,25 @@
 //! The HTTP Task (`arn:aws:states:::http:invoke`): one HTTP/1.1 request to `ApiEndpoint` with `Method`, `Headers`,
 //! `QueryParameters` and `RequestBody` (JSON as JSON, a string as it is). The answer is `{Headers, ResponseBody, StatusCode,
-//! StatusText}`; a status that is not 2xx fails the state as `States.Http.StatusCode.<code>`. Only `http://` endpoints are called
-//! (doze-aws links no TLS client), and the EventBridge connection's credentials are not added (its secret is not readable over the
-//! API): both are said in the failure or the log, not hidden.
+//! StatusText}`; a status that is not 2xx fails the state as `States.Http.StatusCode.<code>`. The request is made with the client the
+//! other services share (`aws-webhook`): `http://` and `https://` endpoints (a certificate the machine trusts, or `--ca-file`), at
+//! most 60 seconds, and within the process's cap on outbound requests. The EventBridge connection's credentials are not added (its
+//! secret is not readable over the API).
 
 use std::sync::Arc;
 use std::time::Duration;
 
 use aws_asl::Failure;
 use aws_peers::Peers;
+use aws_webhook::{Failure as Refused, Request};
 use aws_wire::service::Caller;
 use serde_json::{Map, Value, json};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use super::not_local_failure;
 
 const RESOURCE: &str = "arn:aws:states:::http:invoke";
 const LIMIT: Duration = Duration::from_secs(60);
-/// The largest answer read (AWS's payload quota).
-const MOST: usize = 262_144;
+/// The largest answer read (AWS's payload quota, and room for the head).
+const MOST: usize = 262_144 + 65_536;
 
 pub(super) async fn invoke(
     _peers: &Arc<Peers>,
@@ -34,44 +35,54 @@ pub(super) async fn invoke(
         .and_then(Value::as_str)
         .unwrap_or("GET")
         .to_uppercase();
-    let Some(rest) = endpoint.strip_prefix("http://") else {
+    if !endpoint.starts_with("http://") && !endpoint.starts_with("https://") {
         return Err(not_local_failure(
             RESOURCE,
-            "only http:// endpoints are called locally (no TLS client is linked)",
+            "ApiEndpoint is not an http:// or https:// URL",
         ));
-    };
-    let (authority, path) = rest
-        .split_once('/')
-        .map_or((rest, "/".to_owned()), |(a, p)| (a, format!("/{p}")));
-    let path = with_query(&path, input.get("QueryParameters"));
+    }
+    let url = with_query(endpoint, input.get("QueryParameters"));
     let body = match input.get("RequestBody") {
         None | Some(Value::Null) => String::new(),
         Some(Value::String(s)) => s.clone(),
         Some(other) => other.to_string(),
     };
-    let mut head = format!(
-        "{method} {path} HTTP/1.1\r\nHost: {authority}\r\nConnection: close\r\nContent-Length: {}\r\n",
-        body.len()
-    );
-    if let Some(Value::Object(h)) = input.get("Headers") {
-        for (k, v) in h {
-            head.push_str(&format!("{k}: {}\r\n", super::as_text(v)));
-        }
+    let mut headers: Vec<(String, String)> = match input.get("Headers") {
+        // The client writes these itself.
+        Some(Value::Object(h)) => h
+            .iter()
+            .filter(|(k, _)| {
+                !["host", "content-length", "connection"].contains(&k.to_ascii_lowercase().as_str())
+            })
+            .map(|(k, v)| (k.clone(), super::as_text(v)))
+            .collect(),
+        _ => Vec::new(),
+    };
+    if !body.is_empty()
+        && !headers
+            .iter()
+            .any(|(k, _)| k.eq_ignore_ascii_case("content-type"))
+    {
+        headers.push(("Content-Type".to_owned(), "application/json".to_owned()));
     }
-    if !body.is_empty() && !head.to_ascii_lowercase().contains("content-type:") {
-        head.push_str("Content-Type: application/json\r\n");
+    let request = Request {
+        headers: &headers,
+        body: body.as_bytes(),
+        timeout: LIMIT,
+        limit: MOST,
+        ..Request::new(&method, &url)
+    };
+    match aws_webhook::fetch(&request).await {
+        Ok(a) => answer(a.status, &a.reason, &a.headers, &a.body),
+        Err(Refused::Timeout(_)) => Err(Failure::new(
+            "States.Timeout",
+            format!("{endpoint} did not answer within 60 seconds"),
+        )),
+        Err(e) => Err(Failure::new(
+            "States.Http.Socket",
+            format!("{endpoint}: {e}"),
+        )),
     }
-    head.push_str("\r\n");
-    let raw = tokio::time::timeout(LIMIT, exchange(authority, head, body))
-        .await
-        .map_err(|_| {
-            Failure::new(
-                "States.Timeout",
-                format!("{endpoint} did not answer within 60 seconds"),
-            )
-        })?
-        .map_err(|e| Failure::new("States.Http.Socket", format!("{endpoint}: {e}")))?;
-    answer(&raw)
 }
 
 fn with_query(path: &str, q: Option<&Value>) -> String {
@@ -93,49 +104,17 @@ fn with_query(path: &str, q: Option<&Value>) -> String {
     format!("{path}{sep}{}", pairs.join("&"))
 }
 
-async fn exchange(authority: &str, head: String, body: String) -> std::io::Result<Vec<u8>> {
-    let addr = if authority.contains(':') {
-        authority.to_owned()
-    } else {
-        format!("{authority}:80")
-    };
-    let mut s = tokio::net::TcpStream::connect(addr).await?;
-    s.write_all(head.as_bytes()).await?;
-    s.write_all(body.as_bytes()).await?;
-    let mut out = Vec::new();
-    let mut buf = [0u8; 8192];
-    loop {
-        let n = s.read(&mut buf).await?;
-        if n == 0 || out.len() > MOST + 65_536 {
-            return Ok(out);
-        }
-        out.extend_from_slice(buf.get(..n).unwrap_or_default());
-    }
-}
-
-fn answer(raw: &[u8]) -> Result<Value, Failure> {
-    let text = String::from_utf8_lossy(raw);
-    let (head, body) = text.split_once("\r\n\r\n").unwrap_or((&text, ""));
-    let mut lines = head.lines();
-    let status_line = lines.next().unwrap_or_default();
-    let mut parts = status_line.splitn(3, ' ');
-    let code: u16 = parts.nth(1).and_then(|c| c.parse().ok()).unwrap_or(0);
-    let reason = parts.next().unwrap_or_default();
+fn answer(
+    code: u16,
+    reason: &str,
+    head: &[(String, String)],
+    body: &[u8],
+) -> Result<Value, Failure> {
     let mut headers = Map::new();
-    let mut chunked = false;
-    for l in lines {
-        if let Some((k, v)) = l.split_once(':') {
-            let v = v.trim();
-            chunked |=
-                k.eq_ignore_ascii_case("transfer-encoding") && v.eq_ignore_ascii_case("chunked");
-            headers.insert(k.trim().to_owned(), json!([v]));
-        }
+    for (k, v) in head {
+        headers.insert(k.clone(), json!([v]));
     }
-    let body = if chunked {
-        unchunk(body)
-    } else {
-        body.to_owned()
-    };
+    let body = String::from_utf8_lossy(body).into_owned();
     let parsed = serde_json::from_str(&body).unwrap_or(Value::String(body));
     let out = json!({"Headers": headers, "ResponseBody": parsed, "StatusCode": code, "StatusText": reason});
     if (200..300).contains(&code) {
@@ -149,19 +128,88 @@ fn answer(raw: &[u8]) -> Result<Value, Failure> {
     }
 }
 
-fn unchunk(body: &str) -> String {
-    let mut out = String::new();
-    let mut rest = body;
-    while let Some((size, after)) = rest.split_once("\r\n") {
-        let n = usize::from_str_radix(size.trim(), 16).unwrap_or(0);
-        if n == 0 {
-            break;
-        }
-        out.push_str(after.get(..n).unwrap_or(after));
-        rest = after
-            .get(n..)
-            .unwrap_or_default()
-            .trim_start_matches("\r\n");
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::indexing_slicing)]
+
+    use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    /// A server that answers each request with `status` and a JSON body, and keeps what it was sent.
+    async fn server(status: &'static str) -> (String, Arc<std::sync::Mutex<Vec<String>>>) {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base = format!("http://127.0.0.1:{}", listener.local_addr().unwrap().port());
+        let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let keep = Arc::clone(&seen);
+        tokio::spawn(async move {
+            while let Ok((mut s, _)) = listener.accept().await {
+                let mut buf = [0u8; 4096];
+                let n = s.read(&mut buf).await.unwrap();
+                keep.lock()
+                    .unwrap()
+                    .push(String::from_utf8_lossy(&buf[..n]).into_owned());
+                let body = r#"{"ok":true}"#;
+                let a = format!(
+                    "HTTP/1.1 {status}\r\nX-Seen: 1\r\nTransfer-Encoding: chunked\r\n\r\n{:x}\r\n{body}\r\n0\r\n\r\n",
+                    body.len()
+                );
+                s.write_all(a.as_bytes()).await.unwrap();
+            }
+        });
+        (base, seen)
     }
-    out
+
+    #[tokio::test]
+    async fn the_request_is_made_and_the_answer_is_the_states_output() {
+        let (base, seen) = server("201 Created").await;
+        let input = json!({"ApiEndpoint": format!("{base}/orders"), "Method": "post", "QueryParameters": {"a": "x y"},
+            "Headers": {"X-Mine": "1", "Host": "elsewhere"}, "RequestBody": {"n": 1}});
+        let out = invoke(&Peers::new(), &caller(), &input).await.unwrap();
+        assert_eq!(out["StatusCode"], 201);
+        assert_eq!(out["StatusText"], "Created");
+        assert_eq!(out["ResponseBody"], json!({"ok": true}));
+        assert_eq!(out["Headers"]["X-Seen"], json!(["1"]));
+        let sent = seen.lock().unwrap()[0].clone();
+        assert!(
+            sent.starts_with("POST /orders?a=x%20y HTTP/1.1\r\n"),
+            "{sent}"
+        );
+        assert!(
+            sent.contains("X-Mine: 1\r\n") && sent.contains("Content-Type: application/json\r\n")
+        );
+        assert!(
+            !sent.contains("elsewhere"),
+            "the client writes Host itself: {sent}"
+        );
+        assert!(sent.ends_with(r#"{"n":1}"#), "{sent}");
+    }
+
+    #[tokio::test]
+    async fn a_status_that_is_not_2xx_fails_and_https_is_called() {
+        let (base, _) = server("404 Not Found").await;
+        let e = invoke(&Peers::new(), &caller(), &json!({"ApiEndpoint": base}))
+            .await
+            .unwrap_err();
+        assert_eq!(e.error, "States.Http.StatusCode.404");
+        // https is no longer refused as "not local": a port nothing listens on is a socket failure.
+        let e = invoke(
+            &Peers::new(),
+            &caller(),
+            &json!({"ApiEndpoint": "https://127.0.0.1:1/"}),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(e.error, "States.Http.Socket");
+    }
+
+    fn caller() -> Caller {
+        Caller {
+            access_key_id: "test".to_owned(),
+            account_id: "000000000000".to_owned(),
+            region: "us-east-1".to_owned(),
+            endpoint: String::new(),
+            service: None,
+            session_token: None,
+        }
+    }
 }

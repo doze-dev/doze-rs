@@ -274,30 +274,48 @@ impl Inner {
         let Some(peers) = self.peers.clone() else {
             return;
         };
-        if !peers.watched(&t.region, NAMESPACE) {
-            return;
+        if peers.watched(&t.region, NAMESPACE) {
+            send_held(&peers, &self.meter, &t.region).await;
         }
-        for made in self.meter.take(&t.region) {
-            let caller = Caller {
-                access_key_id: "lambda".to_owned(),
-                account_id: made.account,
-                region: t.region.clone(),
-                endpoint: String::new(),
-                service: None,
-                session_token: None,
-            };
-            if let Err(e) = peers
-                .call(
-                    made.service,
-                    &caller,
-                    "monitoring",
-                    "PutMetricData",
-                    &made.body,
-                )
-                .await
-            {
-                tracing::debug!(error = %e.message, "lambda: AWS/Lambda metrics were not taken");
-            }
+    }
+
+    /// Counts an invocation that has been answered: at once, and what an alarm needs is sent by a task, so the answer does not wait
+    /// for CloudWatch.
+    pub(crate) fn count_answered(&self, t: &Target, outcome: &Outcome) {
+        self.meter.add(t, self.clock.now_ms(), outcome);
+        let Some(peers) = self.peers.clone() else {
+            return;
+        };
+        if peers.watched(&t.region, NAMESPACE) {
+            let (meter, region) = (Arc::clone(&self.meter), t.region.clone());
+            self.tasks
+                .spawn(async move { send_held(&peers, &meter, &region).await });
+        }
+    }
+}
+
+/// Sends what the meter holds for `region` to CloudWatch.
+async fn send_held(peers: &Peers, meter: &Meter, region: &str) {
+    for made in meter.take(region) {
+        let caller = Caller {
+            access_key_id: "lambda".to_owned(),
+            account_id: made.account,
+            region: region.to_owned(),
+            endpoint: String::new(),
+            service: None,
+            session_token: None,
+        };
+        if let Err(e) = peers
+            .call(
+                made.service,
+                &caller,
+                "monitoring",
+                "PutMetricData",
+                &made.body,
+            )
+            .await
+        {
+            tracing::debug!(error = %e.message, "lambda: AWS/Lambda metrics were not taken");
         }
     }
 }

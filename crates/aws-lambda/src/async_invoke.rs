@@ -2,6 +2,12 @@
 //! sent to the destinations the function's invoke config names (SQS, SNS, another function, an event bus) or to its dead-letter
 //! queue. The delay between retries is a second and two seconds (AWS waits a minute and two): a developer testing a failure path
 //! does not wait minutes.
+//!
+//! **The queue.** As AWS's, an accepted event waits in a queue for its function: here one per function, in memory, run by at most
+//! [`RUNNING_PER_FUNCTION`] tasks (as many as the function may have processes), each of which takes the next event when it is done; no
+//! task waits for a process. At most [`QUEUED_EVENTS`] events and [`QUEUED_BYTES`] of payload wait in all. Past that, an event is
+//! still accepted (`202`, as AWS accepts it) and is dropped with a warning in doze-aws's log: AWS keeps a queue for six hours, a
+//! local process keeps its memory bounded. A restart loses what waits, as it loses the retries.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -15,9 +21,21 @@ use crate::Inner;
 use crate::invoke::{Input, RunOut};
 use crate::resolve::Resolved;
 
+mod queue;
+
+pub(crate) use queue::{Admit, QUEUED_BYTES, QUEUED_EVENTS, Queue};
+
 /// AWS's defaults: two retries, six hours.
 const DEFAULT_RETRIES: i64 = 2;
 const DEFAULT_AGE_SECS: i64 = 21_600;
+/// An accepted asynchronous invocation.
+#[derive(Debug)]
+pub(crate) struct Event {
+    rs: Box<Resolved>,
+    caller: Caller,
+    payload: Bytes,
+    context: Option<String>,
+}
 
 /// What a destination is told: the invocation, its input, and how it ended.
 struct Result<'a> {
@@ -30,7 +48,7 @@ struct Result<'a> {
 }
 
 impl Inner {
-    /// Runs the function in the background.
+    /// Queues the invocation for its function; it runs in the background.
     pub(crate) fn async_invocation(
         self: &Arc<Self>,
         rs: Box<Resolved>,
@@ -38,9 +56,47 @@ impl Inner {
         payload: Bytes,
         context: Option<String>,
     ) {
-        let me = Arc::clone(self);
-        self.tasks
-            .spawn(async move { me.run_async(*rs, caller, payload, context).await });
+        let function = format!("{}/{}", rs.region, rs.name);
+        let bytes = payload.len();
+        let event = Event {
+            rs,
+            caller,
+            payload,
+            context,
+        };
+        match self.queued.admit(&function, event, bytes) {
+            Admit::Run(event) => {
+                let me = Arc::clone(self);
+                self.tasks
+                    .spawn(async move { me.run_queue(function, event).await });
+            }
+            Admit::Queued => {}
+            Admit::Dropped(event) => tracing::warn!(
+                function = %event.rs.name,
+                "an asynchronous invocation was accepted and dropped: {QUEUED_EVENTS} events or {QUEUED_BYTES} bytes already wait"
+            ),
+        }
+    }
+
+    /// Runs `event`, then the function's next waiting event, until none waits.
+    async fn run_queue(self: Arc<Self>, function: String, mut event: Event) {
+        let stop = self.tasks.stopping();
+        loop {
+            let Event {
+                rs,
+                caller,
+                payload,
+                context,
+            } = event;
+            self.run_async(*rs, caller, payload, context).await;
+            if stop.is_cancelled() {
+                return;
+            }
+            match self.queued.next(&function) {
+                Some(next) => event = next,
+                None => return,
+            }
+        }
     }
 
     async fn run_async(

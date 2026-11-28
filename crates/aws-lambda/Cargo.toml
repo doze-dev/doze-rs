@@ -39,6 +39,12 @@ tokio = { version = "1", default-features = false, features = ["rt", "sync", "ti
 tokio-util = { version = "0.7", default-features = false }
 tracing = "0.1"
 
+# A function process's group is signalled directly (it was a `kill(1)` child per process end), and its output pipes are asked how
+# much is unread (FIONREAD) so an invocation's lines are taken without sleeping. rustix with `process` is already in the binary
+# (doze-os, through doze-module), and it is safe, so no `unsafe` here: docs/port/weight.md, "Workstream 4".
+[target.'cfg(unix)'.dependencies]
+rustix = { version = "1.1.6", default-features = false, features = ["std", "process"] }
+
 [dev-dependencies]
 aws-testkit = { path = "../aws-testkit" }
 aws-gateway = { path = "../aws-gateway" }

@@ -1955,3 +1955,39 @@ and a restore's items inside the writer's transaction.
 
 Size: 12,237,920 B before, 12,254,816 B after (+16.9 KB), with `md-5` at opt-level 3 (+48 B of that; MD5 2.2 times faster, 256 MiB
 in 1.02 s then 0.45 s). `aws-s3` at opt-level 3 for the CRCs would have been +412 KB and was not taken. No new crate.
+
+## Workstream 4: Lambda runtime, outbound calls, caps on fan-out (2026-11-27, branch `perf-lambda-outbound`), darwin/arm64
+
+Measured with `cargo build --release -p doze-aws` (the `release` profile, not `release-aws`), a throwaway server
+(`--no-console --lambda-quiet`), Python 3.9 (the system one), and bun scripts that call the API directly. Before is
+origin/main db6cbc2c8.
+
+| what | before | after |
+|---|---|---|
+| 1000 sequential warm no-op Python invokes, p50 / p99 / mean | 9.84 / 42.6 / 11.98 ms | 1.0–1.8 / 2.2–4.3 / 1.1–1.7 ms (six runs) |
+| the same with `LogType: Tail`, p50 / p99 | 10.15 / 42.4 ms | 1.4–1.9 / 2.2–2.5 ms |
+| TIME_WAIT sockets left by 1000 invokes (Python client) | 1,035 | 0 |
+| 2000-message SNS fan-out to `http://localhost`: server threads at most / time until all delivered | 516 / 847 ms | 6 / 311 ms |
+| idle: RSS, threads, wakeups (top, 5 s) | 7,888 KB, 4, 0 | 7,616 KB, 4, 0 |
+| binary (`release`) | 22,831,312 B | 22,864,304 B (+33 KB) |
+
+- **Where the 10 ms went:** every invocation slept at least one 2 ms step (up to ten) waiting for output to stop arriving,
+  then waited for `PutLogEvents` (with the Logs durability ack) and the metrics call before answering. Now the lines are taken
+  when the pipes hold nothing unread (`FIONREAD` on a second handle of each pipe, the reader let run between looks; no
+  sleep; Windows keeps the old settle), the log is queued to one writer task per Lambda (started when there is something to
+  write, gone when the queue is empty; one `PutLogEvents` per stream for all that is queued; at most 20,000 events wait,
+  then an invocation waits for room), and the metrics are counted at once and sent by a task when an alarm watches.
+  `Duration` now counts from when the process fetched the invocation (it was from when the waiter noticed).
+- **Keep-alive in the Python and Ruby clients** is latency-neutral within the run-to-run spread above (the release runs
+  read 0.3–0.7 ms slower at p50 than the build with only the first change, the debug runs read the same); it is kept for the
+  sockets: one connection per process instead of two per invocation.
+- **Fan-out:** `localhost` was resolved with `getaddrinfo` on the blocking pool for every request, and nothing capped the
+  requests under way, so the pool grew to its 512 threads and they lingered. Now an IP address and `localhost` skip the
+  resolver and at most 64 requests are under way in the whole process (`aws_webhook::MAX_UNDER_WAY`).
+- **The pool:** at most `lambda-max-processes` (32) function processes in all; a full pool ends the one idle longest.
+  **`lambda-idle-secs` default 600 → 300**: a warm process holds 6–16 MB (Python) or about 33 MB (Ruby) of RSS here, and a
+  cold start costs 0.1–0.22 s (Python, Node, Ruby measured); after five quiet minutes that start is not noticed, and the
+  memory is let go twice as soon after a burst.
+- **Dependency:** `rustix` (features `std`, `process`) is now a direct dependency of `aws-lambda` on Unix, for
+  `kill_process_group` and `ioctl_fionread`; it was already in the binary through doze-os, so it adds no package (the
+  binary delta above is the whole change). `aws-sfn` now depends on `aws-webhook`, which was already linked.

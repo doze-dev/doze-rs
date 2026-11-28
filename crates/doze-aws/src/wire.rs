@@ -344,6 +344,7 @@ fn lambda_config(cfg: &Config) -> aws_lambda::Config {
     aws_lambda::Config {
         runtime: aws_lambda::RuntimeConfig {
             idle: Duration::from_secs(cfg.count("lambda-idle-secs")),
+            max_processes: usize::try_from(cfg.count("lambda-max-processes")).unwrap_or(usize::MAX),
             interpreters: aws_lambda::Interpreters {
                 python: env("DOZE_LAMBDA_PYTHON"),
                 node: env("DOZE_LAMBDA_NODE"),

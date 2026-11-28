@@ -104,7 +104,7 @@ async fn a_function_with_no_process_is_already_cold_and_a_missing_one_is_refused
         why.contains("its next invocation is already a cold one"),
         "{why}"
     );
-    assert!(why.contains("they end after 10 minutes idle"), "{why}");
+    assert!(why.contains("they end after 5 minutes idle"), "{why}");
 
     let e = force(&w, &World::caller(), "nope").await.unwrap_err();
     assert_eq!(e.code, "ResourceNotFoundException");

@@ -19,6 +19,9 @@ aws-wire = { path = "../aws-wire" }
 aws-core = { path = "../aws-core" }
 aws-peers = { path = "../aws-peers" }
 doze-runtime = { path = "../doze-runtime" }
+# The HTTP Task's client (TLS, timeouts, the process's cap on outbound requests): already in the binary for SNS, EventBridge and API
+# Gateway, so nothing is added to it.
+aws-webhook = { path = "../aws-webhook" }
 doze-store = { path = "../doze-store" }
 getrandom = "0.4"
 serde_json = "1"

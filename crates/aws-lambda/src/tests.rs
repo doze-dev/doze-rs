@@ -31,6 +31,7 @@ mod forced;
 mod functions;
 mod invoking;
 mod livelog;
+mod pool;
 mod reshard;
 mod sources;
 mod url_auth;

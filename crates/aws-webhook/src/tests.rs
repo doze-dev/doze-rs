@@ -174,3 +174,78 @@ async fn the_os_store_is_read_and_does_not_trust_a_self_signed_server() {
     };
     assert!(why.contains("--ca-file"), "{why}");
 }
+
+/// A plain server that counts connections and answers none of them.
+async fn silent() -> (u16, std::sync::Arc<std::sync::atomic::AtomicUsize>) {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let seen = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let count = std::sync::Arc::clone(&seen);
+    tokio::spawn(async move {
+        let mut held = Vec::new();
+        while let Ok((s, _)) = listener.accept().await {
+            count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            held.push(s);
+        }
+    });
+    (port, seen)
+}
+
+#[tokio::test]
+async fn no_more_than_the_cap_of_requests_are_under_way_at_once() {
+    let (port, seen) = silent().await;
+    let client = Arc::new(ca_only());
+    let url = format!("http://127.0.0.1:{port}/");
+    let mut calls = Vec::new();
+    for _ in 0..MAX_UNDER_WAY + 10 {
+        let (client, url) = (Arc::clone(&client), url.clone());
+        calls.push(tokio::spawn(async move {
+            let r = Request {
+                timeout: Duration::from_millis(500),
+                ..Request::new("GET", &url)
+            };
+            client.fetch(&r).await
+        }));
+    }
+    tokio::time::sleep(Duration::from_millis(250)).await;
+    assert_eq!(
+        seen.load(std::sync::atomic::Ordering::SeqCst),
+        MAX_UNDER_WAY
+    );
+    assert_eq!(client.free_turns(), 0);
+    // A request waits for its turn before its own time starts: the last ten are tried once the first have timed out.
+    for c in calls {
+        assert!(matches!(c.await.unwrap(), Err(Failure::Timeout(_))));
+    }
+    assert_eq!(
+        seen.load(std::sync::atomic::Ordering::SeqCst),
+        MAX_UNDER_WAY + 10
+    );
+    assert_eq!(client.free_turns(), MAX_UNDER_WAY);
+}
+
+#[tokio::test]
+async fn localhost_is_reached_on_either_loopback_address() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    for bind in ["127.0.0.1:0", "[::1]:0"] {
+        let Ok(listener) = tokio::net::TcpListener::bind(bind).await else {
+            eprintln!("skipped: {bind} cannot be bound here");
+            continue;
+        };
+        let port = listener.local_addr().unwrap().port();
+        tokio::spawn(async move {
+            let (mut s, _) = listener.accept().await.unwrap();
+            let mut buf = [0u8; 1024];
+            let _ = s.read(&mut buf).await.unwrap();
+            s.write_all(b"HTTP/1.1 204 No Content\r\n\r\n")
+                .await
+                .unwrap();
+        });
+        let url = format!("http://localhost:{port}/");
+        let r = Request {
+            status_only: true,
+            ..Request::new("GET", &url)
+        };
+        assert_eq!(ca_only().fetch(&r).await.unwrap().status, 204, "{bind}");
+    }
+}

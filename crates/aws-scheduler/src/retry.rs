@@ -5,9 +5,12 @@
 //! `TARGET_ARN`). A failure the target refused as wrong is not retried.
 //!
 //! The wait between attempts doubles from one second to a minute (ours: AWS says only that it backs off). The waits run in a task off
-//! the actor and a restart loses them, as EventBridge's do.
+//! the actor and a restart loses them, as EventBridge's do. At most [`MAX_RETRYING`] invocations wait for another try at once (a
+//! frequent schedule whose target is broken would otherwise add a waiting task at every firing for a day); past that a failure is
+//! dead-lettered at once, as EventBridge does when its retry room is full.
 
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use serde_json::{Value, json};
@@ -18,6 +21,29 @@ use crate::fire::Invocation;
 
 const DEFAULT_ATTEMPTS: i64 = 185;
 const DEFAULT_AGE_SECONDS: i64 = 86_400;
+/// The most invocations waiting for another try, in the whole service.
+pub(crate) const MAX_RETRYING: usize = 1_000;
+
+/// One invocation's place among those waiting to be tried again; given back when it is dropped.
+struct Waiting<'a>(&'a AtomicUsize);
+
+impl<'a> Waiting<'a> {
+    /// A place, if one is free.
+    fn take(count: &'a AtomicUsize) -> Option<Self> {
+        count
+            .try_update(Ordering::AcqRel, Ordering::Acquire, |n| {
+                (n < MAX_RETRYING).then_some(n + 1)
+            })
+            .ok()
+            .map(|_| Self(count))
+    }
+}
+
+impl Drop for Waiting<'_> {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::AcqRel);
+    }
+}
 
 /// Seconds to wait after the `tries`-th failure.
 pub(crate) fn backoff_seconds(tries: u32) -> u64 {
@@ -58,6 +84,7 @@ pub(crate) async fn carry_on(
     mut outcome: Outcome,
 ) {
     let stopping = sh.tasks.stopping();
+    let mut place = None;
     loop {
         let why = match outcome {
             Outcome::Sent => return,
@@ -67,7 +94,16 @@ pub(crate) async fn carry_on(
             }
             Outcome::Failed(why) => why,
         };
+        let room = place.is_some() || {
+            place = Waiting::take(&sh.retrying);
+            place.is_some()
+        };
         match next(&inv, &why, tries, sh.clock.now_ms()) {
+            Ok(_) if !room => {
+                tracing::warn!(schedule = %inv.schedule_arn, "EventBridge Scheduler has {MAX_RETRYING} invocations waiting for another try; this one is not retried");
+                dead_letter(&sh, &inv, &why, tries, Some("MaximumRetryAttempts")).await;
+                return;
+            }
             Ok(wait) => {
                 tracing::debug!(schedule = %inv.schedule_arn, "invocation failed, will retry: {}", why.message);
                 tokio::select! {

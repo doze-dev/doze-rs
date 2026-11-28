@@ -117,7 +117,9 @@ pub(crate) struct Inner {
     /// `AWS/Lambda` counts, held until CloudWatch reads them (`metrics`).
     pub(crate) meter: Arc<metrics::Meter>,
     pub(crate) rt: Runtime,
-    pub(crate) logger: rt::logs::Logger,
+    pub(crate) logger: rt::logger::Logger,
+    /// Asynchronous invocations waiting for their function (`async_invoke.rs`).
+    pub(crate) queued: async_invoke::Queue<async_invoke::Event>,
     pub(crate) roles: role::Sessions,
     pub(crate) config: Config,
     pub(crate) sources: OnceLock<Sources>,
@@ -164,7 +166,8 @@ impl Lambda {
                 config.runtime.clone(),
                 ctx.dir.clone(),
             ),
-            logger: rt::logs::Logger::default(),
+            logger: rt::logger::Logger::default(),
+            queued: async_invoke::Queue::default(),
             roles: role::Sessions::default(),
             config,
             sources: OnceLock::new(),

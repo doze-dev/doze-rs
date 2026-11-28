@@ -9,25 +9,43 @@ JSON records when AWS_LAMBDA_LOG_FORMAT=JSON.
 
 import datetime
 import decimal
+import http.client
 import importlib
 import json
 import logging
 import os
+import socket
 import sys
 import time
 import traceback
-import urllib.request
 
-API = "http://" + os.environ["AWS_LAMBDA_RUNTIME_API"] + "/2018-06-01/runtime/"
+API_HOST = os.environ["AWS_LAMBDA_RUNTIME_API"]
+API_PATH = "/2018-06-01/runtime/"
+_conn = None
+
+
+def _request(method, path, body=None, headers=None):
+    """One request on the one connection this runtime keeps to the Runtime API (made again if it broke)."""
+    global _conn
+    for attempt in (0, 1):
+        if _conn is None:
+            _conn = http.client.HTTPConnection(API_HOST)
+            _conn.connect()
+            # The head and the body are two writes: without this, the second waits for the first's delayed ACK on a kept connection.
+            _conn.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        try:
+            _conn.request(method, API_PATH + path, body=body, headers=headers or {})
+            resp = _conn.getresponse()
+            return resp, resp.read()
+        except (http.client.HTTPException, OSError):
+            _conn.close()
+            _conn = None
+            if attempt:
+                raise
 
 
 def _post(path, body, headers=None):
-    req = urllib.request.Request(API + path, data=body, method="POST")
-    req.add_header("Content-Type", "application/json")
-    for k, v in (headers or {}).items():
-        req.add_header(k, v)
-    with urllib.request.urlopen(req) as resp:
-        resp.read()
+    _request("POST", path, body, dict(headers or {}, **{"Content-Type": "application/json"}))
 
 
 def _trace(exc):
@@ -205,9 +223,8 @@ def main():
             sys.exit(1)
 
     while True:
-        with urllib.request.urlopen(API + "invocation/next") as resp:
-            headers = {k: v for k, v in resp.headers.items()}
-            body = resp.read()
+        resp, body = _request("GET", "invocation/next")
+        headers = {k: v for k, v in resp.headers.items()}
         request_id = headers.get("Lambda-Runtime-Aws-Request-Id", "")
         _rid_filter.request_id = request_id
         trace_id = headers.get("Lambda-Runtime-Trace-Id")

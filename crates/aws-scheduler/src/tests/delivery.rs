@@ -165,3 +165,48 @@ fn roles_must_trust_scheduler() {
     assert!(!crate::role::trusts_scheduler(other));
     assert!(!crate::role::trusts_scheduler("not json"));
 }
+
+#[test]
+fn a_failure_is_dead_lettered_at_once_when_the_retry_room_is_full() {
+    use std::sync::atomic::Ordering;
+    let mut w = World::new();
+    let (dlq_url, dlq) = w.queue("dlq", json!({}));
+    let mut s = schedule(
+        "s",
+        "rate(1 minute)",
+        "arn:aws:sqs:us-east-1:000000000000:q",
+    );
+    s["Target"]["DeadLetterConfig"] = json!({"Arn": dlq});
+    let inv = fire(&mut w, &s);
+    let sh = w.shared();
+    sh.retrying
+        .store(crate::retry::MAX_RETRYING, Ordering::SeqCst);
+    let busy = Failure {
+        code: "ThrottlingException".into(),
+        message: "slow down".into(),
+        retryable: true,
+    };
+    let began = std::time::Instant::now();
+    w.rt.block_on(crate::retry::carry_on(
+        std::sync::Arc::clone(&sh),
+        inv,
+        1,
+        Outcome::Failed(busy),
+    ));
+    assert!(
+        began.elapsed() < std::time::Duration::from_millis(900),
+        "no wait for a retry"
+    );
+    let got = w.receive(&dlq_url);
+    let a = &got[0]["MessageAttributes"];
+    assert_eq!(
+        a["EXHAUSTED_RETRY_CONDITION"]["StringValue"],
+        "MaximumRetryAttempts"
+    );
+    assert_eq!(a["ERROR_CODE"]["StringValue"], "ThrottlingException");
+    assert_eq!(
+        sh.retrying.load(Ordering::SeqCst),
+        crate::retry::MAX_RETRYING,
+        "its place was never taken"
+    );
+}

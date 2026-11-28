@@ -41,12 +41,31 @@ class LambdaContext
   end
 end
 
+# One connection to the Runtime API, kept for every request (made again if it broke).
+def api_request(req)
+  2.times do |attempt|
+    if $api.nil? || !$api.started?
+      $api = Net::HTTP.new(API.host, API.port)
+      $api.read_timeout = nil
+      $api.keep_alive_timeout = 3600
+      $api.start
+    end
+    begin
+      return $api.request(req)
+    rescue IOError, SystemCallError
+      ($api.finish rescue nil)
+      $api = nil
+      raise if attempt == 1
+    end
+  end
+end
+
 def post(path, body, error_type = nil)
   req = Net::HTTP::Post.new(API.path + path)
   req["Content-Type"] = "application/json"
   req["Lambda-Runtime-Function-Error-Type"] = error_type if error_type
   req.body = body
-  Net::HTTP.start(API.host, API.port) { |http| http.request(req) }
+  api_request(req)
 end
 
 # A trace line as Lambda shows it: the function's code is at /var/task there, not in the directory doze-aws unpacked it to.
@@ -96,7 +115,7 @@ rescue Exception => e # rubocop:disable Lint/RescueException — every init fail
 end
 
 loop do
-  resp = Net::HTTP.start(API.host, API.port, read_timeout: nil) { |http| http.request(Net::HTTP::Get.new(API.path + "invocation/next")) }
+  resp = api_request(Net::HTTP::Get.new(API.path + "invocation/next"))
   request_id = resp["lambda-runtime-aws-request-id"].to_s
   ENV["_X_AMZN_TRACE_ID"] = resp["lambda-runtime-trace-id"] if resp["lambda-runtime-trace-id"]
   body = resp.body.to_s

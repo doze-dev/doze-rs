@@ -214,16 +214,17 @@ async fn invocations_reach_cloudwatch_when_it_reads_and_at_once_while_an_alarm_w
     )
     .await;
     w.invoke("m", &json!({"fail": true})).await;
-    assert!(
+    // Sent by a task just after the answer, not on a timer.
+    w.eventually("sent at once", || async {
         w.lambda
             .inner
             .meter
             .slots
             .lock()
             .map(|s| s.is_empty())
-            .unwrap_or(false),
-        "sent at once"
-    );
+            .unwrap_or(false)
+    })
+    .await;
     w.stop().await;
 }
 

@@ -5,6 +5,7 @@
 //! to whoever is waiting for the invocation over a channel of [`Chunk`]s.
 
 use std::convert::Infallible;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
 use bytes::Bytes;
@@ -45,7 +46,7 @@ pub(crate) struct Work {
     pub(crate) trace_id: String,
     pub(crate) client_context: Option<String>,
     /// Sent when the process fetches the work: the moment the function's own timeout starts.
-    pub(crate) started: oneshot::Sender<()>,
+    pub(crate) started: oneshot::Sender<tokio::time::Instant>,
     pub(crate) sink: mpsc::Sender<Chunk>,
 }
 
@@ -56,6 +57,8 @@ pub(crate) struct Shared {
     current: Mutex<Option<(String, mpsc::Sender<Chunk>)>>,
     /// Set when the process reported that it failed to initialise.
     pub(crate) init_error: Mutex<Option<Bytes>>,
+    /// How many connections the process has opened to the API (a runtime keeps one).
+    pub(crate) connections: AtomicUsize,
 }
 
 impl Shared {
@@ -64,6 +67,7 @@ impl Shared {
             inbox: AsyncMutex::new(inbox),
             current: Mutex::new(None),
             init_error: Mutex::new(None),
+            connections: AtomicUsize::new(0),
         }
     }
 
@@ -106,6 +110,11 @@ pub(crate) async fn serve(
         let Some(Ok((stream, _))) = stop.run_until_cancelled(listener.accept()).await else {
             return;
         };
+        shared.connections.fetch_add(1, Ordering::Relaxed);
+        // A kept connection: an answer is not held back for the ACK of the one before (Nagle).
+        if let Err(e) = stream.set_nodelay(true) {
+            tracing::debug!("the Runtime API connection could not be set to no delay: {e}");
+        }
         let (shared, stop) = (Arc::clone(&shared), stop.clone());
         tasks.spawn(async move {
             let service = service_fn(move |req| {
@@ -154,7 +163,7 @@ async fn next(shared: &Shared) -> Response<Full<Bytes>> {
     };
     shared.set_current(work.id.clone(), work.sink.clone());
     // The receiver may have given up (the caller went away); the work is run anyway, as Lambda would.
-    if work.started.send(()).is_err() {
+    if work.started.send(tokio::time::Instant::now()).is_err() {
         tracing::debug!("the caller stopped waiting before the function fetched its invocation");
     }
     let mut r = Response::new(Full::new(work.payload));

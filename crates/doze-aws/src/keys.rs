@@ -151,9 +151,17 @@ pub(crate) const KEYS: &[Key] = &[
     key(
         "lambda-idle-secs",
         Kind::Count(0),
-        "600",
+        "300",
         "SECS",
         "Seconds a warm Lambda process waits for its next invocation",
+        SERVICES,
+    ),
+    key(
+        "lambda-max-processes",
+        Kind::Count(1),
+        "32",
+        "N",
+        "The most Lambda function processes alive at once; when full, the one idle longest makes room",
         SERVICES,
     ),
     key(

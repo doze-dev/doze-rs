@@ -28,6 +28,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::core::Core;
 use crate::deliver::{Delivery, Failure as DeliveryFailure, Outcome};
+use crate::destinations::{DEFAULT_RATE, Pace};
 use crate::model::{ApiDestination, Connection, key};
 use crate::names::Parts;
 use crate::retry::{MAX_WAITING, Next, dead_letter, next};
@@ -37,12 +38,16 @@ use crate::retry::{MAX_WAITING, Next, dead_letter, next};
 const TIMEOUT: Duration = Duration::from_secs(5);
 /// How many attempts are remembered.
 const KEPT: usize = 100;
+/// The most bytes of request bodies held by the calls under way.
+const MAX_BYTES: usize = 64 * 1024 * 1024;
 
 /// What the API destination calls of a region came to: the last attempts, and how many calls are under way.
 #[derive(Debug, Default)]
 pub(crate) struct Calls {
     under_way: AtomicUsize,
+    bytes: AtomicUsize,
     attempts: Mutex<VecDeque<Attempt>>,
+    pace: Pace,
 }
 
 /// One attempt of a call.
@@ -85,6 +90,8 @@ impl Calls {
 
 /// A call to make, with all it needs once it has left the actor.
 struct Job {
+    destination: String,
+    rate: i64,
     method: String,
     url: String,
     headers: Vec<(String, String)>,
@@ -124,7 +131,8 @@ impl Core {
             params.pointer("/InvocationHttpParameters/HeaderParameters"),
         ));
         let url = url_of(dest, &d.spec, &params);
-        if self.calls.under_way() >= MAX_WAITING {
+        let held = self.calls.bytes.load(Ordering::Acquire) + d.payload.len();
+        if self.calls.under_way() >= MAX_WAITING || held > MAX_BYTES {
             return DeliveryFailure::fatal(
                 "ThrottlingException",
                 "too many API destination calls are under way",
@@ -136,6 +144,8 @@ impl Core {
             with_body_parameters(&d.payload, &params)
         };
         let job = Job {
+            destination: dest.arn.clone(),
+            rate: dest.rate_limit.unwrap_or(DEFAULT_RATE),
             method: dest.method.clone(),
             url,
             headers,
@@ -149,6 +159,7 @@ impl Core {
             stop: self.tasks.stopping(),
         };
         self.calls.under_way.fetch_add(1, Ordering::AcqRel);
+        self.calls.bytes.fetch_add(job.body.len(), Ordering::AcqRel);
         self.tasks.spawn(call(job));
         Outcome::Handed
     }
@@ -193,6 +204,11 @@ async fn call(job: Job) {
     let d = &job.delivery;
     let mut try_number = 1;
     loop {
+        let turn = job.calls.pace.turn(&job.destination, job.rate);
+        tokio::select! {
+            () = tokio::time::sleep_until(turn) => {}
+            () = job.stop.cancelled() => break,
+        }
         let sent = aws_webhook::fetch(&Request {
             headers: &job.headers,
             body: job.body.as_bytes(),
@@ -244,6 +260,7 @@ async fn call(job: Job) {
         }
     }
     job.calls.under_way.fetch_sub(1, Ordering::AcqRel);
+    job.calls.bytes.fetch_sub(job.body.len(), Ordering::AcqRel);
 }
 
 /// The credential header, if the connection has one this client can make.

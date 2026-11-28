@@ -1,14 +1,9 @@
 //! A function's log: what AWS writes to `/aws/lambda/<name>`, in the shape AWS writes it. Every invocation is `START`, the lines the
 //! function printed, `END` and `REPORT` (or the JSON platform events when the function's log format is JSON), in a stream named for
 //! the day and the process (`2026/11/13/[$LATEST]<32 hex>`). They reach CloudWatch Logs over the peer bus when it is running, the
-//! printed lines as they are printed (`livelog.rs`).
-
-use std::collections::HashSet;
-use std::sync::{Mutex, PoisonError};
+//! printed lines as they are printed (`livelog.rs`), the rest just after the invocation is answered (`logger.rs`).
 
 use aws_core::time::format_iso8601;
-use aws_peers::Peers;
-use aws_wire::service::Caller;
 use serde_json::json;
 
 use super::worker::Line;
@@ -113,76 +108,6 @@ fn iso(ms: i64) -> String {
             .unwrap_or_default(),
         ms.rem_euclid(1000)
     )
-}
-
-/// Where a function's output goes.
-#[derive(Debug, Default)]
-pub(crate) struct Logger {
-    /// Groups and streams already created, so they are made once.
-    made: Mutex<HashSet<String>>,
-}
-
-impl Logger {
-    /// Writes `events` to the function's log group and stream. A failure is logged and does not fail the invocation.
-    pub(crate) async fn write(
-        &self,
-        peers: Option<&Peers>,
-        caller: &Caller,
-        group: &str,
-        stream: &str,
-        events: Vec<(i64, String)>,
-    ) {
-        if events.is_empty() {
-            return;
-        }
-        let Some(peers) = peers else { return };
-        let acting = Caller {
-            service: Some("lambda".to_owned()),
-            ..caller.clone()
-        };
-        let key = format!("{}/{group}/{stream}", caller.region);
-        let known = self
-            .made
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .contains(&key);
-        if !known {
-            for (op, body) in [
-                ("CreateLogGroup", json!({"logGroupName": group})),
-                (
-                    "CreateLogStream",
-                    json!({"logGroupName": group, "logStreamName": stream}),
-                ),
-            ] {
-                if let Err(e) = peers.call("lambda", &acting, "logs", op, &body).await
-                    && e.code != "ResourceAlreadyExistsException"
-                {
-                    tracing::warn!("lambda could not write its log: {op}: {}", e.message);
-                    return;
-                }
-            }
-            self.made
-                .lock()
-                .unwrap_or_else(PoisonError::into_inner)
-                .insert(key.clone());
-        }
-        let rows: Vec<_> = events
-            .iter()
-            .map(|(t, m)| json!({"timestamp": t, "message": m}))
-            .collect();
-        let put = json!({"logGroupName": group, "logStreamName": stream, "logEvents": rows});
-        if let Err(e) = peers
-            .call("lambda", &acting, "logs", "PutLogEvents", &put)
-            .await
-        {
-            // The group or stream was deleted under a warm process: the next write makes them again.
-            self.made
-                .lock()
-                .unwrap_or_else(PoisonError::into_inner)
-                .remove(&key);
-            tracing::warn!("lambda could not write its log: {}", e.message);
-        }
-    }
 }
 
 #[cfg(test)]

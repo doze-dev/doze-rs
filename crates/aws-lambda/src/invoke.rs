@@ -1,6 +1,6 @@
 //! Running a function once: resolve it, start or reuse a process, hand it the payload, wait for the answer under the function's
-//! timeout, write its log. `Invoke` (all three types) is built on it; so are the event source pollers, the destinations and
-//! function URLs.
+//! timeout, then answer, with the log and the metrics queued to be written after (`rt/logs.rs`). `Invoke` (all three types) is
+//! built on it; so are the event source pollers, the destinations and function URLs.
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -26,7 +26,7 @@ use crate::resolve::{Resolved, Resolving};
 use crate::rt::api::Chunk;
 use crate::rt::logs::{Report, events};
 use crate::rt::spec::Spec;
-use crate::rt::{Ask as RunAsk, Event};
+use crate::rt::{Ask as RunAsk, Event, Refused};
 
 /// What one invocation is given.
 #[derive(Debug, Default)]
@@ -250,13 +250,15 @@ impl Inner {
         let running = match self.rt.begin(ask).await {
             Ok(r) => self.began(&metric, &function, start_ms, r),
             Err(why) => {
-                self.count_invocation(&metric, crate::metrics::Outcome::not_started(why.is_none()))
+                let throttle = !matches!(why, Refused::Launch(_));
+                self.count_invocation(&metric, crate::metrics::Outcome::not_started(throttle))
                     .await;
                 return match why {
-                    None => Err(throttled(
+                    Refused::Reserved => Err(throttled(
                         "ReservedFunctionConcurrentInvocationLimitExceeded",
                     )),
-                    Some(why) => Ok(Err(launch_failure(&why))),
+                    Refused::Full => Err(throttled("ConcurrentInvocationLimitExceeded")),
+                    Refused::Launch(why) => Ok(Err(launch_failure(&why))),
                 };
             }
         };
@@ -274,8 +276,8 @@ impl Inner {
         }))
     }
 
-    /// Waits for the invocation to end, and writes its log. With `stream`, the response is sent on as it arrives (framed as an event
-    /// stream) instead of being kept.
+    /// Waits for the invocation to end, and queues its log and metrics. With `stream`, the response is sent on as it arrives (framed
+    /// as an event stream) instead of being kept.
     pub(crate) async fn drive(
         &self,
         started: Started,
@@ -334,13 +336,19 @@ impl Inner {
         self.echo(&name, &fin.lines);
         let rest = live.unsent(rows);
         self.logger
-            .write(self.peers.as_deref(), &caller, &group, &fin.stream, rest)
+            .send(
+                &self.tasks,
+                self.peers.as_ref(),
+                &caller,
+                (&group, &fin.stream),
+                rest,
+            )
             .await;
         let ran = crate::metrics::Outcome::Ran {
             duration_ms: fin.duration_ms,
             error: out.error,
         };
-        self.count_invocation(&metric, ran).await;
+        self.count_answered(&metric, &ran);
         out
     }
 

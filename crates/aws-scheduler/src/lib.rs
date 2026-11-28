@@ -63,6 +63,8 @@ pub(crate) struct Shared {
     pub(crate) clock: Arc<dyn Clock>,
     pub(crate) tasks: Tasks,
     pub(crate) sessions: role::Sessions,
+    /// How many invocations are waiting for another try (`retry.rs` caps it).
+    pub(crate) retrying: std::sync::atomic::AtomicUsize,
 }
 
 /// The EventBridge Scheduler service. Nothing runs until the first request, or [`Scheduler::resume`].
@@ -88,6 +90,7 @@ impl Scheduler {
             clock: Arc::clone(&ctx.clock),
             tasks: ctx.tasks.clone(),
             sessions: role::Sessions::default(),
+            retrying: std::sync::atomic::AtomicUsize::new(0),
         });
         let on_tick = Arc::clone(&shared);
         let timers = Deadlines::new(

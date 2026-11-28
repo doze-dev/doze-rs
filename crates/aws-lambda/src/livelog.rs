@@ -101,11 +101,11 @@ impl Inner {
         self.echo(live.name, &lines);
         let stream = live.tap.spec.log_stream.clone();
         self.logger
-            .write(
-                self.peers.as_deref(),
+            .send(
+                &self.tasks,
+                self.peers.as_ref(),
                 live.caller,
-                live.group,
-                &stream,
+                (live.group, &stream),
                 rows,
             )
             .await;

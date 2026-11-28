@@ -3,7 +3,10 @@
 
 pub(crate) mod api;
 pub(crate) mod check;
+pub(crate) mod logger;
 pub(crate) mod logs;
+mod pool;
+pub(crate) mod pump;
 pub(crate) mod shims;
 pub(crate) mod spec;
 pub(crate) mod worker;
@@ -17,17 +20,16 @@ use std::time::Duration;
 use bytes::Bytes;
 use doze_runtime::{Clock, Tasks};
 use serde_json::json;
-use tokio::sync::{OwnedSemaphorePermit, Semaphore, mpsc, oneshot};
+use tokio::sync::{OwnedSemaphorePermit, mpsc, oneshot};
 use tokio::time::Instant;
 
 use self::api::{Chunk, Work};
+use self::pool::{Pool, Slot};
 use self::spec::{Creds, Interpreters, Spec};
-use self::worker::{Line, Worker};
+use self::worker::{Line, Start, Worker};
 
 /// How long a process may take to come up and ask for its first invocation (Lambda gives init 10 s of its own).
 const INIT_BUDGET: Duration = Duration::from_secs(10);
-/// How many processes serve one function version at once; further invocations wait for one.
-const MAX_WORKERS: usize = 8;
 /// A process whose credentials end within this long is not given another invocation.
 const CREDS_MARGIN_MS: i64 = 300_000;
 
@@ -36,6 +38,8 @@ const CREDS_MARGIN_MS: i64 = 300_000;
 pub struct RuntimeConfig {
     /// How long a warm process waits for the next invocation before it ends.
     pub idle: Duration,
+    /// The most function processes alive at once, of every function; when it is reached, the one idle longest makes room.
+    pub max_processes: usize,
     /// Where each runtime family's executable is, when it is not on `PATH`.
     pub interpreters: Interpreters,
 }
@@ -43,16 +47,11 @@ pub struct RuntimeConfig {
 impl Default for RuntimeConfig {
     fn default() -> Self {
         Self {
-            idle: Duration::from_secs(600),
+            idle: Duration::from_secs(300),
+            max_processes: 32,
             interpreters: Interpreters::default(),
         }
     }
-}
-
-#[derive(Debug)]
-struct Slot {
-    workers: Mutex<Vec<Arc<Worker>>>,
-    permits: Arc<Semaphore>,
 }
 
 /// The processes of every function, by function version.
@@ -62,7 +61,7 @@ pub(crate) struct Runtime {
     clock: Arc<dyn Clock>,
     config: RuntimeConfig,
     dir: PathBuf,
-    slots: Mutex<HashMap<String, Arc<Slot>>>,
+    pool: Pool,
     /// Invocations in flight by function, for reserved concurrency.
     inflight: Mutex<HashMap<String, usize>>,
 }
@@ -93,6 +92,17 @@ pub(crate) enum Event {
     Crashed,
 }
 
+/// Why an invocation was not started.
+#[derive(Debug)]
+pub(crate) enum Refused {
+    /// The function's reserved concurrency is used up.
+    Reserved,
+    /// Every process the pool may have is working, and none came free in time.
+    Full,
+    /// The process could not be started.
+    Launch(String),
+}
+
 /// An invocation handed to a process.
 #[derive(Debug)]
 pub(crate) struct Running {
@@ -100,7 +110,7 @@ pub(crate) struct Running {
     worker: Arc<Worker>,
     permit: OwnedSemaphorePermit,
     rx: mpsc::Receiver<Chunk>,
-    started: Option<oneshot::Receiver<()>>,
+    started: Option<oneshot::Receiver<Instant>>,
     begin: Instant,
     began_exec: Option<Instant>,
     pub(crate) timeout: Duration,
@@ -127,21 +137,11 @@ impl Runtime {
         Self {
             tasks,
             clock,
+            pool: Pool::new(config.max_processes),
             config,
             dir,
-            slots: Mutex::new(HashMap::new()),
             inflight: Mutex::new(HashMap::new()),
         }
-    }
-
-    fn slot(&self, key: &str) -> Arc<Slot> {
-        let mut slots = self.slots.lock().unwrap_or_else(PoisonError::into_inner);
-        Arc::clone(slots.entry(key.to_owned()).or_insert_with(|| {
-            Arc::new(Slot {
-                workers: Mutex::new(Vec::new()),
-                permits: Arc::new(Semaphore::new(MAX_WORKERS)),
-            })
-        }))
     }
 
     /// Where each runtime family's executable is, when it is configured.
@@ -151,50 +151,48 @@ impl Runtime {
 
     /// Ends every warm process of `function` (`region/name`), so the next invocation starts one with the new code or configuration.
     pub(crate) fn retire(&self, function: &str) {
-        let prefix = format!("{function}/");
-        let slots = self.slots.lock().unwrap_or_else(PoisonError::into_inner);
-        for (_, slot) in slots.iter().filter(|(k, _)| k.starts_with(&prefix)) {
-            for w in slot
-                .workers
-                .lock()
-                .unwrap_or_else(PoisonError::into_inner)
-                .iter()
-            {
-                w.retire();
-            }
-        }
+        self.pool.each(&format!("{function}/"), |w| w.retire());
     }
 
     /// How many processes of `function` (`region/name`) are running, whatever version they run.
     pub(crate) fn alive(&self, function: &str) -> usize {
-        let prefix = format!("{function}/");
-        let slots = self.slots.lock().unwrap_or_else(PoisonError::into_inner);
-        slots
-            .iter()
-            .filter(|(k, _)| k.starts_with(&prefix))
-            .map(|(_, slot)| {
-                slot.workers
-                    .lock()
-                    .unwrap_or_else(PoisonError::into_inner)
-                    .iter()
-                    .filter(|w| !w.is_dead() && !w.is_retired())
-                    .count()
-            })
-            .sum()
+        let mut n = 0;
+        self.pool.each(&format!("{function}/"), |w| {
+            n += usize::from(!w.is_dead() && !w.is_retired());
+        });
+        n
+    }
+
+    /// How many version entries the pool keeps (for tests).
+    #[cfg(test)]
+    pub(crate) fn slots(&self) -> usize {
+        self.pool.slots()
+    }
+
+    /// How many connections each live process of `function` opened to its Runtime API (for tests).
+    #[cfg(test)]
+    pub(crate) fn connections(&self, function: &str) -> Vec<usize> {
+        let mut out = Vec::new();
+        self.pool.each(&format!("{function}/"), |w| {
+            if !w.is_dead() {
+                out.push(w.shared.connections.load(Ordering::Relaxed));
+            }
+        });
+        out
     }
 
     /// Starts the invocation on a warm process or a new one.
     ///
     /// # Errors
-    /// Reserved concurrency is used up (`Err(None)`), or the process could not be started (`Err(Some(why))`).
-    pub(crate) async fn begin(&self, mut ask: Ask) -> Result<Running, Option<String>> {
+    /// See [`Refused`].
+    pub(crate) async fn begin(&self, mut ask: Ask) -> Result<Running, Refused> {
         if !self.take_inflight(&ask.function, ask.reserved) {
-            return Err(None);
+            return Err(Refused::Reserved);
         }
-        let slot = self.slot(&ask.key);
+        let slot = self.pool.slot(&ask.key);
         let Ok(permit) = Arc::clone(&slot.permits).acquire_owned().await else {
             self.drop_inflight(&ask.function);
-            return Err(Some("the pool is closed".to_owned()));
+            return Err(Refused::Launch("the pool is closed".to_owned()));
         };
         let now = self.clock.now_ms();
         let warm = {
@@ -208,7 +206,7 @@ impl Runtime {
                 Ok(w) => w,
                 Err(why) => {
                     self.drop_inflight(&ask.function);
-                    return Err(Some(why));
+                    return Err(why);
                 }
             },
         };
@@ -229,7 +227,7 @@ impl Runtime {
         if !worker.send(work).await {
             worker.kill();
             self.drop_inflight(&ask.function);
-            return Err(Some(
+            return Err(Refused::Launch(
                 "the function process went away before it was given the invocation".to_owned(),
             ));
         }
@@ -247,15 +245,23 @@ impl Runtime {
         })
     }
 
-    async fn spawn(&self, ask: &mut Ask, slot: &Slot) -> Result<Arc<Worker>, String> {
-        shims::ensure(&self.dir)
-            .map_err(|e| format!("the runtime clients could not be written: {e}"))?;
+    async fn spawn(&self, ask: &mut Ask, slot: &Slot) -> Result<Arc<Worker>, Refused> {
+        shims::ensure(&self.dir).map_err(|e| {
+            Refused::Launch(format!("the runtime clients could not be written: {e}"))
+        })?;
         ask.spec.shims = shims::dir(&self.dir);
         ask.spec.interpreters = self.config.interpreters.clone();
         ask.spec.log_stream = logs::stream_name(&ask.spec.version, self.clock.now_ms());
-        let worker = Worker::start(ask.spec.clone(), &self.tasks, &self.clock, self.config.idle)
+        let place = self.pool.place().await.ok_or(Refused::Full)?;
+        let start = Start {
+            tasks: &self.tasks,
+            clock: &self.clock,
+            idle: self.config.idle,
+            place,
+        };
+        let worker = Worker::start(ask.spec.clone(), start)
             .await
-            .map_err(|e| e.0)?;
+            .map_err(|e| Refused::Launch(e.0))?;
         assert_claimed(&worker);
         slot.workers
             .lock()
@@ -320,8 +326,9 @@ impl Running {
         };
         tokio::select! {
             got = tokio::time::timeout(INIT_BUDGET, rx) => match got {
-                Ok(Ok(())) => {
-                    self.began_exec = Some(Instant::now());
+                // When the process fetched it (it may have before this is polled), so `Duration` is the function's own time.
+                Ok(Ok(at)) => {
+                    self.began_exec = Some(at);
                     Ok(())
                 }
                 Ok(Err(_)) => Err(self.died_in_init()),
@@ -371,12 +378,15 @@ impl Running {
     pub(crate) async fn finish(self, healthy: bool, rt: &Runtime) -> Finished {
         let exec = self.began_exec.map_or(Duration::ZERO, |t| t.elapsed());
         let init = self.began_exec.map(|t| t.duration_since(self.begin));
+        // The lines are taken before the process is given back, so none of the next invocation's are among them.
+        self.worker.settle().await;
+        let lines = self.worker.drain();
         if healthy {
             self.worker.release(self.clock.now_ms());
+            rt.pool.notify_free();
         } else {
             self.worker.kill();
         }
-        let lines = self.worker.take_lines().await;
         let first = !self.worker.warm.swap(true, Ordering::AcqRel);
         rt.done(&self.function);
         drop(self.permit);

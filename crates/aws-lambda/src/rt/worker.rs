@@ -1,6 +1,7 @@
 //! One function process and the Runtime API it talks to. A worker is started for a function version, runs invocations one at a time,
-//! and ends when it has been idle too long, when it is killed (a timeout, a retirement), when it exits on its own, or at shutdown.
-//! Every task it starts is tracked, so a stop leaves no child behind.
+//! and ends when it has been idle too long, when it is killed (a timeout, a retirement, room for another), when it exits on its own,
+//! or at shutdown; however it ends, its process group goes with it. Three tasks serve it: the Runtime API's listener, one reader of
+//! both its pipes (`pump.rs`), and its supervisor (the exit, the idle time). Every task is tracked, so a stop leaves no child behind.
 
 use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
@@ -8,13 +9,13 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
 use doze_runtime::{Clock, Tasks};
-use tokio::io::{AsyncBufReadExt, AsyncRead, BufReader};
 use tokio::net::TcpListener;
 use tokio::process::Command;
-use tokio::sync::mpsc;
+use tokio::sync::{OwnedSemaphorePermit, mpsc};
 use tokio_util::sync::CancellationToken;
 
 use super::api::{Shared, Work, serve};
+use super::pump::{Held, Lines, pump};
 use super::spec::{Spec, environment, launch};
 
 /// A line the process wrote, with when we read it.
@@ -30,8 +31,11 @@ pub(crate) struct Worker {
     dead: AtomicBool,
     retired: AtomicBool,
     kill: CancellationToken,
-    lines: Mutex<Vec<Line>>,
+    held: Mutex<Held>,
     seen: AtomicU64,
+    /// Second handles on the read ends of its pipes, to ask how much is still unread (`settle`).
+    #[cfg(unix)]
+    pipes: Vec<std::os::fd::OwnedFd>,
     last_used_ms: AtomicI64,
     /// Whether it has served an invocation (the first one pays for the start and reports it as `Init Duration`).
     pub(crate) warm: AtomicBool,
@@ -43,18 +47,21 @@ pub(crate) struct Worker {
 #[derive(Debug)]
 pub(crate) struct LaunchError(pub(crate) String);
 
+/// What a worker is started with besides its spec.
+pub(crate) struct Start<'a> {
+    pub(crate) tasks: &'a Tasks,
+    pub(crate) clock: &'a Arc<dyn Clock>,
+    pub(crate) idle: Duration,
+    /// Its place under the pool's cap on processes, given back when the process has ended.
+    pub(crate) place: OwnedSemaphorePermit,
+}
+
 impl Worker {
     /// Starts the process for `spec`.
     ///
     /// # Errors
     /// The command cannot be had or run (no interpreter, no `bootstrap`).
-    pub(crate) async fn start(
-        spec: Spec,
-        tasks: &Tasks,
-        clock: &Arc<dyn Clock>,
-        idle: Duration,
-    ) -> Result<Arc<Self>, LaunchError> {
-        let (program, args) = launch(&spec).map_err(LaunchError)?;
+    pub(crate) async fn start(spec: Spec, s: Start<'_>) -> Result<Arc<Self>, LaunchError> {
         let listener = TcpListener::bind(("127.0.0.1", 0))
             .await
             .map_err(|e| LaunchError(e.to_string()))?;
@@ -62,32 +69,10 @@ impl Worker {
             .local_addr()
             .map_err(|e| LaunchError(e.to_string()))?
             .to_string();
-        let mut command = Command::new(&program);
-        command
-            .args(&args)
-            .env_clear()
-            .envs(environment(&spec, &api))
-            .current_dir(if spec.root.is_dir() {
-                spec.root.clone()
-            } else {
-                spec.root
-                    .parent()
-                    .map(std::path::Path::to_path_buf)
-                    .unwrap_or_default()
-            })
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .kill_on_drop(true);
-        // Its own process group, so that ending it ends what it started too.
-        #[cfg(unix)]
-        command.process_group(0);
-        let mut child = command
-            .spawn()
-            .map_err(|e| LaunchError(format!("{}: {e}", program.display())))?;
+        let mut child = spawn(&spec, &api)?;
+        let (out, err) = (child.stdout.take(), child.stderr.take());
         let (tx, rx) = mpsc::channel(8);
         let shared = Arc::new(Shared::new(rx));
-        let now = clock.now_ms();
         let worker = Arc::new(Self {
             spec,
             shared: Arc::clone(&shared),
@@ -96,27 +81,35 @@ impl Worker {
             dead: AtomicBool::new(false),
             retired: AtomicBool::new(false),
             kill: CancellationToken::new(),
-            lines: Mutex::new(Vec::new()),
+            held: Mutex::new(Held::default()),
             seen: AtomicU64::new(0),
-            last_used_ms: AtomicI64::new(now),
+            #[cfg(unix)]
+            pipes: second_handles(out.as_ref(), err.as_ref()),
+            last_used_ms: AtomicI64::new(s.clock.now_ms()),
             warm: AtomicBool::new(false),
             exit: Mutex::new(None),
         });
-        let stop = tasks.stopping();
-        if let Some(out) = child.stdout.take() {
-            tasks.spawn(pump(out, Arc::clone(&worker), Arc::clone(clock)));
+        if let (Some(out), Some(err)) = (out, err) {
+            let (w, clock) = (Arc::clone(&worker), Arc::clone(s.clock));
+            let ended = worker.kill.clone().cancelled_owned();
+            let keep = move |line| w.push(clock.now_ms(), line);
+            s.tasks
+                .spawn(pump(Lines::new(out), Lines::new(err), ended, keep));
         }
-        if let Some(err) = child.stderr.take() {
-            tasks.spawn(pump(err, Arc::clone(&worker), Arc::clone(clock)));
-        }
-        tasks.spawn(serve(listener, shared, worker.kill.clone(), tasks.clone()));
-        tasks.spawn(supervise(child, Arc::clone(&worker), stop.clone()));
-        tasks.spawn(reap_idle(
-            Arc::clone(&worker),
-            Arc::clone(clock),
-            idle,
-            stop,
+        s.tasks.spawn(serve(
+            listener,
+            shared,
+            worker.kill.clone(),
+            s.tasks.clone(),
         ));
+        let watch = Watch {
+            worker: Arc::clone(&worker),
+            clock: Arc::clone(s.clock),
+            idle: s.idle,
+            stop: s.tasks.stopping(),
+            place: s.place,
+        };
+        s.tasks.spawn(supervise(child, watch));
         Ok(worker)
     }
 
@@ -141,6 +134,12 @@ impl Worker {
 
     pub(crate) fn is_dead(&self) -> bool {
         self.dead.load(Ordering::Acquire)
+    }
+
+    /// Whether it is alive and waiting for an invocation, and since when: what the pool's cap ends first.
+    pub(crate) fn idle_since(&self) -> Option<i64> {
+        let free = !self.busy.load(Ordering::Acquire) && !self.is_dead();
+        free.then(|| self.last_used_ms.load(Ordering::Acquire))
     }
 
     /// Whether it has been told to end once it is idle.
@@ -172,9 +171,23 @@ impl Worker {
         self.work.send(work).await.is_ok()
     }
 
-    /// What the process has written since the last call, once its output has stopped arriving (a line printed just before the
-    /// response may still be on its way through the pipe).
-    pub(crate) async fn take_lines(&self) -> Vec<Line> {
+    /// Waits until what the process wrote before now has been read: its pipes hold nothing unread (a line printed just before the
+    /// response is in the pipe when the response arrives). No sleep: the reader is let run until the pipes are empty, a bounded
+    /// number of times, since a process that never stops printing never empties them.
+    pub(crate) async fn settle(&self) {
+        #[cfg(unix)]
+        for _ in 0..200 {
+            let unread = self
+                .pipes
+                .iter()
+                .any(|fd| rustix::io::ioctl_fionread(fd).is_ok_and(|n| n > 0));
+            if !unread {
+                return;
+            }
+            tokio::task::yield_now().await;
+        }
+        // Without FIONREAD: until a few milliseconds pass with no new line.
+        #[cfg(not(unix))]
         for _ in 0..10 {
             let before = self.seen.load(Ordering::Acquire);
             tokio::time::sleep(Duration::from_millis(2)).await;
@@ -182,16 +195,18 @@ impl Worker {
                 break;
             }
         }
-        std::mem::take(&mut *self.lines.lock().unwrap_or_else(PoisonError::into_inner))
     }
 
-    /// What the process has written since the last call, at once (for the log while the invocation runs).
+    /// What the process has written since the last call.
     pub(crate) fn drain(&self) -> Vec<Line> {
-        std::mem::take(&mut *self.lines.lock().unwrap_or_else(PoisonError::into_inner))
+        self.held
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take()
     }
 
     fn push(&self, at: i64, line: String) {
-        self.lines
+        self.held
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .push((at, line));
@@ -199,88 +214,111 @@ impl Worker {
     }
 }
 
-/// Reads a pipe line by line into the worker.
-async fn pump<R: AsyncRead + Unpin>(pipe: R, worker: Arc<Worker>, clock: Arc<dyn Clock>) {
-    let mut lines = BufReader::new(pipe).lines();
-    loop {
-        tokio::select! {
-            line = lines.next_line() => match line {
-                Ok(Some(line)) => worker.push(clock.now_ms(), line),
-                _ => return,
-            },
-            // The process is over: what it wrote last is still in the pipe, but something it started may hold the other end open, so
-            // only a moment is spent on it.
-            () = worker.kill.cancelled() => {
-                let tail = async { while let Ok(Some(line)) = lines.next_line().await { worker.push(clock.now_ms(), line); } };
-                drop(tokio::time::timeout(Duration::from_millis(100), tail).await);
-                return;
-            }
-        }
-    }
-}
-
-/// Waits for the process to end, or ends it when asked.
-async fn supervise(mut child: tokio::process::Child, worker: Arc<Worker>, stop: CancellationToken) {
-    tokio::select! {
-        status = child.wait() => {
-            if let Ok(status) = status {
-                tracing::debug!(function = %worker.spec.name, "function process exited: {status}");
-                *worker.exit.lock().unwrap_or_else(PoisonError::into_inner) = Some(status.to_string());
-            }
-        }
-        () = worker.kill.cancelled() => end(&mut child).await,
-        () = stop.cancelled() => end(&mut child).await,
-    }
-    worker.dead.store(true, Ordering::Release);
-    // A process that ended mid-invocation closes the channel its caller waits on.
-    worker.shared.drop_current();
-    worker.kill.cancel();
-}
-
-/// Ends the process and what it started.
-async fn end(child: &mut tokio::process::Child) {
+/// Starts the process, in a process group of its own, so that ending it ends what it started too.
+fn spawn(spec: &Spec, api: &str) -> Result<tokio::process::Child, LaunchError> {
+    let (program, args) = launch(spec).map_err(LaunchError)?;
+    let mut command = Command::new(&program);
+    command
+        .args(&args)
+        .env_clear()
+        .envs(environment(spec, api))
+        .current_dir(if spec.root.is_dir() {
+            spec.root.clone()
+        } else {
+            spec.root
+                .parent()
+                .map(std::path::Path::to_path_buf)
+                .unwrap_or_default()
+        })
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true);
     #[cfg(unix)]
-    if let Some(pid) = child.id() {
-        // WHY: the group is killed through kill(1) because signalling a group needs a libc call, which this crate does not make.
-        drop(
-            Command::new("kill")
-                .arg("-KILL")
-                .arg("--")
-                .arg(format!("-{pid}"))
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .status()
-                .await,
-        );
-    }
-    drop(child.start_kill());
-    drop(child.wait().await);
+    command.process_group(0);
+    command
+        .spawn()
+        .map_err(|e| LaunchError(format!("{}: {e}", program.display())))
 }
 
-/// Ends the worker once it has been idle for `idle`; sleeps until the moment that could happen, and does nothing while it works.
-async fn reap_idle(
+/// Second handles on the pipes' read ends (a duplicate shares the pipe, and its unread count, without taking from it).
+#[cfg(unix)]
+fn second_handles(
+    out: Option<&tokio::process::ChildStdout>,
+    err: Option<&tokio::process::ChildStderr>,
+) -> Vec<std::os::fd::OwnedFd> {
+    use std::os::fd::AsFd;
+    let mut fds = Vec::new();
+    fds.extend(out.and_then(|o| o.as_fd().try_clone_to_owned().ok()));
+    fds.extend(err.and_then(|e| e.as_fd().try_clone_to_owned().ok()));
+    fds
+}
+
+/// What the supervisor watches the process with.
+struct Watch {
     worker: Arc<Worker>,
     clock: Arc<dyn Clock>,
     idle: Duration,
     stop: CancellationToken,
-) {
-    let idle_ms = i64::try_from(idle.as_millis()).unwrap_or(i64::MAX);
-    loop {
+    place: OwnedSemaphorePermit,
+}
+
+/// Waits for the process to end, or ends it: when asked, at shutdown, or once it has been idle for `idle` (it sleeps until the moment
+/// that could happen, and does nothing while the process works). However it ends, its group is killed, so nothing it started stays.
+async fn supervise(mut child: tokio::process::Child, w: Watch) {
+    let pid = child.id();
+    let idle_ms = i64::try_from(w.idle.as_millis()).unwrap_or(i64::MAX);
+    let worker = &w.worker;
+    let ours = loop {
         let wait = if worker.busy.load(Ordering::Acquire) {
             idle_ms
         } else {
-            let since = clock.now_ms() - worker.last_used_ms.load(Ordering::Acquire);
+            let since = w.clock.now_ms() - worker.last_used_ms.load(Ordering::Acquire);
             if since >= idle_ms {
-                worker.kill();
-                return;
+                break true;
             }
             idle_ms - since
         };
         let sleep = Duration::from_millis(u64::try_from(wait).unwrap_or(1).max(1));
         tokio::select! {
+            status = child.wait() => {
+                if let Ok(status) = status {
+                    tracing::debug!(function = %worker.spec.name, "function process exited: {status}");
+                    *worker.exit.lock().unwrap_or_else(PoisonError::into_inner) = Some(status.to_string());
+                }
+                break false;
+            }
+            () = worker.kill.cancelled() => break true,
+            () = w.stop.cancelled() => break true,
             () = tokio::time::sleep(sleep) => {}
-            () = worker.kill.cancelled() => return,
-            () = stop.cancelled() => return,
+        }
+    };
+    kill_group(pid);
+    if ours {
+        drop(child.start_kill());
+        drop(child.wait().await);
+    }
+    worker.dead.store(true, Ordering::Release);
+    // A process that ended mid-invocation closes the channel its caller waits on.
+    worker.shared.drop_current();
+    worker.kill.cancel();
+    drop(w.place);
+}
+
+/// Kills the process group `pid` leads (a group outlives its leader while a member is alive, so its id is not reused before).
+fn kill_group(pid: Option<u32>) {
+    #[cfg(unix)]
+    if let Some(pid) = pid
+        .and_then(|p| i32::try_from(p).ok())
+        .and_then(rustix::process::Pid::from_raw)
+    {
+        // ESRCH: nothing of the group is left; that is the usual answer and not worth a word.
+        if let Err(e) = rustix::process::kill_process_group(pid, rustix::process::Signal::KILL)
+            && e != rustix::io::Errno::SRCH
+        {
+            tracing::debug!("the function's process group could not be killed: {e}");
         }
     }
+    #[cfg(not(unix))]
+    drop(pid);
 }

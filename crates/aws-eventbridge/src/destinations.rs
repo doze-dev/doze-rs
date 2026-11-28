@@ -3,7 +3,17 @@
 //! client credentials are not called (SCOPE.md defers the token request). A destination is `ACTIVE`
 //! while its connection exists and is authorized.
 //!
+//! **`InvocationRateLimitPerSecond` is kept** ([`Pace`]): a destination's calls start at most that many a second, with a burst of
+//! one second's worth; a call over the rate waits for its turn (as AWS holds events past the rate and delivers them later, retrying
+//! within the retry policy (memory)).
+//!
 //! The wording of refusals is from memory.
+
+use std::collections::HashMap;
+use std::sync::{Mutex, PoisonError};
+use std::time::Duration;
+
+use tokio::time::Instant;
 
 use aws_wire::ApiError;
 use aws_wire::RequestId;
@@ -17,7 +27,32 @@ use crate::req::{Req, exists, invalid, not_found};
 use crate::util::{Out, secs};
 
 /// The rate AWS gives a destination that names none.
-const DEFAULT_RATE: i64 = 300;
+pub(crate) const DEFAULT_RATE: i64 = 300;
+
+/// The pace of each destination's calls: the moment its next call would start if calls came evenly (a generic cell rate algorithm,
+/// which a token bucket of one second's worth of tokens is). Nothing runs on a timer; a destination whose moment has passed is
+/// forgotten when another is first paced.
+#[derive(Debug, Default)]
+pub(crate) struct Pace {
+    next: Mutex<HashMap<String, Instant>>,
+}
+
+impl Pace {
+    /// When a call to `destination` (at `rate` a second) may start; the call is counted as made then.
+    pub(crate) fn turn(&self, destination: &str, rate: i64) -> Instant {
+        let rate = u32::try_from(rate.max(1)).unwrap_or(u32::MAX);
+        let gap = Duration::from_secs(1) / rate;
+        let burst = Duration::from_secs(1).saturating_sub(gap);
+        let now = Instant::now();
+        let mut all = self.next.lock().unwrap_or_else(PoisonError::into_inner);
+        if !all.contains_key(destination) {
+            all.retain(|_, t| *t > now);
+        }
+        let due = all.get(destination).copied().unwrap_or(now).max(now);
+        all.insert(destination.to_owned(), due + gap);
+        due.checked_sub(burst).filter(|at| *at > now).unwrap_or(now)
+    }
+}
 
 impl Core {
     fn destination(&self, r: &Req<'_>, name: &str) -> Result<&ApiDestination, ApiError> {
@@ -189,5 +224,27 @@ impl Core {
             .with("CreationTime", secs(d.created_ms))
             .with("LastModifiedTime", secs(d.modified_ms))
             .done()
+    }
+}
+
+#[cfg(test)]
+mod pace_tests {
+    use super::*;
+
+    #[tokio::test(start_paused = true)]
+    async fn calls_start_at_the_rate_after_a_burst_of_one_seconds_worth() {
+        let pace = Pace::default();
+        let t0 = Instant::now();
+        let starts: Vec<u128> = (0..5)
+            .map(|_| (pace.turn("d", 2) - t0).as_millis())
+            .collect();
+        assert_eq!(starts, [0, 0, 500, 1000, 1500]);
+        // Another destination has its own pace.
+        assert_eq!(pace.turn("e", 2), t0);
+        // After a quiet second the burst is there again.
+        tokio::time::advance(Duration::from_secs(4)).await;
+        let now = Instant::now();
+        assert_eq!((pace.turn("d", 2), pace.turn("d", 2)), (now, now));
+        assert_eq!(pace.next.lock().unwrap().len(), 2);
     }
 }

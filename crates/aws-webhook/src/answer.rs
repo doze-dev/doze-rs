@@ -65,6 +65,7 @@ where
     if r.status_only {
         return status_of(&raw).map(|status| Answer {
             status,
+            reason: String::new(),
             headers: Vec::new(),
             body: Vec::new(),
         });
@@ -112,6 +113,12 @@ pub(crate) fn parse(raw: &[u8]) -> Result<Answer, Failure> {
     let head = String::from_utf8_lossy(raw.get(..split).unwrap_or_default());
     let body = raw.get(split + 4..).unwrap_or_default();
     let status = status_of(head.as_bytes())?;
+    let reason = head
+        .lines()
+        .next()
+        .and_then(|l| l.splitn(3, ' ').nth(2))
+        .unwrap_or_default()
+        .to_owned();
     let headers: Vec<(String, String)> = head
         .split("\r\n")
         .skip(1)
@@ -134,6 +141,7 @@ pub(crate) fn parse(raw: &[u8]) -> Result<Answer, Failure> {
         .collect();
     Ok(Answer {
         status,
+        reason,
         headers,
         body,
     })
@@ -166,7 +174,10 @@ mod tests {
     #[test]
     fn answers_are_read_plain_and_chunked() {
         let a = parse(b"HTTP/1.1 201 Created\r\nX-A: 1\r\nContent-Length: 2\r\n\r\nhi").unwrap();
-        assert_eq!((a.status, &a.body[..]), (201, &b"hi"[..]));
+        assert_eq!(
+            (a.status, a.reason.as_str(), &a.body[..]),
+            (201, "Created", &b"hi"[..])
+        );
         let b = parse(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n2\r\nhe\r\n3\r\nllo\r\n0\r\n\r\n").unwrap();
         assert_eq!(&b.body[..], b"hello");
         assert!(b.headers.is_empty());

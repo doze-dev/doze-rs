@@ -34,8 +34,12 @@ use crate::model::Subscription;
 pub(crate) const CONFIRM_PATH: &str = "/_aws/sns/confirm";
 /// How long one attempt waits for the endpoint (memory).
 const ATTEMPT_TIMEOUT: Duration = Duration::from_secs(15);
-/// The most POSTs waiting or under way; past it a notification is dropped with a log line.
+/// The most POSTs waiting or under way, and the most bytes of their bodies (in the whole process); past either a notification is
+/// dropped with a log line. At most `aws_webhook::MAX_UNDER_WAY` of them are being sent at once.
 const MAX_UNDER_WAY: usize = 10_000;
+const MAX_BYTES: usize = 64 * 1024 * 1024;
+/// The bytes of the bodies of the POSTs waiting or under way.
+static BYTES: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
 /// One POST to make, and again under a delivery policy.
 struct Post {
@@ -208,7 +212,9 @@ impl Core {
         what: &str,
     ) {
         use std::sync::atomic::Ordering;
-        if self.webhooks.load(Ordering::Acquire) >= MAX_UNDER_WAY {
+        if self.webhooks.load(Ordering::Acquire) >= MAX_UNDER_WAY
+            || BYTES.load(Ordering::Acquire) + body.len() > MAX_BYTES
+        {
             tracing::warn!(subscription = %sub.arn, "SNS has too many http deliveries under way; this {what} was dropped");
             return;
         }
@@ -222,6 +228,7 @@ impl Core {
             "Amazon Simple Notification Service Agent".to_owned(),
         ));
         self.webhooks.fetch_add(1, Ordering::AcqRel);
+        BYTES.fetch_add(body.len(), Ordering::AcqRel);
         self.tasks.spawn(send(Post {
             url: sub.endpoint.clone(),
             headers,
@@ -242,6 +249,7 @@ async fn send(mut post: Post) {
     }
     post.under_way
         .fetch_sub(1, std::sync::atomic::Ordering::AcqRel);
+    BYTES.fetch_sub(post.body.len(), std::sync::atomic::Ordering::AcqRel);
 }
 
 /// Makes the POST and its retries; the failure that ended them, when delivery finally failed. The codes are (memory).

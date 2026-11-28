@@ -22,7 +22,12 @@ pub(super) async fn queue(w: &World, name: &str, visibility: &str) -> (String, S
     (url, format!("arn:aws:sqs:us-east-1:{ACCOUNT}:{name}"))
 }
 
+/// The function's log lines that match `pattern`, once what is queued has been written (a log is written just after the answer).
 pub(super) async fn logged(w: &World, function: &str, pattern: &str) -> Vec<String> {
+    w.eventually("the log is written", || async {
+        w.lambda.inner.logger.idle()
+    })
+    .await;
     let group = format!("/aws/lambda/{function}");
     match w
         .peers
