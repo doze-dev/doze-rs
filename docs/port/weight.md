@@ -1886,3 +1886,38 @@ limit.
 **The whole workstream weighs** 12,305,040 B against main's 12,237,920 B (release-aws, +67,120 B: the shared timer, the writer, the
 gateway's limits and timer, `rlimit`), 308 packages against 307, idle 4,912 KB (median of 4,608, 8,064 and
 4,912: macOS idle readings swing that much). The blocking hand-off was first generic per service, 16,720 B more.
+
+## Workstream 1: wakeups and polling (2026-11-27, branch `perf-wakeups`), release, darwin/arm64
+
+What woke an idle doze-aws, and what a drained queue cost. Measured with `cargo build --release -p doze-aws`, a throwaway
+server per run (`--no-console`, fresh `--data-dir`), the AWS CLI, and `top -l 2 -s 10 -pid <pid> -stats pid,cpu,idlew,csw,th`
+(CPU of the second sample; context switches as the difference of the two samples, 10 s apart).
+
+| Case | Before | After |
+|---|---|---|
+| No mapping, idle | 0.0% CPU | 0.0% CPU |
+| One enabled SQS mapping on an empty queue | 35.6-36.3% CPU, ~250,000 switches / 10 s | 0.0% CPU, 3 switches / 10 s |
+| Ten enabled SQS mappings on empty queues | 66-77% CPU, ~130,000 switches / 10 s | 0.0% CPU, 0 switches / 10 s |
+| Five idle `receive-message --wait-time-seconds 20` | 0.0% CPU, 229 switches / 10 s (a re-ask every 250 ms each) | 0.0% CPU, 0 switches / 10 s |
+| Fill 50,000 messages, drain with receive(10) + delete-message-batch: server CPU time | 20.9 s (5.45 s at 20,000: quadratic) | 8.0 s |
+
+The drain's wall time (64-119 s before, 71-87 s after, same machine, runs back to back) is the disk's: every answer waits
+for its commit, and the spread between runs is larger than the change. The server's own CPU time is the number that moved.
+
+What changed:
+- SQS woke every waiter of every queue on every call that was not a receive, `GetQueueAttributes` included, and the Lambda
+  poller of an empty queue read that queue's attributes after each empty receive: it woke itself, forever. Wake-ups are now
+  per queue (`aws-sqs/src/arrivals.rs`), fired only when the actor reports that a message was added or shows sooner (send,
+  a shorter visibility, a move or redrive into the queue, a forced release, the queue's deletion), and an entry exists only
+  while someone waits. The same for Kinesis (per stream, `aws-kinesis/src/signals.rs`, also `SubscribeToShard` sessions)
+  and DynamoDB streams (`aws-dynamodb/src/signals.rs`).
+- A receive that finds nothing is told when the queue's first hidden message shows; a long poll and the Lambda poller sleep
+  until then or an arrival, not every 250 ms / every second. Only a receive copies its call.
+- A queue's messages are kept by `ord` with an index of the visible ones and one of the hidden ones by when they show; a
+  receipt handle carries its message's `ord`, so a delete or a change of visibility is a lookup and a receive does not go
+  through the queue. A message keeps its latest 8 handles, not every one it was given.
+- The Lambda pollers wait on an enabled `Notified` instead of a task spawned per loop, and parse their filters once.
+
+Heap: a full queue costs a little more per message (two index entries); RSS after the 50,000 drain was 13.1 MB against
+9.4 MB before (allocator high water while the queue was full). The idle line is unchanged: an empty SQS holds no index
+and no watch.

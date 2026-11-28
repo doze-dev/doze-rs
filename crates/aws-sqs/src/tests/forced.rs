@@ -100,7 +100,7 @@ fn it_is_what_a_consumer_does_with_a_visibility_timeout_of_zero() {
         &json!({"QueueUrl": url, "ReceiptHandle": handle, "VisibilityTimeout": 0}),
     );
     let state = |w: &World| {
-        let m = &w.core.queues["q"].messages[0];
+        let m = w.core.queues["q"].messages.first().unwrap();
         (
             m.visible_at_ms,
             m.receive_count,
@@ -165,7 +165,14 @@ fn with_nothing_in_flight_it_says_what_the_queue_holds_instead() {
         "{why}"
     );
     // The delayed message is not touched: it is still delayed.
-    assert!(w.core.queues["orders"].messages[1].delayed(w.clock.now_ms()));
+    assert!(
+        w.core.queues["orders"]
+            .messages
+            .iter()
+            .nth(1)
+            .unwrap()
+            .delayed(w.clock.now_ms())
+    );
     assert_eq!(
         w.core.release_in_flight("missing").unwrap_err().code,
         "QueueDoesNotExist"

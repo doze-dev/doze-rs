@@ -9,6 +9,8 @@ mod kinesis;
 mod parallel;
 pub(crate) mod sqs;
 mod streams;
+#[cfg(test)]
+mod tests;
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, PoisonError};
@@ -44,6 +46,8 @@ pub(crate) struct Run {
     pub(crate) stop: CancellationToken,
     /// Iterators made when the mapping was created, so a record put right after is not missed by a poller that has not started.
     pub(crate) seed: HashMap<String, String>,
+    /// The mapping's filter patterns, parsed once when its poller starts (none: every record passes).
+    pub(crate) filters: Arc<[Value]>,
 }
 
 /// What invoking the function for a batch came to.
@@ -86,17 +90,7 @@ impl Run {
 
     /// Whether a record passes the mapping's filters (all pass when there are none).
     pub(crate) fn passes(&self, doc: &Value) -> bool {
-        let filters: Vec<Value> = self
-            .cfg
-            .pointer("/FilterCriteria/Filters")
-            .and_then(Value::as_array)
-            .map(|a| {
-                a.iter()
-                    .filter_map(|f| serde_json::from_str(f.get("Pattern")?.as_str()?).ok())
-                    .collect()
-            })
-            .unwrap_or_default();
-        filters.is_empty() || filters.iter().any(|p| filter::matches(p, doc))
+        self.filters.is_empty() || self.filters.iter().any(|p| filter::matches(p, doc))
     }
 
     /// Calls the function with a batch of records.
@@ -233,27 +227,6 @@ impl Run {
     }
 }
 
-/// A task that waits for a source to say it has something, ended when dropped.
-pub(crate) struct Wake(tokio::task::JoinHandle<()>);
-
-impl Wake {
-    /// Starts waiting: the task is spawned, and the caller yields once before reading, so the wait is in place before the read it guards.
-    pub(crate) fn on<F: std::future::Future<Output = ()> + Send + 'static>(wait: F) -> Self {
-        Self(tokio::spawn(wait))
-    }
-
-    /// Resolves when the source has said so.
-    pub(crate) async fn fired(&mut self) {
-        drop((&mut self.0).await);
-    }
-}
-
-impl Drop for Wake {
-    fn drop(&mut self) {
-        self.0.abort();
-    }
-}
-
 /// Starts and stops pollers so they are the enabled mappings of `region`.
 pub(crate) async fn sync(inner: &Arc<Inner>, region: &str) {
     let Ok(Answer::Many(list)) = inner.ask(region, Ask::Enabled).await else {
@@ -321,6 +294,7 @@ fn reconcile(inner: &Arc<Inner>, region: &str, wanted: HashMap<String, Value>) -
                 service: Some("lambda".to_owned()),
                 session_token: None,
             },
+            filters: filters_of(&mapping),
             cfg: mapping,
             stop: token,
             seed: HashMap::new(),
@@ -328,6 +302,19 @@ fn reconcile(inner: &Arc<Inner>, region: &str, wanted: HashMap<String, Value>) -
         starts.push(run);
     }
     starts
+}
+
+/// A mapping's filter patterns, parsed (a pattern that does not parse was refused when the mapping was made, and is skipped).
+pub(crate) fn filters_of(mapping: &Value) -> Arc<[Value]> {
+    mapping
+        .pointer("/FilterCriteria/Filters")
+        .and_then(Value::as_array)
+        .map(|a| {
+            a.iter()
+                .filter_map(|f| serde_json::from_str(f.get("Pattern")?.as_str()?).ok())
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 fn generation_of(mapping: &Value) -> String {

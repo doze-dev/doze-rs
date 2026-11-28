@@ -2,6 +2,7 @@
 //! long polling, tags, permissions, dead-letter queues and move tasks. State is on disk (`persist`): it survives an idle
 //! reap and a restart. Every operation the model has is named in `core`'s dispatch.
 
+mod arrivals;
 mod attrs;
 mod authz;
 mod batch;
@@ -9,6 +10,8 @@ mod core;
 mod elsewhere;
 mod fifo;
 mod forced;
+mod handles;
+mod index;
 mod messages;
 mod model;
 mod moves;
@@ -37,6 +40,8 @@ use aws_wire::ApiError;
 use aws_wire::service::{BoxFuture, Call, Reply, Service, Web};
 use doze_runtime::{Ctx, Deadlines, Keyed};
 
+use crate::arrivals::Arrivals;
+pub use crate::arrivals::Watch;
 use crate::core::{Answer, Ask, Core};
 
 /// MD5 of some bytes, as lower-case hex.
@@ -53,8 +58,8 @@ const HOME_REGION: &str = "us-east-1";
 pub struct Sqs {
     /// One actor per region: a queue, parameter, secret or key belongs to the region that made it.
     actors: Keyed<Core>,
-    /// Woken by anything that could give a waiting receive a message.
-    arrived: tokio::sync::Notify,
+    /// The queues receives wait on, each woken by what could give it a message.
+    arrivals: Arc<Arrivals>,
     /// One timer per region, asleep until the oldest message there passes its retention, and none while every queue is empty.
     expiry: Arc<Deadlines<Core>>,
 }
@@ -77,8 +82,8 @@ impl Sqs {
             }),
         );
         Self {
+            arrivals: Arrivals::new(Arc::clone(&ctx.clock)),
             actors: Keyed::new("sqs", ctx, HOME_REGION),
-            arrived: tokio::sync::Notify::new(),
             expiry,
         }
     }
@@ -106,11 +111,26 @@ impl Sqs {
         self.expiry.armed(region)
     }
 
-    /// Resolves when anything has happened that could give a waiting receive a message (a send, a visibility change, a purge, a
-    /// redrive) since it was last awaited. A consumer that is not itself a long poll (a Lambda event source mapping) reads, and waits
-    /// here when there is nothing.
-    pub async fn message_arrived(&self) {
-        self.arrived.notified().await;
+    /// Watches the queue `queue_arn` names, for a consumer that is not itself a long poll (a Lambda event source mapping): it reads,
+    /// and when there is nothing waits for [`Watch::notified`] (enabled before the read) or [`Watch::until_visible`], whichever
+    /// comes first. Woken only by what could give the queue a receivable message: a send, a visibility made shorter, a move or a
+    /// redrive into it, a forced release, its deletion. `None` for an ARN that is not a queue's.
+    #[must_use]
+    pub fn watch(&self, queue_arn: &str) -> Option<Watch> {
+        let mut parts = queue_arn.split(':');
+        let (region, name) = (parts.nth(3)?, parts.nth(1)?);
+        Some(self.arrivals.watch(arrivals::key(region, name)))
+    }
+
+    /// Wakes the receives that wait on the queues an answer says something arrived in.
+    fn tell(&self, region: &str, answer: &Answer) {
+        for name in &answer.arrived {
+            self.arrivals.tell(&arrivals::key(region, name));
+        }
+        if let Some(empty) = &answer.empty {
+            self.arrivals
+                .note(&arrivals::key(region, &empty.queue), empty.next_visible_ms);
+        }
     }
 
     /// Sends the call to the actor of the region it was signed for, and tells the region's timer when a message next expires.
@@ -145,29 +165,34 @@ impl Sqs {
                 durable: None,
                 next_due: None,
                 missed: None,
+                empty: None,
+                arrived: Vec::new(),
             },
         }
     }
 
-    /// A long poll: asks again when something has arrived, or every quarter second (a message can become visible by the clock
-    /// alone), until one is found or `seconds` have passed. The actor is free the whole time. `empty` is what to answer at
-    /// the end.
-    async fn wait_for_messages(&self, call: Call, seconds: u32, empty: Reply) -> Reply {
+    /// A long poll on the queue `queue` names: asks again when something has arrived there, or when its first hidden message
+    /// shows, until one is found or `seconds` have passed. The actor is free the whole time. The watch starts before the first ask
+    /// here, so an arrival after the ask that found nothing is not missed.
+    async fn wait_for_messages(&self, call: &Call, queue: &str, seconds: u32) -> Reply {
+        let region = call.caller.region.clone();
+        let watch = self.arrivals.watch(arrivals::key(&region, queue));
         let deadline =
             tokio::time::Instant::now() + std::time::Duration::from_secs(u64::from(seconds));
         loop {
-            let left = deadline.saturating_duration_since(tokio::time::Instant::now());
-            if left.is_zero() {
-                return empty;
-            }
-            let tick = left.min(std::time::Duration::from_millis(250));
-            tokio::select! {
-                () = self.arrived.notified() => {}
-                () = tokio::time::sleep(tick) => {}
-            }
+            let arrived = watch.notified();
+            tokio::pin!(arrived);
+            arrived.as_mut().enable();
             let again = self.ask(call.duplicate()).await;
-            if again.poll.is_none() {
+            self.tell(&region, &again);
+            let left = deadline.saturating_duration_since(tokio::time::Instant::now());
+            if again.poll.is_none() || left.is_zero() {
                 return again.reply;
+            }
+            let wait = watch.until_visible().map_or(left, |d| d.min(left));
+            tokio::select! {
+                () = arrived => {}
+                () = tokio::time::sleep(wait) => {}
             }
         }
     }
@@ -200,16 +225,16 @@ impl Service for Sqs {
             let receive = aws_model_sqs::Operation::from_index(call.op)
                 == Some(aws_model_sqs::Operation::ReceiveMessage);
             let region = call.caller.region.clone();
-            let mut first = self.ask(call.duplicate()).await;
+            // Only a receive may be asked again (when it waits): any other call is handed over as it is.
+            let again = receive.then(|| call.duplicate());
+            let mut first = self.ask(call).await;
             self.hint_regions(&region, &mut first).await;
-            if !receive {
-                // A send, a visibility change, a purge, a redrive: something a waiting receive may now find.
-                self.arrived.notify_waiters();
-                return first.reply;
-            }
-            match first.poll {
-                Some(seconds) => self.wait_for_messages(call, seconds, first.reply).await,
-                None => first.reply,
+            self.tell(&region, &first);
+            match (again, first.poll, first.empty.take()) {
+                (Some(call), Some(seconds), Some(empty)) => {
+                    self.wait_for_messages(&call, &empty.queue, seconds).await
+                }
+                _ => first.reply,
             }
         })
     }

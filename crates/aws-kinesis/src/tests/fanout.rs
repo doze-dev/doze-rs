@@ -326,3 +326,42 @@ async fn a_subscription_ends_after_five_minutes_with_a_heartbeat_between() {
     assert!((60..=61).contains(&events), "{events}");
     assert_eq!(w.k.subs.open(), 0, "the claim is released");
 }
+
+/// A watch on a stream is woken by records appended to it, and not by records appended to another stream or by reads; a stream
+/// nobody watches has no entry.
+#[tokio::test]
+async fn a_watch_on_a_stream_is_woken_by_its_own_records_only() {
+    let w = Live::new();
+    w.consumer().await;
+    w.ok("CreateStream", json!({"StreamName": "t", "ShardCount": 1}))
+        .await;
+    let watch =
+        w.k.watch_stream("arn:aws:kinesis:us-east-1:000000000000:stream/s");
+    woken_by_its_own_records(&w, &watch).await;
+    assert_eq!(w.k.signals.watched(), 1);
+    drop(watch);
+    assert_eq!(w.k.signals.watched(), 0);
+}
+
+async fn woken_by_its_own_records(w: &Live, watch: &crate::Signal) {
+    let quiet = watch.notified();
+    tokio::pin!(quiet);
+    quiet.as_mut().enable();
+    w.ok(
+        "PutRecord",
+        json!({"StreamName": "t", "PartitionKey": "k", "Data": aws_core::base64::encode(b"x")}),
+    )
+    .await;
+    w.ok("DescribeStreamSummary", json!({"StreamName": "s"}))
+        .await;
+    assert!(
+        tokio::time::timeout(Duration::from_millis(50), quiet.as_mut())
+            .await
+            .is_err(),
+        "nothing was appended to s"
+    );
+    w.put("one").await;
+    tokio::time::timeout(Duration::from_secs(1), quiet)
+        .await
+        .expect("a record in s wakes it");
+}

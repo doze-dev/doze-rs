@@ -11,61 +11,12 @@ use aws_wire::service::{Call, Reply};
 
 use crate::core::{Core, empty, invalid_parameter, missing, reply, request};
 use crate::fifo::{DEDUP_WINDOW_MS, pick};
+use crate::handles::give_handle;
 use crate::model::{Message, Queue};
 use crate::msgattr::{self, Attr, Value};
 
 /// The most messages one receive returns.
 const MAX_RECEIVE: i64 = 10;
-
-impl Queue {
-    /// Deletes the message the receipt handle names. A handle that is well formed but names nothing succeeds: the delete is
-    /// idempotent.
-    pub(crate) fn delete_handle(&mut self, handle: &str) -> Result<(), ApiError> {
-        if !well_formed(handle) {
-            return Err(bad_handle());
-        }
-        self.messages
-            .retain(|m| !m.handles.iter().any(|h| h == handle));
-        Ok(())
-    }
-
-    /// Moves the deadline of the in-flight message the handle names to `timeout` seconds from `now_ms`.
-    pub(crate) fn change_visibility(
-        &mut self,
-        handle: &str,
-        timeout: i64,
-        now_ms: i64,
-    ) -> Result<(), ApiError> {
-        ranged(
-            Some(timeout),
-            0,
-            43_200,
-            0,
-            "VisibilityTimeout",
-            "VisibilityTimeout must be an integer between 0 and 43200.",
-        )?;
-        if !well_formed(handle) {
-            return Err(bad_handle());
-        }
-        // A message that is gone, or not in flight, is the same answer: the handle is of no use.
-        let refused = || {
-            invalid_parameter(format!(
-                "Value {handle} for parameter ReceiptHandle is invalid. Reason: Message does not exist or is not available for visibility timeout change."
-            ))
-        };
-        let m = self
-            .messages
-            .find_mut(|m| m.handles.iter().any(|h| h == handle) && m.in_flight(now_ms))
-            .ok_or_else(refused)?;
-        if now_ms + timeout * 1000 > m.received_ms + 43_200_000 {
-            return Err(invalid_parameter(format!(
-                "Value {timeout} for parameter VisibilityTimeout is invalid. Reason: Total VisibilityTimeout for the message is beyond the limit [43200 seconds]."
-            )));
-        }
-        m.visible_at_ms = now_ms + timeout * 1000;
-        Ok(())
-    }
-}
 
 impl Core {
     pub(crate) fn receive_message(&mut self, call: &Call) -> Reply {
@@ -83,36 +34,50 @@ impl Core {
             .visibility
             .unwrap_or(i64::from(queue.attrs.visibility_timeout))
             * 1000;
-        let keep_until = now - i64::from(queue.attrs.retention_seconds) * 1000;
-        queue.messages.retain(|m| m.sent_ms > keep_until);
+        queue.messages.promote(now);
         let want = (ask.system.as_slice(), ask.user.as_slice());
         // A retry of a receive that carried the same attempt id gets the same messages (with fresh handles).
-        let (indexes, fresh) = match retried(queue, ask.attempt, now) {
-            Some(indexes) => (indexes, false),
-            None => (pick(&queue.messages, now, ask.max, queue.is_fifo()), true),
+        let (ords, fresh) = match retried(queue, ask.attempt, now) {
+            Some(ords) => (ords, false),
+            None => {
+                let picked = pick(queue, now, ask.max);
+                // Past their retention: gone, whether or not they had been removed yet.
+                for ord in picked.expired {
+                    queue.messages.remove(ord);
+                }
+                (picked.ords, true)
+            }
         };
-        let mut taken = Vec::with_capacity(indexes.len());
-        for i in &indexes {
-            let Some(m) = queue.messages.get_mut(*i) else {
-                continue;
-            };
-            taken.push(if fresh {
-                take(m, now, hidden_for, want, &account)
-            } else {
-                retake(m, want, &account)
+        let mut taken = Vec::with_capacity(ords.len());
+        for ord in &ords {
+            let given = queue.messages.update(*ord, |m| {
+                if fresh {
+                    take(m, now, hidden_for, want, &account)
+                } else {
+                    retake(m, want, &account)
+                }
             });
+            taken.extend(given);
         }
         if let (Some(id), true) = (ask.attempt, queue.is_fifo()) {
-            let ids = indexes
+            let ids = ords
                 .iter()
-                .filter_map(|i| queue.messages.get(*i).map(|m| m.id.clone()))
+                .filter_map(|o| queue.messages.get(*o).map(|m| m.id.clone()))
                 .collect();
             queue.fifo.attempt = Some((id.to_owned(), now, ids));
         }
-        // Nothing to hand over: the caller may wait for something to arrive, for as long as it asked, or the queue's default.
-        let wait = ask.wait.unwrap_or(i64::from(queue.attrs.wait_seconds));
-        if taken.is_empty() && wait > 0 {
-            self.poll = u32::try_from(wait).ok();
+        if taken.is_empty() {
+            // Nothing to hand over: the caller may wait for something to arrive, for as long as it asked, or the queue's
+            // default; and is told when the first hidden message shows, so it need not ask again before then.
+            let wait = ask.wait.unwrap_or(i64::from(queue.attrs.wait_seconds));
+            let empty = crate::core::Empty {
+                queue: queue.name.clone(),
+                next_visible_ms: queue.messages.next_visible(),
+            };
+            if wait > 0 {
+                self.poll = u32::try_from(wait).ok();
+            }
+            self.empty = Some(empty);
         }
         write_received(&taken)
     }
@@ -219,31 +184,29 @@ pub(crate) struct Taken {
 }
 
 /// The messages a retry of an earlier receive should return, if `attempt` is that receive's id and the window has not passed.
-fn retried(queue: &Queue, attempt: Option<&str>, now_ms: i64) -> Option<Vec<usize>> {
+fn retried(queue: &Queue, attempt: Option<&str>, now_ms: i64) -> Option<Vec<u64>> {
     let id = attempt.filter(|_| queue.is_fifo())?;
     let (earlier, at, ids) = queue.fifo.attempt.as_ref()?;
     if earlier != id || now_ms - at >= DEDUP_WINDOW_MS {
         return None;
     }
-    let indexes: Vec<usize> = queue
+    let ords: Vec<u64> = queue
         .messages
         .iter()
-        .enumerate()
-        .filter(|(_, m)| ids.contains(&m.id))
-        .map(|(i, _)| i)
+        .filter(|m| ids.contains(&m.id))
+        .map(|m| m.ord)
         .collect();
     // Only while they are all still in flight: if one was deleted or came back, this is a new receive.
-    (!indexes.is_empty()
-        && indexes
+    (!ords.is_empty()
+        && ords
             .iter()
-            .all(|i| queue.messages.get(*i).is_some_and(|m| m.in_flight(now_ms))))
-    .then_some(indexes)
+            .all(|o| queue.messages.get(*o).is_some_and(|m| m.in_flight(now_ms))))
+    .then_some(ords)
 }
 
 /// Hands `m` out again for a retry: a new handle, and nothing else about it changes.
 fn retake(m: &mut Message, want: (&[&str], &[&str]), account: &str) -> Taken {
-    let handle = new_handle();
-    m.handles.push(handle.clone());
+    let handle = give_handle(m);
     taken_from(m, handle, want, account)
 }
 
@@ -258,9 +221,8 @@ fn take(
     m.receive_count += 1;
     m.first_received_ms.get_or_insert(now);
     m.visible_at_ms = now + hidden_for;
-    let handle = new_handle();
     m.received_ms = now;
-    m.handles.push(handle.clone());
+    let handle = give_handle(m);
     taken_from(m, handle, want, account)
 }
 
@@ -343,28 +305,6 @@ pub(crate) fn ranged(
             "Value {n} for parameter {parameter} is invalid. Reason: {reason}"
         ))),
     }
-}
-
-/// A receipt handle: 48 hex digits. AWS's are longer and opaque; what matters is that a client cannot make one up.
-pub(crate) fn new_handle() -> String {
-    let mut bytes = [0u8; 24];
-    // WHY: with no randomness the handle is all zeros; a collision costs one wrong-message delete in a test environment that has
-    // no entropy source, which is not a place anyone runs this.
-    if getrandom::fill(&mut bytes).is_err() {
-        bytes = [0; 24];
-    }
-    aws_core::hex::encode(&bytes)
-}
-
-fn well_formed(handle: &str) -> bool {
-    handle.len() == 48 && handle.bytes().all(|b| b.is_ascii_hexdigit())
-}
-
-fn bad_handle() -> ApiError {
-    ApiError::modeled(
-        "ReceiptHandleIsInvalid",
-        "The input receipt handle is invalid.",
-    )
 }
 
 /// The system attributes of `m` the caller asked for by name (or `All`).

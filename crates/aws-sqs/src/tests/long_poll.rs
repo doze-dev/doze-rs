@@ -141,3 +141,116 @@ async fn the_queues_default_wait_applies_when_the_request_names_none() {
     .await;
     assert!(started.elapsed() < Duration::from_secs(1));
 }
+
+async fn queue_url(sqs: &Sqs, patterns: &Patterns, name: &str, attrs: Value) -> String {
+    run(
+        sqs,
+        patterns,
+        Operation::CreateQueue,
+        json!({"QueueName": name, "Attributes": attrs}),
+    )
+    .await["QueueUrl"]
+        .as_str()
+        .unwrap()
+        .to_owned()
+}
+
+/// A watch on a queue is woken by what can give it a message, and by nothing else: not a read of it, not a send to another queue.
+/// Once each was (one wake-up for the whole service, fired by every call that was not a receive), and a mapping that read the
+/// queue's attributes woke itself: one core busy forever.
+// Real time: the writer is a thread.
+#[tokio::test]
+async fn a_watch_on_a_queue_is_woken_by_an_arrival_there_and_nothing_else() {
+    let (sqs, patterns) = (service(), Patterns::new(&TABLES));
+    let url = queue_url(&sqs, &patterns, "q", json!({})).await;
+    let other = queue_url(&sqs, &patterns, "other", json!({})).await;
+    let watch = sqs.watch("arn:aws:sqs:us-east-1:000000000000:q").unwrap();
+    woken_only_by_a_send(&sqs, &patterns, &watch, &url, &other).await;
+    assert_eq!(sqs.arrivals.watched(), 1);
+    drop(watch);
+    assert_eq!(
+        sqs.arrivals.watched(),
+        0,
+        "a queue nobody waits on costs nothing"
+    );
+}
+
+async fn woken_only_by_a_send(
+    sqs: &Sqs,
+    patterns: &Patterns,
+    watch: &crate::Watch,
+    url: &str,
+    other: &str,
+) {
+    let quiet = watch.notified();
+    tokio::pin!(quiet);
+    quiet.as_mut().enable();
+    for (op, body) in [
+        (
+            Operation::SendMessage,
+            json!({"QueueUrl": other, "MessageBody": "x"}),
+        ),
+        (
+            Operation::GetQueueAttributes,
+            json!({"QueueUrl": url, "AttributeNames": ["All"]}),
+        ),
+        (Operation::ReceiveMessage, json!({"QueueUrl": url})),
+        (Operation::PurgeQueue, json!({"QueueUrl": url})),
+    ] {
+        run(sqs, patterns, op, body).await;
+    }
+    assert!(
+        tokio::time::timeout(Duration::from_millis(50), quiet.as_mut())
+            .await
+            .is_err(),
+        "nothing arrived in q"
+    );
+    run(
+        sqs,
+        patterns,
+        Operation::SendMessage,
+        json!({"QueueUrl": url, "MessageBody": "x"}),
+    )
+    .await;
+    tokio::time::timeout(Duration::from_secs(1), quiet)
+        .await
+        .expect("a send to q wakes it");
+}
+
+/// A long poll on a queue whose only message is in flight sleeps until the message shows, and is answered then: it does not look
+/// again every quarter second, and it does not wait out its 20 seconds.
+// Real time: the writer is a thread.
+#[tokio::test]
+async fn a_long_poll_is_answered_when_an_in_flight_message_shows() {
+    let (sqs, patterns) = (service(), Patterns::new(&TABLES));
+    let url = queue_url(&sqs, &patterns, "q", json!({"VisibilityTimeout": "1"})).await;
+    run(
+        &sqs,
+        &patterns,
+        Operation::SendMessage,
+        json!({"QueueUrl": url, "MessageBody": "x"}),
+    )
+    .await;
+    let first = run(
+        &sqs,
+        &patterns,
+        Operation::ReceiveMessage,
+        json!({"QueueUrl": url}),
+    )
+    .await;
+    assert_eq!(first["Messages"].as_array().map(Vec::len), Some(1));
+    let started = tokio::time::Instant::now();
+    let again = run(
+        &sqs,
+        &patterns,
+        Operation::ReceiveMessage,
+        json!({"QueueUrl": url, "WaitTimeSeconds": 20}),
+    )
+    .await;
+    assert_eq!(again["Messages"][0]["Body"], "x");
+    let took = started.elapsed();
+    assert!(
+        took >= Duration::from_millis(500) && took < Duration::from_secs(3),
+        "{took:?}"
+    );
+}

@@ -151,6 +151,11 @@ pub struct StreamInfo {
     pub shard_id: String,
 }
 
+/// A stream's ARN after the account: what names it within a region (the key its consumers wait on).
+pub(crate) fn stream_resource(table: &str, label: &str) -> String {
+    format!("table/{table}/stream/{label}")
+}
+
 /// `arn:aws:dynamodb:<region>:<account>:table/<name>/stream/<label>`.
 pub(crate) fn stream_arn(region: &str, account: &str, table: &str, label: &str) -> String {
     format!("arn:aws:dynamodb:{region}:{account}:table/{table}/stream/{label}")
@@ -301,6 +306,7 @@ impl Core {
         self.pending
             .put(Space::Stream, stream_key(&s.id, seq), bytes);
         self.appended = true;
+        self.grown.insert(stream_resource(&t.name, &s.label));
         self.trim_stream(&s.id, now_ms)
     }
 

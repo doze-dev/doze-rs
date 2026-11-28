@@ -204,7 +204,7 @@ impl Sqs {
         }
         self.expiry.arm(&caller.region, &actor, asked.next_due);
         // A receive that waits for a message may find these.
-        self.arrived.notify_waiters();
+        self.tell(&caller.region, &asked);
         answer
             .await
             .map_err(|_| ApiError::internal("the queue's actor went away"))?

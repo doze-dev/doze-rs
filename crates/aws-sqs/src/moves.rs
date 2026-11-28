@@ -219,7 +219,7 @@ impl Core {
                 "Value for parameter MaxNumberOfMessagesPerSecond is invalid. Reason: You must enter a number that's between 1 and 500.",
             ));
         }
-        let handle = crate::messages::new_handle();
+        let handle = crate::handles::random_hex::<24>();
         self.tasks.push(Task {
             handle: handle.clone(),
             source_arn: source.to_owned(),

@@ -4,7 +4,7 @@
 //! `test_receive_request_attempt_id`, recorded 2026-11-09). Throughput limits are stored and reported but do not change
 //! behaviour: a laptop has no throughput quota to enforce.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -93,42 +93,55 @@ impl Queue {
     }
 }
 
-/// The indexes of the messages a receive takes, in order, at most `limit`.
+/// What a receive takes, and what it found past its retention on the way.
+pub(crate) struct Picked {
+    /// The `ord`s of the messages to hand over, in order.
+    pub(crate) ords: Vec<u64>,
+    /// Messages past the queue's retention: gone, to be removed.
+    pub(crate) expired: Vec<u64>,
+}
+
+/// The messages a receive takes, in order, at most `limit`. The queue's messages must be promoted to `now_ms`.
 ///
 /// A message is takeable when it is visible. On a FIFO queue a group with a message in flight is blocked, so its later
-/// messages wait; and a group's messages are taken in order, so one that cannot be taken holds back those after it.
-pub(crate) fn pick(messages: &[Message], now_ms: i64, limit: usize, fifo: bool) -> Vec<usize> {
-    if !fifo {
-        return messages
-            .iter()
-            .enumerate()
-            .filter(|(_, m)| m.visible_at_ms <= now_ms)
-            .map(|(i, _)| i)
-            .take(limit)
-            .collect();
+/// messages wait; and a group's messages are taken in order, so one that cannot be taken holds back those after it. Only the
+/// visible messages are gone through, up to the `limit`th takeable one, and (on a FIFO queue) the hidden ones, for their groups.
+pub(crate) fn pick(queue: &Queue, now_ms: i64, limit: usize) -> Picked {
+    let mut picked = Picked {
+        ords: Vec::new(),
+        expired: Vec::new(),
+    };
+    let messages = &queue.messages;
+    let live = |m: &&Message| !queue.expired(m, now_ms);
+    // On a FIFO queue: the groups with a message in flight, and for each other group the first message that is not visible yet.
+    let mut blocked: HashSet<&str> = HashSet::new();
+    let mut held: HashMap<&str, u64> = HashMap::new();
+    if queue.is_fifo() {
+        for m in messages.not_visible(now_ms).filter(live) {
+            let group = m.group_id.as_deref().unwrap_or("");
+            if m.in_flight(now_ms) {
+                blocked.insert(group);
+            } else {
+                let first = held.entry(group).or_insert(m.ord);
+                *first = (*first).min(m.ord);
+            }
+        }
     }
-    let blocked: HashSet<&str> = messages
-        .iter()
-        .filter(|m| m.in_flight(now_ms))
-        .filter_map(|m| m.group_id.as_deref())
-        .collect();
-    let mut held: HashSet<&str> = HashSet::new();
-    let mut taken = Vec::new();
-    for (i, m) in messages.iter().enumerate() {
-        let group = m.group_id.as_deref().unwrap_or("");
-        if blocked.contains(group) || held.contains(group) {
-            continue;
-        }
-        if m.visible_at_ms > now_ms {
-            held.insert(group);
-            continue;
-        }
-        taken.push(i);
-        if taken.len() == limit {
+    for m in messages.visible() {
+        if picked.ords.len() == limit {
             break;
         }
+        if queue.expired(m, now_ms) {
+            picked.expired.push(m.ord);
+            continue;
+        }
+        let group = m.group_id.as_deref().unwrap_or("");
+        if blocked.contains(group) || held.get(group).is_some_and(|first| m.ord > *first) {
+            continue;
+        }
+        picked.ords.push(m.ord);
     }
-    taken
+    picked
 }
 
 #[cfg(test)]
@@ -160,30 +173,70 @@ mod tests {
         }
     }
 
+    fn queue(name: &str, messages: impl IntoIterator<Item = Message>) -> Queue {
+        let mut q = Queue {
+            name: name.to_owned(),
+            attrs: crate::model::Attrs::default(),
+            stored: std::collections::BTreeMap::new(),
+            created_secs: 0,
+            modified_secs: 0,
+            messages: crate::model::Messages::default(),
+            tags: std::collections::BTreeMap::new(),
+            fifo: FifoState::default(),
+            purged_ms: None,
+            written: crate::persist::Written::default(),
+        };
+        for m in messages {
+            q.messages.push(m);
+        }
+        q
+    }
+
+    fn picked(q: &mut Queue, now_ms: i64, limit: usize) -> Vec<u64> {
+        q.messages.promote(now_ms);
+        pick(q, now_ms, limit).ords
+    }
+
     #[test]
     fn a_receive_takes_a_groups_messages_in_order_and_skips_a_blocked_group() {
-        let messages = [
-            message("a", 1_000, true),
-            message("a", 0, false),
-            message("b", 0, false),
-            message("b", 0, false),
-        ];
+        let messages = || {
+            [
+                message("a", 1_000, true),
+                message("a", 0, false),
+                message("b", 0, false),
+                message("b", 0, false),
+            ]
+        };
+        let mut fifo = queue("q.fifo", messages());
         // Group a has one in flight, so only b's two can be taken.
-        assert_eq!(pick(&messages, 10, 10, true), [2, 3]);
-        assert_eq!(pick(&messages, 10, 1, true), [2]);
+        assert_eq!(picked(&mut fifo, 10, 10), [2, 3]);
+        assert_eq!(picked(&mut fifo, 10, 1), [2]);
         // A standard queue takes any visible message.
-        assert_eq!(pick(&messages, 10, 10, false), [1, 2, 3]);
+        assert_eq!(picked(&mut queue("q", messages()), 10, 10), [1, 2, 3]);
     }
 
     #[test]
     fn a_message_that_cannot_be_taken_holds_back_those_after_it_in_its_group() {
-        let messages = [
-            message("a", 100, false),
-            message("a", 0, false),
-            message("b", 0, false),
-        ];
-        assert_eq!(pick(&messages, 10, 10, true), [2]);
-        assert_eq!(pick(&messages, 100, 10, true), [0, 1, 2]);
+        let mut q = queue(
+            "q.fifo",
+            [
+                message("a", 100, false),
+                message("a", 0, false),
+                message("b", 0, false),
+            ],
+        );
+        assert_eq!(picked(&mut q, 10, 10), [2]);
+        assert_eq!(picked(&mut q, 100, 10), [0, 1, 2]);
+    }
+
+    #[test]
+    fn a_message_past_its_retention_is_not_taken_and_is_named_for_removal() {
+        let mut old = message("a", 0, false);
+        old.sent_ms = -400_000_000;
+        let mut q = queue("q", [old, message("a", 0, false)]);
+        q.messages.promote(10);
+        let p = pick(&q, 10, 10);
+        assert_eq!((p.ords, p.expired), (vec![1], vec![0]));
     }
 
     #[test]

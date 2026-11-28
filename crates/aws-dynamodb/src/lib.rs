@@ -42,6 +42,7 @@ mod restore;
 mod route;
 mod schema;
 mod settings;
+mod signals;
 mod stage;
 mod storage;
 mod stream;
@@ -65,6 +66,7 @@ use crate::core::{Answer, Core, Request};
 pub use crate::core::Windows;
 pub use crate::import::check as check_import;
 pub use crate::partiql::check as check_partiql;
+pub use crate::signals::Signal;
 pub use crate::stream::{Batch, Event, Record, StreamInfo};
 
 /// The region whose files are kept in the service's directory itself.
@@ -75,8 +77,8 @@ const HOME_REGION: &str = "us-east-1";
 pub struct Dynamodb {
     /// One actor per region: a table belongs to the region that made it.
     actors: Keyed<Core>,
-    /// Woken when a call appended to a stream, so a consumer waiting for records looks again.
-    arrived: Arc<tokio::sync::Notify>,
+    /// The streams consumers wait on, each woken when a call appended to it.
+    signals: Arc<signals::Signals>,
     /// One timer per region, asleep until the first item with a time to live expires, and none while no such item exists.
     expiry: Arc<Deadlines<Core>>,
     /// The service's directory, which `resume` looks through.
@@ -90,8 +92,8 @@ impl Dynamodb {
     /// Registers DynamoDB. `ctx` says where its files live and how it reads the time.
     #[must_use]
     pub fn new(ctx: Arc<Ctx>) -> Self {
-        let arrived = Arc::new(tokio::sync::Notify::new());
-        let wake = Arc::clone(&arrived);
+        let signals: Arc<signals::Signals> = Arc::default();
+        let wake = Arc::clone(&signals);
         let peers = core::peers_of(&ctx);
         let sender = peers.clone();
         let expiry = Deadlines::new(
@@ -99,8 +101,8 @@ impl Dynamodb {
             || Request::Tick,
             Box::new(move |answer: Answer| {
                 // A deletion by time to live is a REMOVE record: a consumer waiting on the stream looks again.
-                if answer.appended {
-                    wake.notify_waiters();
+                for stream in &answer.grown {
+                    wake.tell(stream);
                 }
                 let sender = sender.clone();
                 Box::pin(async move {
@@ -114,7 +116,7 @@ impl Dynamodb {
             dir: ctx.dir.clone(),
             clock: Arc::clone(&ctx.clock),
             actors: Keyed::new("dynamodb", ctx, HOME_REGION),
-            arrived,
+            signals,
             expiry,
             peers,
         }
@@ -158,9 +160,7 @@ impl Dynamodb {
                 continue;
             };
             if let Ok(answer) = actor.call(Request::Tick).await {
-                if answer.appended {
-                    self.arrived.notify_waiters();
-                }
+                self.tell(&answer);
                 self.expiry.arm(&region, &actor, answer.next_due);
             }
         }
@@ -213,10 +213,21 @@ impl Dynamodb {
             .and_then(|a| a.policy)
     }
 
-    /// Resolves when some call has appended to a stream since it was last awaited. A consumer reads the records, and waits here when
-    /// there are none.
-    pub async fn stream_arrived(&self) {
-        self.arrived.notified().await;
+    /// Watches the stream `stream_arn` names: a consumer reads its records and, when there are none, waits for
+    /// [`Signal::notified`] (enabled before the read). Woken only by an append to that stream. Streams are told apart by the
+    /// part of the ARN after the account (`table/<name>/stream/<label>`): two regions with a table of the same name whose streams
+    /// were made in the same millisecond share a wake-up, which costs a read that finds nothing.
+    #[must_use]
+    pub fn watch_stream(&self, stream_arn: &str) -> Signal {
+        let resource = stream_arn.splitn(6, ':').nth(5).unwrap_or(stream_arn);
+        self.signals.watch(resource.to_owned())
+    }
+
+    /// Wakes the consumers of the streams an answer appended to.
+    pub(crate) fn tell(&self, answer: &Answer) {
+        for stream in &answer.grown {
+            self.signals.tell(stream);
+        }
     }
 
     /// The records of the stream `stream_arn` after the sequence number `after` (0 for from the start), at most `limit`.
@@ -248,19 +259,17 @@ impl Dynamodb {
             Ok(actor) => actor,
             Err(e) => return Err(ApiError::internal(e.to_string())),
         };
-        let Answer {
-            reply,
-            appended,
-            next_due,
-            work,
-            ..
-        } = match actor.call(Request::Call(Box::new(call))).await {
+        let answer = match actor.call(Request::Call(Box::new(call))).await {
             Ok(a) => a,
             Err(e) => return Err(ApiError::internal(e.to_string())),
         };
-        if appended {
-            self.arrived.notify_waiters();
-        }
+        self.tell(&answer);
+        let Answer {
+            reply,
+            next_due,
+            work,
+            ..
+        } = answer;
         self.expiry.arm(&region, &actor, next_due);
         self.after(&actor, work).await;
         reply
@@ -273,9 +282,7 @@ impl Dynamodb {
             let done = work::run(self.peers.as_ref(), std::mem::take(&mut work)).await;
             for d in done {
                 if let Ok(answer) = actor.call(Request::Done(Box::new(d))).await {
-                    if answer.appended {
-                        self.arrived.notify_waiters();
-                    }
+                    self.tell(&answer);
                     work.extend(answer.work);
                 }
             }

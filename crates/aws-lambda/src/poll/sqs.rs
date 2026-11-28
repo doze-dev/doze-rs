@@ -1,6 +1,7 @@
-//! The SQS poller. It reads with `ReceiveMessage` over the peer bus, waits for SQS to say a message arrived when the queue is empty
-//! (and, while messages are in flight or delayed and so may come back by the clock alone, looks again each second), filters,
-//! invokes the function, and deletes what succeeded: all of a batch, or all but the items the function reports as failed.
+//! The SQS poller. It reads with `ReceiveMessage` over the peer bus and, when the queue is empty, waits for SQS to say a message
+//! arrived in that queue, or until the first message in flight or delayed there shows (SQS told the empty receive when); an idle
+//! mapping on an empty queue does nothing at all. It filters, invokes the function, and deletes what succeeded: all of a batch, or
+//! all but the items the function reports as failed.
 //!
 //! Batches run concurrently, up to `ScalingConfig.MaximumConcurrency` at once (a semaphore per mapping; AWS's range is 2 to 1,000).
 //! With none set, five: AWS starts an SQS mapping at five concurrent batches and scales from there (memory); locally five is the
@@ -15,7 +16,7 @@ use aws_wire::service::Caller;
 use serde_json::{Map, Value, json};
 use tokio::time::Instant;
 
-use super::{Run, Wake};
+use super::Run;
 use crate::errors::invalid;
 
 /// The queue's name and account from its ARN.
@@ -168,7 +169,7 @@ impl Run {
     }
 
     /// Up to `want` messages: one receive, or several until `window` has passed for a batch that is not yet full.
-    async fn gather(&self, peers: &Peers, q: &Queue, sqs: &Arc<aws_sqs::Sqs>) -> Vec<Value> {
+    async fn gather(&self, peers: &Peers, q: &Queue, watch: &aws_sqs::Watch) -> Vec<Value> {
         let want = usize::try_from(self.int("BatchSize", 10))
             .unwrap_or(10)
             .max(1);
@@ -178,11 +179,9 @@ impl Run {
         let until = Instant::now() + window;
         let mut batch: Vec<Value> = Vec::new();
         loop {
-            let mut waiter = Wake::on({
-                let sqs = Arc::clone(sqs);
-                async move { sqs.message_arrived().await }
-            });
-            tokio::task::yield_now().await;
+            let arrived = watch.notified();
+            tokio::pin!(arrived);
+            arrived.as_mut().enable();
             let ask = json!({"QueueUrl": q.url, "MaxNumberOfMessages": (want - batch.len()).min(10),
                 "WaitTimeSeconds": 0, "AttributeNames": ["All"], "MessageAttributeNames": ["All"]});
             let got = self.sqs(peers, "ReceiveMessage", ask).await;
@@ -193,44 +192,22 @@ impl Run {
             let found = !messages.is_empty();
             batch.extend(messages);
             if batch.len() >= want {
-                drop(waiter);
                 return batch;
             }
             if found {
-                drop(waiter);
                 continue;
             }
             // The queue is empty for now: a batch with something in it waits out the window for more.
             if batch.is_empty() || window.is_zero() {
-                drop(waiter);
                 return batch;
             }
             let left = until.saturating_duration_since(Instant::now());
             tokio::select! {
-                () = waiter.fired() => {}
+                () = arrived => {}
                 () = tokio::time::sleep(left) => return batch,
                 () = self.stop.cancelled() => return batch,
             }
         }
-    }
-
-    async fn has_hidden(&self, peers: &Peers, q: &Queue) -> bool {
-        let ask = json!({"QueueUrl": q.url, "AttributeNames": ["ApproximateNumberOfMessagesNotVisible", "ApproximateNumberOfMessagesDelayed"]});
-        let Ok(got) = self.sqs(peers, "GetQueueAttributes", ask).await else {
-            return false;
-        };
-        [
-            "ApproximateNumberOfMessagesNotVisible",
-            "ApproximateNumberOfMessagesDelayed",
-        ]
-        .iter()
-        .any(|k| {
-            got.pointer(&format!("/Attributes/{k}"))
-                .and_then(Value::as_str)
-                .and_then(|v| v.parse::<u64>().ok())
-                .unwrap_or(0)
-                > 0
-        })
     }
 
     async fn delete(&self, peers: &Peers, q: &Queue, handles: &[String]) {
@@ -372,6 +349,9 @@ pub(crate) async fn run(run: Run, sqs: Arc<aws_sqs::Sqs>) {
             }
         }
     };
+    let Some(watch) = sqs.watch(&arn) else {
+        return;
+    };
     let q = Queue { url, arn };
     let permits = Arc::new(tokio::sync::Semaphore::new(concurrency(&run)));
     loop {
@@ -383,14 +363,11 @@ pub(crate) async fn run(run: Run, sqs: Arc<aws_sqs::Sqs>) {
             p = Arc::clone(&permits).acquire_owned() => match p { Ok(p) => p, Err(_) => return },
             () = run.stop.cancelled() => return,
         };
-        let mut waiter = Wake::on({
-            let sqs = Arc::clone(&sqs);
-            async move { sqs.message_arrived().await }
-        });
-        tokio::task::yield_now().await;
-        let batch = run.gather(&peers, &q, &sqs).await;
+        let arrived = watch.notified();
+        tokio::pin!(arrived);
+        arrived.as_mut().enable();
+        let batch = run.gather(&peers, &q, &watch).await;
         if !batch.is_empty() {
-            drop(waiter);
             let (one, peers, q) = (run.clone(), Arc::clone(&peers), q.clone());
             run.inner.tasks.spawn(async move {
                 one.handle(&peers, &q, batch).await;
@@ -399,11 +376,11 @@ pub(crate) async fn run(run: Run, sqs: Arc<aws_sqs::Sqs>) {
             continue;
         }
         drop(permit);
-        let hidden = run.has_hidden(&peers, &q).await;
-        let wake = tokio::time::sleep(Duration::from_secs(1));
+        // Nothing to read: wait for a message to arrive, or for the first one hidden there (in flight or delayed) to show.
+        let shows = watch.until_visible();
         tokio::select! {
-            () = waiter.fired() => {}
-            () = wake, if hidden => {}
+            () = arrived => {}
+            () = tokio::time::sleep(shows.unwrap_or_default()), if shows.is_some() => {}
             () = run.stop.cancelled() => return,
         }
     }

@@ -21,6 +21,7 @@ mod records;
 mod req;
 mod reshard;
 mod settings;
+mod signals;
 mod storage;
 mod streams;
 mod subscribe;
@@ -31,6 +32,8 @@ mod tests;
 
 use std::sync::Arc;
 
+use crate::core::Core;
+pub use crate::signals::Signal;
 use aws_model_kinesis::Operation;
 use aws_model_kinesis::meta::META;
 use aws_model_kinesis::tables::TABLES;
@@ -41,15 +44,17 @@ use aws_wire::ApiError;
 use aws_wire::rest::Download;
 use aws_wire::service::{BoxFuture, Call, Reply, Service};
 use doze_runtime::{Ctx, Keyed};
-use tokio::sync::watch;
-
-use crate::core::Core;
 
 /// The order a sequence number sorts at, as a number: what a reader that orders records (a Lambda event source mapping) compares.
 /// `None` for text that is not a sequence number.
 #[must_use]
 pub fn sequence_value(text: &str) -> Option<u128> {
     model::seq_parse(text)
+}
+
+/// The key a stream is watched by: streams are kept per region, by name.
+fn key(region: &str, name: &str) -> String {
+    format!("{region}/{name}")
 }
 
 /// The region whose files are kept in the service's directory itself.
@@ -60,9 +65,9 @@ const HOME_REGION: &str = "us-east-1";
 pub struct Kinesis {
     /// One actor per region: a stream belongs to the region that made it.
     actors: Keyed<Core>,
-    /// A counter that goes up each time records are appended (and are on disk). A poller that wants to know when a stream has
-    /// something new waits on it ([`Kinesis::appended`]).
-    appended: watch::Sender<u64>,
+    /// The streams consumers wait on, by `region/name`, each woken when records are appended to it (and are on disk)
+    /// ([`Kinesis::watch_stream`]).
+    signals: Arc<signals::Signals>,
     /// The open `SubscribeToShard` subscriptions.
     subs: Arc<subscribe::Subscriptions>,
     ctx: Arc<Ctx>,
@@ -74,7 +79,7 @@ impl Kinesis {
     pub fn new(ctx: Arc<Ctx>) -> Self {
         Self {
             actors: Keyed::new("kinesis", Arc::clone(&ctx), HOME_REGION),
-            appended: watch::channel(0).0,
+            signals: Arc::default(),
             subs: Arc::default(),
             ctx,
         }
@@ -98,27 +103,33 @@ impl Kinesis {
             .await
             .map_err(|_| ApiError::internal("the subscription was not opened"))??;
         let (claim, takeover) = self.subs.claim(&region, &position);
+        let appended = self.signals.watch(key(&region, &position.stream));
         let session = subscribe::Session {
             actor,
             account,
             position,
-            appended: self.appended.subscribe(),
+            appended,
             _claim: claim,
             takeover,
         };
         Ok(subscribe::stream(&self.ctx.tasks, session))
     }
 
-    /// A receiver that changes whenever records have been appended to any stream: the notification a Lambda event source mapping
-    /// waits on instead of polling. It says nothing of which stream; the waiter reads and finds out.
+    /// Watches the stream `stream_arn` names: the notification a Lambda event source mapping waits on instead of polling. Woken
+    /// only when records are appended to that stream; enable [`Signal::notified`] before reading, so none is missed.
     #[must_use]
-    pub fn appended(&self) -> watch::Receiver<u64> {
-        self.appended.subscribe()
+    pub fn watch_stream(&self, stream_arn: &str) -> Signal {
+        let region = stream_arn.split(':').nth(3).unwrap_or_default();
+        let name = stream_arn
+            .rsplit_once("stream/")
+            .map_or(stream_arn, |(_, n)| n);
+        self.signals.watch(key(region, name))
     }
 
     /// Sends the call to the actor of the region it was signed for, and holds the answer until what it changed is on disk.
     async fn ask(&self, call: Call) -> Reply {
-        let actor = match self.actors.actor(&call.caller.region) {
+        let region = call.caller.region.clone();
+        let actor = match self.actors.actor(&region) {
             Ok(actor) => actor,
             Err(e) => return Err(ApiError::internal(e.to_string())),
         };
@@ -131,8 +142,8 @@ impl Kinesis {
         {
             return Err(ApiError::internal(format!("could not save: {e}")));
         }
-        if answer.appended {
-            self.appended.send_modify(|n| *n += 1);
+        for name in &answer.appended {
+            self.signals.tell(&key(&region, name));
         }
         answer.reply
     }

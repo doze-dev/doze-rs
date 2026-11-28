@@ -41,6 +41,16 @@ pub(crate) struct Core {
     pub(crate) skip_waits: bool,
     /// The queue name the call being served looked for and did not find (`elsewhere.rs` looks for it in other regions).
     pub(crate) missed: Option<String>,
+    /// Set by a receive that found nothing.
+    pub(crate) empty: Option<Empty>,
+}
+
+/// What a receive that found nothing tells the caller: which queue, and when its first hidden message shows (`None` when none
+/// is hidden: only a send or a move can give it one).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Empty {
+    pub(crate) queue: String,
+    pub(crate) next_visible_ms: Option<i64>,
 }
 
 /// What the host hands each region's actor: the bus, and the local settings.
@@ -60,6 +70,11 @@ pub(crate) struct Answer {
     pub(crate) next_due: Option<i64>,
     /// The queue name the call asked for and this region does not have.
     pub(crate) missed: Option<String>,
+    /// Set when a receive found nothing.
+    pub(crate) empty: Option<Empty>,
+    /// The queues a waiting receive may now find something in (a message was added, or one shows sooner), and the queues
+    /// deleted (a waiting receive there has its answer).
+    pub(crate) arrived: Vec<String>,
 }
 
 /// What the actor is asked: a call, or (from the timer) to remove the messages whose retention has passed.
@@ -99,6 +114,7 @@ impl doze_runtime::Service for Core {
     async fn handle(&mut self, ask: Ask) -> Answer {
         self.poll = None;
         self.missed = None;
+        self.empty = None;
         let call = match ask {
             Ask::Call(call) => *call,
             Ask::Tick => {
@@ -132,6 +148,8 @@ impl doze_runtime::Service for Core {
                 durable: None,
                 next_due: self.next_due(),
                 missed: None,
+                empty: None,
+                arrived: Vec::new(),
             };
         }
         let reply = self.dispatch(&call);
@@ -161,6 +179,7 @@ impl Core {
             peers: None,
             skip_waits: false,
             missed: None,
+            empty: None,
         }
     }
 
@@ -178,6 +197,12 @@ impl Core {
 
     /// Writes what the call changed and makes the answer.
     fn answer(&mut self, mut reply: Reply) -> Answer {
+        let mut arrived: Vec<String> = self.removed.clone();
+        for (name, queue) in &mut self.queues {
+            if queue.messages.take_arrived() {
+                arrived.push(name.clone());
+            }
+        }
         let durable = match self.flush() {
             Ok(ack) => ack,
             Err(e) => {
@@ -191,6 +216,8 @@ impl Core {
             durable,
             next_due: self.next_due(),
             missed: self.missed.take(),
+            empty: self.empty.take(),
+            arrived,
         }
     }
 

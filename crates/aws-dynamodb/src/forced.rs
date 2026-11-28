@@ -132,9 +132,7 @@ impl Dynamodb {
             })
             .await
             .map_err(|e| ApiError::internal(e.to_string()))?;
-        if answer.appended {
-            self.arrived.notify_waiters();
-        }
+        self.tell(&answer);
         self.expiry.arm(region, &actor, answer.next_due);
         self.after(&actor, answer.work).await;
         answer

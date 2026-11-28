@@ -163,9 +163,20 @@ impl Core {
         let Some(queue) = self.queue_named(source) else {
             return;
         };
-        let due = queue.messages.remove_where(|m| {
-            m.visible_at_ms <= now_ms && m.receive_count >= policy.max_receive_count
-        });
+        // Only a message received before can be due: those are looked at, not the whole queue.
+        let due: Vec<u64> = queue
+            .messages
+            .received()
+            .filter(|ord| {
+                queue.messages.get(*ord).is_some_and(|m| {
+                    m.visible_at_ms <= now_ms && m.receive_count >= policy.max_receive_count
+                })
+            })
+            .collect();
+        let due: Vec<_> = due
+            .into_iter()
+            .filter_map(|ord| queue.messages.remove(ord))
+            .collect();
         if let Some(dead_letters) = self.queue_named(&target) {
             for mut m in due {
                 m.handles.clear();

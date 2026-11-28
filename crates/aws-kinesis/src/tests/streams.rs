@@ -276,12 +276,13 @@ fn tags_encryption_monitoring_policy_and_consumers_are_stored_and_returned() {
 }
 
 #[test]
-fn an_append_is_flagged_for_whoever_waits_for_records() {
+fn an_append_is_flagged_for_whoever_waits_for_records_of_that_stream() {
     let mut w = World::new();
     w.stream("s", 1);
-    assert!(!w.core.appended);
+    w.stream("t", 1);
+    assert!(w.core.appended.is_empty());
     w.put("s", "k", "x");
-    assert!(w.core.appended);
+    assert_eq!(w.core.appended.iter().collect::<Vec<_>>(), ["s"]);
 }
 
 #[test]

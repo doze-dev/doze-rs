@@ -11,7 +11,7 @@ use std::time::Duration;
 use aws_core::time::format_iso8601;
 use serde_json::{Value, json};
 
-use super::{Run, Wake};
+use super::Run;
 
 /// One record of a stream: where it is, its event, and when it arrived.
 #[derive(Clone, Debug)]
@@ -189,15 +189,15 @@ pub(super) async fn dynamodb(run: Run, ddb: Arc<aws_dynamodb::Dynamodb>) {
         Some(p) => p,
         None => start_of(&run, &ddb, &arn).await,
     };
+    let watch = ddb.watch_stream(&arn);
     loop {
         if run.stop.is_cancelled() {
             return;
         }
-        let mut waiter = Wake::on({
-            let ddb = Arc::clone(&ddb);
-            async move { ddb.stream_arrived().await }
-        });
-        tokio::task::yield_now().await;
+        // In place before the read, so a record appended between the read and the wait is not missed.
+        let arrived = watch.notified();
+        tokio::pin!(arrived);
+        arrived.as_mut().enable();
         let read = ddb.stream_records(&run.region, &arn, after, batch).await;
         let records: Vec<Rec> = read
             .map(|b| {
@@ -222,7 +222,6 @@ pub(super) async fn dynamodb(run: Run, ddb: Arc<aws_dynamodb::Dynamodb>) {
             })
             .unwrap_or_default();
         if let Some(last) = records.last() {
-            drop(waiter);
             after = u64::try_from(last.seq).unwrap_or(after);
             if matches!(
                 super::parallel::deliver(&run, "DDBStreamBatchInfo", stream, records).await,
@@ -233,7 +232,7 @@ pub(super) async fn dynamodb(run: Run, ddb: Arc<aws_dynamodb::Dynamodb>) {
             continue;
         }
         tokio::select! {
-            () = waiter.fired() => {}
+            () = arrived => {}
             () = run.stop.cancelled() => return,
         }
     }

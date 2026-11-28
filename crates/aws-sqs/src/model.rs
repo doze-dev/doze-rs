@@ -1,11 +1,11 @@
 //! What a queue and a message are. No wire types here: this is the state machine's vocabulary.
 
-use std::collections::{BTreeMap, BTreeSet};
-use std::ops::Deref;
+use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
 use crate::fifo::FifoState;
+pub(crate) use crate::index::Messages;
 use crate::msgattr::Attr;
 
 /// The settings of a queue that have numeric meaning.
@@ -49,7 +49,8 @@ pub(crate) struct Message {
     pub(crate) visible_at_ms: i64,
     pub(crate) receive_count: u32,
     pub(crate) first_received_ms: Option<i64>,
-    /// Every receipt handle this message has been given. An old one still names the message: a delete with it succeeds.
+    /// The latest receipt handles this message has been given (at most [`crate::handles::KEPT_HANDLES`]), the newest last. An
+    /// old one still names the message for a delete (AWS deletes it); only the newest changes its visibility (recorded).
     pub(crate) handles: Vec<String>,
     /// When the receive that put it in flight happened: a message can be kept in flight for twelve hours from this.
     pub(crate) received_ms: i64,
@@ -106,13 +107,19 @@ impl Queue {
     /// removed by the next thorough pass, which comes no later than the first message's own expiry.
     pub(crate) fn expire(&mut self, now_ms: i64, thorough: bool) {
         let cutoff = now_ms - i64::from(self.attrs.retention_seconds) * 1000;
-        let due = if thorough {
-            self.messages.iter().any(|m| m.sent_ms <= cutoff)
-        } else {
-            self.messages.first().is_some_and(|m| m.sent_ms <= cutoff)
-        };
-        if due {
-            self.messages.retain(|m| m.sent_ms > cutoff);
+        if thorough {
+            if self.messages.iter().any(|m| m.sent_ms <= cutoff) {
+                self.messages.retain(|m| m.sent_ms > cutoff);
+            }
+            return;
+        }
+        while let Some(ord) = self
+            .messages
+            .first()
+            .filter(|m| m.sent_ms <= cutoff)
+            .map(|m| m.ord)
+        {
+            self.messages.remove(ord);
         }
     }
 
@@ -121,122 +128,5 @@ impl Queue {
         self.messages
             .first()
             .map(|m| m.sent_ms + i64::from(self.attrs.retention_seconds) * 1000)
-    }
-}
-
-/// A queue's messages, oldest first. Reading is the slice's; every change goes through a method here, which remembers it
-/// for the store, so a change cannot be made and forgotten.
-#[derive(Default)]
-pub(crate) struct Messages {
-    /// Sorted by `ord`.
-    items: Vec<Message>,
-    next_ord: u64,
-    /// Rows to write at the next flush.
-    changed: BTreeSet<u64>,
-    /// Rows to delete at the next flush.
-    gone: BTreeSet<u64>,
-}
-
-impl std::fmt::Debug for Messages {
-    /// The messages only: what is waiting to be written, and what ord comes next, are not part of what a queue holds.
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_list().entries(&self.items).finish()
-    }
-}
-
-impl Deref for Messages {
-    type Target = [Message];
-
-    fn deref(&self) -> &[Message] {
-        &self.items
-    }
-}
-
-impl Messages {
-    /// Messages read back from disk (already in `ord` order), with nothing yet to write.
-    pub(crate) fn restored(items: Vec<Message>, next_ord: u64) -> Self {
-        Self {
-            items,
-            next_ord,
-            changed: BTreeSet::new(),
-            gone: BTreeSet::new(),
-        }
-    }
-
-    pub(crate) fn push(&mut self, mut message: Message) {
-        message.ord = self.next_ord;
-        self.next_ord += 1;
-        self.changed.insert(message.ord);
-        self.items.push(message);
-    }
-
-    /// The message at `index`, to be changed.
-    pub(crate) fn get_mut(&mut self, index: usize) -> Option<&mut Message> {
-        let message = self.items.get_mut(index)?;
-        self.changed.insert(message.ord);
-        Some(message)
-    }
-
-    /// The first message `is` accepts, to be changed.
-    pub(crate) fn find_mut(&mut self, is: impl Fn(&Message) -> bool) -> Option<&mut Message> {
-        let message = self.items.iter_mut().find(|m| is(m))?;
-        self.changed.insert(message.ord);
-        Some(message)
-    }
-
-    pub(crate) fn retain(&mut self, mut keep: impl FnMut(&Message) -> bool) {
-        let gone = &mut self.gone;
-        self.items.retain(|m| {
-            let kept = keep(m);
-            if !kept {
-                gone.insert(m.ord);
-            }
-            kept
-        });
-    }
-
-    /// Takes out the messages `take` accepts and returns them, in order.
-    pub(crate) fn remove_where(&mut self, mut take: impl FnMut(&Message) -> bool) -> Vec<Message> {
-        let (out, keep): (Vec<Message>, Vec<Message>) = std::mem::take(&mut self.items)
-            .into_iter()
-            .partition(|m| take(m));
-        self.items = keep;
-        self.gone.extend(out.iter().map(|m| m.ord));
-        out
-    }
-
-    /// Takes out up to `count` messages from the front.
-    pub(crate) fn take_front(&mut self, count: usize) -> Vec<Message> {
-        let out: Vec<Message> = self.items.drain(..count.min(self.items.len())).collect();
-        self.gone.extend(out.iter().map(|m| m.ord));
-        out
-    }
-
-    pub(crate) fn clear(&mut self) {
-        self.gone.extend(self.items.iter().map(|m| m.ord));
-        self.items.clear();
-    }
-
-    /// The messages to write: those changed and still here.
-    pub(crate) fn to_write(&self) -> impl Iterator<Item = &Message> {
-        self.changed.iter().filter_map(|ord| {
-            let at = self.items.binary_search_by_key(ord, |m| m.ord).ok()?;
-            self.items.get(at)
-        })
-    }
-
-    /// The ords whose rows are to be deleted.
-    pub(crate) fn to_delete(&self) -> impl Iterator<Item = u64> + '_ {
-        self.gone.iter().copied()
-    }
-
-    pub(crate) fn has_changes(&self) -> bool {
-        !self.changed.is_empty() || !self.gone.is_empty()
-    }
-
-    /// The changes have been handed to the store.
-    pub(crate) fn settle(&mut self) {
-        self.changed.clear();
-        self.gone.clear();
     }
 }

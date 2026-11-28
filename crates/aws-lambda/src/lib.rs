@@ -94,9 +94,9 @@ pub struct Config {
 pub struct Sources {
     /// SQS.
     pub sqs: Arc<aws_sqs::Sqs>,
-    /// Kinesis: [`aws_kinesis::Kinesis::appended`] says records arrived.
+    /// Kinesis: [`aws_kinesis::Kinesis::watch_stream`] says the stream got records.
     pub kinesis: Arc<aws_kinesis::Kinesis>,
-    /// DynamoDB: [`aws_dynamodb::Dynamodb::stream_arrived`] says a stream got records.
+    /// DynamoDB: [`aws_dynamodb::Dynamodb::watch_stream`] says the stream got records.
     pub dynamodb: Arc<aws_dynamodb::Dynamodb>,
 }
 

@@ -49,7 +49,7 @@ were first written from: see `plan/services/sqs.md` SQS-11 to SQS-24.
 | `RedriveAllowPolicy` `denyAll` refuses a source naming the queue; a bad `redrivePermission` and `byQueue` without `sourceQueueArns` are refused | model | test_sqs::test_redrive_allow_policy |
 | A queue URL whose account is another's, and a `QueueOwnerAWSAccountId` that is not this account, name no queue here | model | test_sqs::test_queue_in_another_account |
 | Setting an attribute back to its default reads as the default | doc | test_sqs::test_setting_an_attribute_back_to_its_default |
-| An old receipt handle after a re-receive: "the request will succeed, but the message might not be deleted" (doze-aws: the same, a delete with an earlier receive's handle succeeds and leaves the message) | model | test_sqs::test_an_old_receipt_handle |
+| An old receipt handle after a re-receive: "the request will succeed, but the message might not be deleted". AWS (recorded 2026-11-15) answers 200 and deletes the message; doze-aws does the same (it keeps a message's latest 8 handles; `aws-sqs/src/tests/handles.rs`) | model | test_sqs::test_an_old_receipt_handle |
 | `RedrivePolicy` without `maxReceiveCount`: the model documents "Default: 10" (doze-aws refuses it) | model | test_sqs::test_redrive_policy_without_max_receive_count |
 | The number of permissions at which `AddPermission` is `OverLimit` (the model names the error, not the number) | model | test_sqs::test_add_permission_statement_limit |
 | `GetQueueAttributes` with no `AttributeNames` returns an empty result | model | test_sqs::test_get_queue_attributes_without_names |
@@ -64,7 +64,7 @@ were first written from: see `plan/services/sqs.md` SQS-11 to SQS-24.
 | `ReceiptHandleIsInvalid` and `ResourceNotFoundException` are 404 on the JSON protocol too (the shapes' `httpError`) | model | test_sqs::test_error_statuses |
 | A read-only attribute (`QueueArn`, `CreatedTimestamp`) in `SetQueueAttributes`: refused or ignored (doze-aws ignores it; the model is silent) | memory | test_sqs::test_read_only_attributes |
 | `KmsMasterKeyId` together with `SqsManagedSseEnabled=true`: "only one server-side encryption option is supported per queue" (doze-aws stores both; what AWS answers is not established) | model | test_sqs::test_kms_key_with_sqs_managed_encryption |
-| `ChangeMessageVisibility` with a receipt handle from an earlier receive of the same message: accepted and re-hides it (doze-aws), or refused (the model documents the old handle for `DeleteMessage` only; SQS-46) | memory | test_sqs::test_an_old_receipt_handle |
+| `ChangeMessageVisibility` with a receipt handle from an earlier receive of the same message: AWS (recorded 2026-11-15) refuses it with `InvalidParameterValue` (`Message does not exist or is not available for visibility timeout change.`); doze-aws does the same since the perf round (2026-11-27; it accepted it before; SQS-46) | memory | test_sqs::test_an_old_receipt_handle |
 | An `AWSTraceHeader` that is not "a correctly formatted AWS X-Ray trace header string": refused or kept (doze-aws keeps it; the format is not in the model; SQS-46) | memory | test_sqs::test_message_system_attributes |
 | `maxReceiveCount` below 1 or above 1,000 in a `RedrivePolicy` (doze-aws refuses 0 and 1,001; the model states neither bound; SQS-46) | memory | test_sqs::test_redrive_max_receive_count_range |
 | A standard queue named `*.fifo`, and a FIFO queue whose name does not end in `.fifo` (doze-aws refuses both; the model states neither; SQS-46) | memory | test_sqs::test_fifo_suffix_on_a_standard_queue |

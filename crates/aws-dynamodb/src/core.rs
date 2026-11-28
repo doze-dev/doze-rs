@@ -95,6 +95,8 @@ pub(crate) struct Answer {
     pub(crate) reply: Reply,
     /// Whether the call appended to a stream, so waiting consumers should look.
     pub(crate) appended: bool,
+    /// The streams appended to, each as its ARN's resource (`table/<name>/stream/<label>`): only their consumers are woken.
+    pub(crate) grown: Vec<String>,
     pub(crate) stream: Option<Result<Batch, String>>,
     pub(crate) streams: Option<Result<Vec<StreamInfo>, String>>,
     /// When the first item with a time to live expires: the deadline the service's timer sleeps to.
@@ -112,6 +114,7 @@ impl Answer {
         Self {
             reply,
             appended,
+            grown: Vec::new(),
             stream: None,
             streams: None,
             next_due: None,
@@ -162,6 +165,8 @@ pub(crate) struct Core {
     pub(crate) pending: Writes,
     /// Whether the call in progress appended a stream record.
     pub(crate) appended: bool,
+    /// The streams the request in progress appended to (see [`Answer::grown`]).
+    pub(crate) grown: std::collections::BTreeSet<String>,
     /// The last sequence number of each stream, found on first use.
     pub(crate) seqs: HashMap<[u8; 16], u64>,
     /// Transaction tokens seen: the request's fingerprint and when the token stops counting.
@@ -262,6 +267,7 @@ impl doze_runtime::Service for Core {
             }
         };
         answer.next_due = self.ttl_due();
+        answer.grown = std::mem::take(&mut self.grown).into_iter().collect();
         answer
     }
 
@@ -300,6 +306,7 @@ impl Core {
             windows: Windows::from_env(),
             pending: Writes::default(),
             appended: false,
+            grown: std::collections::BTreeSet::new(),
             seqs: HashMap::new(),
             tokens: HashMap::new(),
             next_sweep_ms: 0,

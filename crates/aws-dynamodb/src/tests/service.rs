@@ -100,7 +100,8 @@ async fn a_stream_wakes_the_consumer_waiting_for_it() {
         .unwrap();
     assert!(empty.records.is_empty() && empty.open);
 
-    let notified = c.svc.arrived.notified();
+    let watch = c.svc.watch_stream(&arn);
+    let notified = watch.notified();
     tokio::pin!(notified);
     notified.as_mut().enable();
     c.call(
@@ -127,7 +128,7 @@ async fn a_stream_wakes_the_consumer_waiting_for_it() {
     let none = c.svc.stream_records("eu-west-1", &arn, 0, 10).await;
     assert!(none.is_err(), "another region has no such stream");
     // A read changes nothing and wakes nobody.
-    let quiet = c.svc.arrived.notified();
+    let quiet = watch.notified();
     tokio::pin!(quiet);
     quiet.as_mut().enable();
     c.call(
@@ -137,9 +138,33 @@ async fn a_stream_wakes_the_consumer_waiting_for_it() {
     )
     .await
     .unwrap();
+    // Nor does an append to another table's stream.
+    c.call("us-east-1", "CreateTable", create("other"))
+        .await
+        .unwrap();
+    c.call(
+        "us-east-1",
+        "PutItem",
+        json!({"TableName": "other", "Item": {"pk": {"S": "b"}}}),
+    )
+    .await
+    .unwrap();
     assert!(
         tokio::time::timeout(std::time::Duration::from_millis(50), quiet)
             .await
             .is_err()
     );
+}
+
+#[test]
+fn a_stream_nobody_watches_costs_nothing() {
+    let dir = TempDir::new("ddb-watch");
+    let c = client(&dir);
+    let arn = "arn:aws:dynamodb:us-east-1:000000000000:table/orders/stream/2026-11-27T00:00:00.000";
+    let (one, two) = (c.svc.watch_stream(arn), c.svc.watch_stream(arn));
+    assert_eq!(c.svc.signals.watched(), 1, "one entry for the stream");
+    drop(one);
+    assert_eq!(c.svc.signals.watched(), 1, "still watched");
+    drop(two);
+    assert_eq!(c.svc.signals.watched(), 0);
 }

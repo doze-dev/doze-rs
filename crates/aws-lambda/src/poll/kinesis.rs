@@ -91,12 +91,16 @@ pub(super) async fn kinesis(run: Run, kinesis: Arc<aws_kinesis::Kinesis>) {
         peers,
         run,
     };
-    let mut appended = kinesis.appended();
+    // Woken only by records appended to this mapping's stream.
+    let watch = kinesis.watch_stream(&poll.arn);
     loop {
         if poll.run.stop.is_cancelled() {
             return;
         }
-        appended.mark_unchanged();
+        // In place before the reads, so records appended between a read and the wait are not missed.
+        let appended = watch.notified();
+        tokio::pin!(appended);
+        appended.as_mut().enable();
         let mut any = false;
         let shards = poll.shards().await;
         for shard in poll.lineage.ready(&shards) {
@@ -114,7 +118,7 @@ pub(super) async fn kinesis(run: Run, kinesis: Arc<aws_kinesis::Kinesis>) {
         }
         if !any {
             tokio::select! {
-                changed = appended.changed() => if changed.is_err() { return },
+                () = appended => {}
                 () = poll.run.stop.cancelled() => return,
             }
         }

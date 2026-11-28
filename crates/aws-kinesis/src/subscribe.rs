@@ -24,7 +24,7 @@ use aws_wire::rest::{ByteStream, Download};
 use bytes::Bytes;
 use doze_runtime::{Expiring, Lazy, Tasks};
 use serde_json::json;
-use tokio::sync::{mpsc, oneshot, watch};
+use tokio::sync::{mpsc, oneshot};
 
 use crate::core::{Ask, Core};
 use crate::fanout::{Batch, FanoutAsk, Position};
@@ -108,7 +108,8 @@ pub(crate) struct Session {
     pub(crate) actor: Arc<Lazy<Core>>,
     pub(crate) account: String,
     pub(crate) position: Position,
-    pub(crate) appended: watch::Receiver<u64>,
+    /// Woken when records are appended to the subscription's stream.
+    pub(crate) appended: crate::Signal,
     /// Held for its drop: the consumer's shard is free again when the session ends.
     pub(crate) _claim: Claim,
     pub(crate) takeover: oneshot::Receiver<()>,
@@ -209,6 +210,10 @@ impl Session {
                 last(tx, taken_over()).await;
                 return;
             }
+            // In place before the read, so records appended between the read and the wait are not missed.
+            let arrived = self.appended.notified();
+            tokio::pin!(arrived);
+            arrived.as_mut().enable();
             let batch = match self.read().await {
                 Ok(b) => b,
                 Err(e) => {
@@ -246,11 +251,7 @@ impl Session {
                     }
                     return;
                 }
-                changed = self.appended.changed() => {
-                    if changed.is_err() {
-                        return;
-                    }
-                }
+                () = arrived => {}
                 tick = timers.expired() => match tick {
                     Tick::End => return,
                     Tick::Beat => due = true,

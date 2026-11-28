@@ -103,7 +103,9 @@ impl Core {
         let bytes =
             record::encode("record", 1, &rec).map_err(|e| ApiError::internal(e.to_string()))?;
         self.rows.put(row_key(no, id, seq), bytes);
-        self.appended = true;
+        if !self.appended.contains(name) {
+            self.appended.insert(name.to_owned());
+        }
         Ok((id, seq))
     }
 

@@ -41,16 +41,16 @@ pub(crate) struct Core {
     pub(crate) patterns: Patterns,
     /// When each stream's expired records were last removed (not persisted: a restart sweeps once).
     pub(crate) trimmed: HashMap<String, i64>,
-    /// Set by a call that appended records, so the service can wake whoever waits for them.
-    pub(crate) appended: bool,
+    /// The streams the call in progress appended records to, so the service can wake whoever waits for them.
+    pub(crate) appended: std::collections::BTreeSet<String>,
 }
 
-/// What the actor answers: the reply, the commit it must wait for, and whether records were appended.
+/// What the actor answers: the reply, the commit it must wait for, and the streams records were appended to (by name).
 #[derive(Debug)]
 pub(crate) struct Answer {
     pub(crate) reply: Reply,
     pub(crate) durable: Option<Ack>,
-    pub(crate) appended: bool,
+    pub(crate) appended: Vec<String>,
 }
 
 /// The operations this service runs. Every other is refused by name before its request is read.
@@ -114,7 +114,7 @@ impl Answer {
         Self {
             reply: Err(ApiError::internal("not a call")),
             durable,
-            appended: false,
+            appended: Vec::new(),
         }
     }
 }
@@ -144,10 +144,10 @@ impl doze_runtime::Service for Core {
             return Answer {
                 reply: Err(refusal),
                 durable: None,
-                appended: false,
+                appended: Vec::new(),
             };
         }
-        self.appended = false;
+        self.appended.clear();
         let mut reply = self.dispatch(&call);
         let durable = match self.flush() {
             Ok(ack) => ack,
@@ -159,7 +159,7 @@ impl doze_runtime::Service for Core {
         Answer {
             reply,
             durable,
-            appended: self.appended,
+            appended: std::mem::take(&mut self.appended).into_iter().collect(),
         }
     }
 
@@ -258,7 +258,7 @@ impl Core {
             peers,
             patterns: Patterns::new(&TABLES),
             trimmed: HashMap::new(),
-            appended: false,
+            appended: std::collections::BTreeSet::new(),
         }
     }
 
